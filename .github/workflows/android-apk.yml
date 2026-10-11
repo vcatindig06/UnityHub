@@ -1,0 +1,61 @@
+name: UnityHub Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.3"
+          channel: stable
+          cache: true
+
+      - name: Generate Android project
+        run: flutter create --platforms android --org com.unityhub --project-name worship build_workspace
+
+      - name: Copy app source
+        run: |
+          cp -R lib test build_workspace/
+          cd build_workspace
+          flutter pub get
+
+      - name: Check formatting
+        working-directory: build_workspace
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        working-directory: build_workspace
+        run: flutter analyze
+
+      - name: Test
+        working-directory: build_workspace
+        run: flutter test
+
+      - name: Build debug APK
+        working-directory: build_workspace
+        run: flutter build apk --debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: unityhub-debug-apk
+          path: build_workspace/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
