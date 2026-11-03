@@ -4,6 +4,7 @@ import com.unityhub.app.BuildConfig
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.FlowType
+import io.github.jan.supabase.postgrest.Postgrest
 
 object SupabaseClientProvider {
     val isConfigured: Boolean
@@ -21,6 +22,7 @@ object SupabaseClientProvider {
                 host = "auth"
                 flowType = FlowType.PKCE
             }
+            install(Postgrest)
         }
     }
 }
