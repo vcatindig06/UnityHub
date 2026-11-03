@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.ui.UnityHubApp
 import com.unityhub.app.ui.auth.AuthScreen
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.handleDeeplinks
 import com.unityhub.app.ui.theme.UnityHubTheme
 import kotlinx.coroutines.launch
 
