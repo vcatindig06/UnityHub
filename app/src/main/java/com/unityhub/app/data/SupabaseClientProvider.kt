@@ -3,14 +3,24 @@ package com.unityhub.app.data
 import com.unityhub.app.BuildConfig
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.FlowType
 
 object SupabaseClientProvider {
     val isConfigured: Boolean
-        get() = BuildConfig.SUPABASE_URL.isNotBlank() && BuildConfig.SUPABASE_PUBLISHABLE_KEY.isNotBlank()
+        get() = BuildConfig.SUPABASE_URL.isNotBlank() &&
+            BuildConfig.SUPABASE_PUBLISHABLE_KEY.isNotBlank()
 
     val client by lazy {
-        createSupabaseClient(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_PUBLISHABLE_KEY) {
-            install(Auth)
+        require(isConfigured) { "Supabase settings are missing from local.properties." }
+        createSupabaseClient(
+            supabaseUrl = BuildConfig.SUPABASE_URL,
+            supabaseKey = BuildConfig.SUPABASE_PUBLISHABLE_KEY
+        ) {
+            install(Auth) {
+                scheme = "unityhub"
+                host = "auth"
+                flowType = FlowType.PKCE
+            }
         }
     }
 }
