@@ -57,4 +57,11 @@ Songs and service plans are represented in the database schema, but their Androi
 
 The project keeps its existing pinned Supabase Kotlin SDK and Ktor versions to reduce dependency changes in the Code on the Go environment. The Android app now includes the Supabase PostgREST module for database queries and RPC calls.
 
+For GitHub Actions builds, add these two repository secrets under **GitHub → Settings → Secrets and variables → Actions → Repository secrets**:
+
+- `SUPABASE_URL`: `https://jbcxqeuvzdwkaetaipln.supabase.co`
+- `SUPABASE_PUBLISHABLE_KEY`: the publishable key from the UnityHub Supabase project's API Keys page.
+
+The workflow writes these secrets into a temporary, untracked `local.properties` file on the GitHub runner before compiling. It stops the build if either secret is missing, rather than producing an APK with empty Supabase settings. Never add the publishable key to source files or commit `local.properties`.
+
 Run a debug build with the repository's GitHub Actions workflow or from Code on the Go after syncing Gradle dependencies.
