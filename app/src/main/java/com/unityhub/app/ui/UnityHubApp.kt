@@ -51,7 +51,7 @@ private val destinations = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UnityHubApp() {
+fun UnityHubApp(onSignOut: () -> Unit) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
 
     Scaffold(
@@ -69,6 +69,11 @@ fun UnityHubApp() {
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                },
+                actions = {
+                    androidx.compose.material3.TextButton(onClick = onSignOut) {
+                        Text("Sign out")
                     }
                 }
             )
@@ -175,7 +180,7 @@ private fun HomeScreen(modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "The first milestone is the app foundation. Secure sign-in and organization setup will be added before connecting team data.",
+                text = "Your account is signed in. Organization onboarding will be the next step before loading team data.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
