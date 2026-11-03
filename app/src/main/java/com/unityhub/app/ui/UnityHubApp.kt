@@ -54,6 +54,7 @@ import com.unityhub.app.data.OrganizationJoinRequestDto
 import com.unityhub.app.data.OrganizationRepository
 import com.unityhub.app.data.OrganizationWorkspace
 import com.unityhub.app.data.SupabaseClientProvider
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 
 private data class AppDestination(
