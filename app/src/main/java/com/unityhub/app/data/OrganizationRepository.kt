@@ -143,15 +143,15 @@ class OrganizationRepository(
             "Team name must be between 2 and 100 characters."
         }
         client.postgrest.rpc(
-            function = "create_organization",
-            parameters = CreateOrganizationParams(name = name.trim())
+            "create_organization",
+            CreateOrganizationParams(name = name.trim())
         )
     }
 
     suspend fun requestToJoin(organizationId: String) {
         client.postgrest.rpc(
-            function = "request_to_join",
-            parameters = RequestToJoinParams(
+            "request_to_join",
+            RequestToJoinParams(
                 organizationId = organizationId,
                 message = ""
             )
@@ -160,8 +160,8 @@ class OrganizationRepository(
 
     suspend fun reviewJoinRequest(requestId: String, approve: Boolean) {
         client.postgrest.rpc(
-            function = "review_join_request",
-            parameters = ReviewJoinRequestParams(
+            "review_join_request",
+            ReviewJoinRequestParams(
                 requestId = requestId,
                 approve = approve,
                 role = "team_member"
