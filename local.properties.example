@@ -1,5 +1,5 @@
 # Copy these settings into your local, untracked local.properties file.
-# Replace the placeholders with the Supabase Project URL and publishable key.
+# This is the UnityHub Supabase project.
 # Never put a service-role or secret key in the Android app.
-SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+SUPABASE_URL=https://jbcxqeuvzdwkaetaipln.supabase.co
+SUPABASE_PUBLISHABLE_KEY=YOUR_UNITYHUB_PUBLISHABLE_KEY
