@@ -1,26 +1,17 @@
 # UnityHub
 
-UnityHub is a native Android application for managing a church worship team, its song library, and worship service planning.
+Native Android worship-team app built with Kotlin and Jetpack Compose.
 
-## Planned technology
+## Platform
+- Java 17
+- Minimum Android 8.0 (API 26)
+- Supabase authentication
 
-- Kotlin and Jetpack Compose
-- Minimum Android version: Android 8.0 (API 26)
-- Supabase for authentication, database, and private file storage
+## Local Supabase setup
+Copy `local.properties.example` to `local.properties` in the project root. Keep any existing `sdk.dir` line. Add your Supabase Project URL and publishable key using the variable names shown in the example. Do not commit `local.properties`.
 
-## Core features
+Add `unityhub://auth` to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs for email confirmation callbacks.
 
-- Account access and organization membership
-- Team roles and membership approval
-- Song library with lyrics, chords, ChordPro, and transposition
-- Worship service plans, setlists, and assignments
-- Team communication, shared resources, and notifications
-- Offline access to cached song charts
+Use only the Supabase publishable key in this Android app. Never place a service-role or secret key in the client.
 
-## Security requirements
-
-UnityHub will use the existing WorshipFlow Supabase project and preserve its row-level security policies and authorization model. The Android client must use only the Supabase publishable key. Never include a Supabase service-role or secret key in the Android app. Organization membership and permissions must be verified by the backend, not trusted from client-supplied values.
-
-## Development status
-
-This repository is the home for the native Android implementation. Features and build configuration will be added incrementally and verified against the Code on the Go Android IDE environment.
+The app currently contains the Compose dashboard shell and email/password sign-in and registration screens. Organization onboarding and role-aware access are the next implementation stage. Android build verification is still pending in Code on the Go.
