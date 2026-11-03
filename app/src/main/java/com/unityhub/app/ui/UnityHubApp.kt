@@ -135,7 +135,6 @@ fun UnityHubApp(onSignOut: () -> Unit) {
         )
         workspace?.organization == null -> OrganizationOnboardingScreen(
             workspace = workspace!!,
-            userId = userId,
             loading = actionInProgress,
             errorMessage = errorMessage,
             onCreateOrganization = { name ->
@@ -149,6 +148,7 @@ fun UnityHubApp(onSignOut: () -> Unit) {
         )
         else -> WorkspaceDashboard(
             workspace = workspace!!,
+            userId = userId,
             loading = actionInProgress,
             errorMessage = errorMessage,
             onReviewRequest = { requestId, approve ->
