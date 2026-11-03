@@ -135,6 +135,7 @@ fun UnityHubApp(onSignOut: () -> Unit) {
         )
         workspace?.organization == null -> OrganizationOnboardingScreen(
             workspace = workspace!!,
+            userId = userId,
             loading = actionInProgress,
             errorMessage = errorMessage,
             onCreateOrganization = { name ->
@@ -358,6 +359,7 @@ private fun OrganizationDirectoryCard(
 @Composable
 private fun WorkspaceDashboard(
     workspace: OrganizationWorkspace,
+    userId: String,
     loading: Boolean,
     errorMessage: String,
     onReviewRequest: (String, Boolean) -> Unit,
@@ -407,7 +409,12 @@ private fun WorkspaceDashboard(
                 pendingCount = workspace.pendingRequests.size,
                 modifier = Modifier.padding(innerPadding)
             )
-            1 -> PlaceholderScreen("Song library", "Your team's songs and chord charts will appear here.", Modifier.padding(innerPadding))
+            1 -> SongLibraryScreen(
+                organizationId = organization.id,
+                userId = userId,
+                role = workspace.role,
+                modifier = Modifier.padding(innerPadding)
+            )
             2 -> PlaceholderScreen("Service plans", "Create setlists, arrange songs, and coordinate assignments.", Modifier.padding(innerPadding))
             else -> TeamScreen(
                 workspace = workspace,
