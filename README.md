@@ -10,7 +10,7 @@ Use **Android Studio stable** as the primary IDE. The repository is a standard G
 - UI: Jetpack Compose and Material 3
 - Architecture direction: MVVM with clear data, domain, and presentation boundaries
 - Minimum Android version: Android 8.0 (API 26)
-- Compile SDK: 37 (Android 17 APIs)\n- Target SDK: 36 (runtime behavior will be raised only after compatibility testing)
+- Compile SDK: 37.0 preview platform (needed by current stable Compose dependencies)\n- Target SDK: 36 (runtime behavior will be raised only after compatibility testing)
 - Java toolchain: Java 17
 - Android Gradle Plugin: 9.3.1
 - Kotlin: 2.4.21
