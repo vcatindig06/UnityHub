@@ -59,6 +59,7 @@ fun SongLibraryScreen(
     val canEdit = role in listOf("admin", "worship_leader", "song_editor")
 
     var songs by remember { mutableStateOf<List<SongDto>>(emptyList()) }
+    var selectedSong by remember { mutableStateOf<SongDto?>(null) }
     var loading by remember { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
     var search by rememberSaveable { mutableStateOf("") }
@@ -115,6 +116,11 @@ fun SongLibraryScreen(
     }
 
     LaunchedEffect(organizationId) { reload() }
+
+    selectedSong?.let { song ->
+        SongChartScreen(song = song, onBack = { selectedSong = null }, modifier = modifier)
+        return
+    }
 
     if (deleteCandidate != null) {
         AlertDialog(
@@ -265,7 +271,7 @@ fun SongLibraryScreen(
                 } else {
                     items(filtered, key = { it.id }) { song ->
                         Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clickable { selectedSong = song },
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Row(
