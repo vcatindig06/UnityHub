@@ -157,6 +157,8 @@ Deno.serve(async (request: Request) => {
     const accessToken = await createGoogleAccessToken(serviceAccount);
     let sent = 0;
     let failed = 0;
+    const fcmStatuses: Record<string, number> = {};
+    const fcmErrorCodes: Record<string, number> = {};
 
     for (const device of tokens) {
       const fcmResponse = await fetch(
@@ -193,7 +195,18 @@ Deno.serve(async (request: Request) => {
 
       failed += 1;
       const failure = await fcmResponse.json().catch(() => ({}));
+      const statusLabel =
+        typeof failure?.error?.status === "string"
+          ? failure.error.status
+          : `HTTP_${fcmResponse.status}`;
+      fcmStatuses[statusLabel] = (fcmStatuses[statusLabel] ?? 0) + 1;
+
       const details = Array.isArray(failure?.error?.details) ? failure.error.details : [];
+      for (const detail of details) {
+        if (typeof detail?.errorCode === "string") {
+          fcmErrorCodes[detail.errorCode] = (fcmErrorCodes[detail.errorCode] ?? 0) + 1;
+        }
+      }
       const isUnregistered = details.some(
         (detail: Record<string, unknown>) => detail.errorCode === "UNREGISTERED",
       );
@@ -201,7 +214,9 @@ Deno.serve(async (request: Request) => {
         await admin.from("device_push_tokens").delete().eq("token", device.token);
       }
     }
-    return response(200, { sent, failed });
+    // Return only aggregate, non-sensitive FCM failure categories. Never expose
+    // device tokens, OAuth access tokens, private keys, or raw Google error bodies.
+    return response(200, { sent, failed, fcm_statuses: fcmStatuses, fcm_error_codes: fcmErrorCodes });
   } catch {
     return response(502, { error: "Firebase message delivery failed." });
   }
