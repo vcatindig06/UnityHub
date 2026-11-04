@@ -13,10 +13,21 @@ val localProperties = Properties().apply {
     }
 }
 
+// Firebase Android client values are public project/app identifiers. Keep them
+// separate from private server credentials and load them from a checked-in,
+// four-field config so CI can build without manually copying GitHub secrets.
+val firebaseProperties = Properties().apply {
+    val propertiesFile = rootProject.file("firebase-config.properties")
+    if (propertiesFile.exists()) {
+        propertiesFile.inputStream().use(::load)
+    }
+}
+
 fun configurationValue(name: String): String =
     providers.environmentVariable(name).orNull
         ?.takeIf(String::isNotBlank)
-        ?: localProperties.getProperty(name).orEmpty()
+        ?: localProperties.getProperty(name).orEmpty().takeIf(String::isNotBlank)
+        ?: firebaseProperties.getProperty(name).orEmpty()
 
 fun String.asBuildConfigString(): String =
     "\"" + replace("\\", "\\\\")
