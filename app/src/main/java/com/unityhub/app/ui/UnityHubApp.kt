@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -66,6 +67,7 @@ private val destinations = listOf(
     AppDestination("Home", Icons.Default.Home),
     AppDestination("Songs", Icons.Default.LibraryMusic),
     AppDestination("Services", Icons.Default.CalendarMonth),
+    AppDestination("Notifications", Icons.Default.Notifications),
     AppDestination("Team", Icons.Default.Groups)
 )
 
@@ -419,6 +421,10 @@ private fun WorkspaceDashboard(
                 organizationId = organization.id,
                 userId = userId,
                 role = workspace.role,
+                modifier = Modifier.padding(innerPadding)
+            )
+            3 -> NotificationsScreen(
+                userId = userId,
                 modifier = Modifier.padding(innerPadding)
             )
             else -> TeamScreen(
