@@ -1,0 +1,157 @@
+package com.unityhub.app.data
+
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.postgrest.from
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import java.time.Instant
+
+@Serializable
+data class ServiceAssignmentDto(
+    val id: String,
+    @SerialName("organization_id") val organizationId: String,
+    @SerialName("service_plan_id") val servicePlanId: String,
+    @SerialName("member_id") val memberId: String,
+    @SerialName("role_label") val roleLabel: String,
+    @SerialName("response_status") val responseStatus: String,
+    @SerialName("response_note") val responseNote: String,
+    @SerialName("assigned_by") val assignedBy: String,
+    @SerialName("responded_at") val respondedAt: String? = null,
+    @SerialName("created_at") val createdAt: String
+)
+
+data class ServiceMemberOption(
+    val memberId: String,
+    val userId: String,
+    val displayName: String,
+    val teamRole: String
+)
+
+@Serializable
+private data class ProfileNameDto(
+    val id: String,
+    @SerialName("display_name") val displayName: String
+)
+
+@Serializable
+private data class NewServiceAssignment(
+    @SerialName("organization_id") val organizationId: String,
+    @SerialName("service_plan_id") val servicePlanId: String,
+    @SerialName("member_id") val memberId: String,
+    @SerialName("role_label") val roleLabel: String,
+    @SerialName("assigned_by") val assignedBy: String
+)
+
+@Serializable
+data class MinistryPositionDto(
+    val id: String,
+    @SerialName("organization_id") val organizationId: String,
+    val name: String
+)
+
+internal object ServiceAssignmentRules {
+    fun normalizeRoleLabel(value: String): String {
+        val normalized = value.trim()
+        require(normalized.length in 2..80) {
+            "Enter a role between 2 and 80 characters."
+        }
+        return normalized
+    }
+
+    fun isValidResponse(value: String): Boolean =
+        value == "confirmed" || value == "declined"
+
+    fun canRespondToService(status: String): Boolean =
+        status != "completed" && status != "cancelled"
+}
+
+class ServiceAssignmentRepository(private val client: SupabaseClient) {
+
+    suspend fun loadAssignments(
+        servicePlanId: String,
+        organizationId: String
+    ): List<ServiceAssignmentDto> =
+        client.from("service_plan_assignments").select {
+            filter {
+                eq("service_plan_id", servicePlanId)
+                eq("organization_id", organizationId)
+            }
+        }.decodeList<ServiceAssignmentDto>()
+            .sortedWith(compareBy<ServiceAssignmentDto> { it.roleLabel.lowercase() }
+                .thenBy { it.createdAt })
+
+    suspend fun loadTeamMembers(organizationId: String): List<ServiceMemberOption> {
+        val memberships = client.from("organization_members").select {
+            filter { eq("organization_id", organizationId) }
+        }.decodeList<OrganizationMemberDto>()
+
+        val profiles = client.from("profiles").select()
+            .decodeList<ProfileNameDto>()
+            .associateBy { it.id }
+
+        return memberships.map { member ->
+            ServiceMemberOption(
+                memberId = member.id,
+                userId = member.userId,
+                displayName = profiles[member.userId]?.displayName
+                    ?.takeIf(String::isNotBlank)
+                    ?: "UnityHub member",
+                teamRole = member.role
+            )
+        }.sortedBy { it.displayName.lowercase() }
+    }
+
+    suspend fun loadSuggestedRoles(organizationId: String): List<String> =
+        client.from("ministry_positions").select {
+            filter { eq("organization_id", organizationId) }
+        }.decodeList<MinistryPositionDto>()
+            .map { it.name }
+            .distinct()
+            .sortedBy { it.lowercase() }
+
+    suspend fun assignMember(
+        organizationId: String,
+        servicePlanId: String,
+        memberId: String,
+        roleLabel: String,
+        assignedBy: String
+    ) {
+        val normalizedRole = ServiceAssignmentRules.normalizeRoleLabel(roleLabel)
+        require(memberId.isNotBlank() && assignedBy.isNotBlank())
+        client.from("service_plan_assignments").insert(
+            NewServiceAssignment(
+                organizationId = organizationId,
+                servicePlanId = servicePlanId,
+                memberId = memberId,
+                roleLabel = normalizedRole,
+                assignedBy = assignedBy
+            )
+        )
+    }
+
+    suspend fun respond(
+        assignmentId: String,
+        memberId: String,
+        response: String
+    ) {
+        require(ServiceAssignmentRules.isValidResponse(response))
+        client.from("service_plan_assignments").update({
+            set("response_status", response)
+            set("responded_at", Instant.now().toString())
+        }) {
+            filter {
+                eq("id", assignmentId)
+                eq("member_id", memberId)
+            }
+        }
+    }
+
+    suspend fun removeAssignment(assignmentId: String, organizationId: String) {
+        client.from("service_plan_assignments").delete {
+            filter {
+                eq("id", assignmentId)
+                eq("organization_id", organizationId)
+            }
+        }
+    }
+}

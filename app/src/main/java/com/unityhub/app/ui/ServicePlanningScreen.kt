@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.unityhub.app.data.ServicePlanDto
 import com.unityhub.app.data.ServicePlanItemDto
 import com.unityhub.app.data.ServicePlanRepository
+import com.unityhub.app.data.ServiceAssignmentRules
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.data.SupabaseClientProvider
 import kotlinx.coroutines.launch
@@ -97,6 +98,7 @@ fun ServicePlanningScreen(
         ServicePlanDetailScreen(
             plan = plan,
             organizationId = organizationId,
+            currentUserId = userId,
             canManage = canManage,
             onBack = {
                 selectedPlan = null
@@ -325,6 +327,7 @@ private fun ServicePlanEditorDialog(
 private fun ServicePlanDetailScreen(
     plan: ServicePlanDto,
     organizationId: String,
+    currentUserId: String,
     canManage: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -452,6 +455,16 @@ private fun ServicePlanDetailScreen(
                     }
                 }
             }
+        }
+
+        item {
+            ServiceAssignmentsSection(
+                servicePlanId = plan.id,
+                organizationId = organizationId,
+                currentUserId = currentUserId,
+                canManage = canManage && currentStatus != "completed" && currentStatus != "cancelled",
+                allowResponses = ServiceAssignmentRules.canRespondToService(currentStatus)
+            )
         }
 
         item {
