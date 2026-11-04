@@ -29,7 +29,7 @@ val supabasePublishableKey = configurationValue("SUPABASE_PUBLISHABLE_KEY")
 
 android {
     namespace = "com.unityhub.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.unityhub.app"
