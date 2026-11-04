@@ -7,11 +7,25 @@ plugins {
 }
 
 val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
+    val propertiesFile = rootProject.file("local.properties")
+    if (propertiesFile.exists()) {
+        propertiesFile.inputStream().use(::load)
+    }
 }
-val supabaseUrl = localProperties.getProperty("SUPABASE_URL", "")
-val supabasePublishableKey = localProperties.getProperty("SUPABASE_PUBLISHABLE_KEY", "")
+
+fun configurationValue(name: String): String =
+    providers.environmentVariable(name).orNull
+        ?.takeIf(String::isNotBlank)
+        ?: localProperties.getProperty(name).orEmpty()
+
+fun String.asBuildConfigString(): String =
+    "\"" + replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\r", "\\r")
+        .replace("\n", "\\n") + "\""
+
+val supabaseUrl = configurationValue("SUPABASE_URL")
+val supabasePublishableKey = configurationValue("SUPABASE_PUBLISHABLE_KEY")
 
 android {
     namespace = "com.unityhub.app"
@@ -23,8 +37,13 @@ android {
         targetSdk = 36
         versionCode = 3
         versionName = "0.3.0"
-        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
-        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabasePublishableKey\"")
+
+        buildConfigField("String", "SUPABASE_URL", supabaseUrl.asBuildConfigString())
+        buildConfigField(
+            "String",
+            "SUPABASE_PUBLISHABLE_KEY",
+            supabasePublishableKey.asBuildConfigString()
+        )
     }
 
     buildFeatures {
@@ -37,8 +56,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    lint {
-        checkReleaseBuilds = false
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 }
 
@@ -60,6 +79,8 @@ dependencies {
     implementation(libs.supabase.auth)
     implementation(libs.supabase.postgrest)
     implementation(libs.ktor.client.okhttp)
+
+    testImplementation(libs.junit)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

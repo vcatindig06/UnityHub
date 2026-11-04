@@ -1,9 +1,22 @@
+# Android Studio / IntelliJ
 *.iml
-.gradle/
 .idea/
+.gradle/
+
+# Local Android SDK and Supabase configuration
 local.properties
-.DS_Store
-/build
-/captures
-.externalNativeBuild/
+
+# Build outputs
+/build/
+/app/build/
 .cxx/
+.externalNativeBuild/
+captures/
+
+# Signing material
+*.jks
+*.keystore
+
+# OS files
+.DS_Store
+Thumbs.db

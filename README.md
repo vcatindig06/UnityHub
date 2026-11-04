@@ -1,67 +1,102 @@
 # UnityHub
 
-Native Android worship-team app built with Kotlin and Jetpack Compose.
+UnityHub is a native Android application for worship-team coordination, song management, and service planning.
 
-## Platform
+## Development environment
 
-- Java 17
-- Minimum Android 8.0 (API 26)
-- Kotlin 2.3.21 and Android Gradle Plugin 9.3.1
-- Supabase Auth and PostgreSQL database
+Use **Android Studio stable** as the primary IDE. The repository is a standard Gradle Android project and includes a Gradle Wrapper.
+
+- Language: Kotlin
+- UI: Jetpack Compose and Material 3
+- Architecture direction: MVVM with clear data, domain, and presentation boundaries
+- Minimum Android version: Android 8.0 (API 26)
+- Compile / target SDK: 36
+- Java toolchain: Java 17
+- Android Gradle Plugin: 9.3.1
+- Kotlin: 2.4.21
+- Gradle Wrapper: 9.7.0
+- Compose BOM: 2026.09.00
+- Backend: Supabase Auth and PostgreSQL
+- Supabase Kotlin SDK: 3.8.0
+- Ktor: 3.4.3
+
+All build-tool and library versions are pinned. Avoid dynamic dependency versions.
+
+## Open the project
+
+1. Install the current stable Android Studio release.
+2. Clone this repository.
+3. In Android Studio, choose **Open** and select the UnityHub repository folder.
+4. Allow Gradle sync to finish.
+5. Connect an Android device or start an emulator, then run the app configuration.
+
+Android Studio creates or updates the local properties file for the Android SDK. Do not commit that file.
 
 ## Supabase project
 
-The Android app is configured for the **UnityHub** Supabase project:
+UnityHub uses the existing Supabase project:
 
-- Project ref: `jbcxqeuvzdwkaetaipln`
-- Project URL: `https://jbcxqeuvzdwkaetaipln.supabase.co`
+- Project ref: jbcxqeuvzdwkaetaipln
+- Project URL: https://jbcxqeuvzdwkaetaipln.supabase.co
 
-## Local Supabase setup
+### Local configuration
 
-Copy `local.properties.example` to `local.properties` in the project root. Keep any existing `sdk.dir` line. Set `SUPABASE_URL` to the UnityHub URL above and replace `YOUR_UNITYHUB_PUBLISHABLE_KEY` with the publishable key from the UnityHub project's API Keys page. Do not commit `local.properties`.
+Add these entries to the root local.properties file, preserving the sdk.dir line created by Android Studio:
 
-Add `unityhub://auth` to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs for email confirmation callbacks.
+    SUPABASE_URL=https://jbcxqeuvzdwkaetaipln.supabase.co
+    SUPABASE_PUBLISHABLE_KEY=YOUR_UNITYHUB_PUBLISHABLE_KEY
 
-Use only the Supabase publishable key in this Android app. Never place a service-role or secret key in the client.
+Use only the Supabase publishable key in this Android app. Never use a service-role or secret key in a mobile client.
 
-## Database foundation
+Add unityhub://auth to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs for email confirmation callbacks.
 
-The UnityHub Supabase project has these application tables:
+### GitHub Actions configuration
 
-- `profiles`
-- `organizations`
-- `organization_directory` (limited team discovery fields)
-- `organization_members`
-- `organization_join_requests`
-- `ministry_positions`
-- `member_positions`
-- `songs`
-- `service_plans`
-- `service_plan_items`
+For builds on GitHub-hosted runners, configure these repository secrets under **Settings → Secrets and variables → Actions**:
 
-RLS is enabled on all exposed application tables. Organization creation, join requests, administrator approval, member role changes, and member removal are handled through database RPC functions. Membership roles are read from database membership records, not user-editable profile metadata.
+- SUPABASE_URL: https://jbcxqeuvzdwkaetaipln.supabase.co
+- SUPABASE_PUBLISHABLE_KEY: the UnityHub project's publishable key.
 
-## Implemented Android workflows
+Gradle reads the values from environment variables in CI and from local.properties during local development. The workflow never writes or commits local Supabase configuration.
+
+## Build and test
+
+Linux / macOS:
+
+    ./gradlew clean testDebugUnitTest assembleDebug
+
+Windows PowerShell:
+
+    .\gradlew.bat clean testDebugUnitTest assembleDebug
+
+The debug APK is generated at:
+
+    app/build/outputs/apk/debug/app-debug.apk
+
+GitHub Actions runs the same test and build tasks and publishes the APK as a workflow artifact.
+
+## Current application foundation
+
+Implemented workflows include:
 
 - Email/password registration, sign-in, and sign-out
 - Profile display name captured during registration
-- Organization creation (creator becomes the first administrator)
+- Organization creation
 - Authenticated organization directory search
-- Request to join an organization
+- Requests to join an organization
 - Administrator approval or decline of join requests
 - Team membership list and role display
+- Song library search and editor-only song management
+- Raw ChordPro song content editing
 
-Songs and service plans are represented in the database schema, but their Android screens are not yet implemented. Team invitations, chat, notifications, file sharing, and offline synchronization remain future work.
+The app uses Supabase Row Level Security for authorization. Authorization decisions must remain enforced by database policies and trusted server-side functions; hiding controls in the Android UI is not a security boundary.
 
-## Build notes
+## Planned engineering direction
 
-The project keeps its existing pinned Supabase Kotlin SDK and Ktor versions to reduce dependency changes in the Code on the Go environment. The Android app now includes the Supabase PostgREST module for database queries and RPC calls.
+- Separate domain logic from Compose screens and Supabase data access.
+- Introduce Room for durable offline song and service-plan data.
+- Use WorkManager for reliable background synchronization.
+- Add automated unit, integration, and UI tests as workflows are implemented.
+- Add observability, accessibility checks, and release signing before production distribution.
 
-For GitHub Actions builds, add these two repository secrets under **GitHub → Settings → Secrets and variables → Actions → Repository secrets**:
-
-- `SUPABASE_URL`: `https://jbcxqeuvzdwkaetaipln.supabase.co`
-- `SUPABASE_PUBLISHABLE_KEY`: the publishable key from the UnityHub Supabase project's API Keys page.
-
-The workflow writes these secrets into a temporary, untracked `local.properties` file on the GitHub runner before compiling. It stops the build if either secret is missing, rather than producing an APK with empty Supabase settings. Never add the publishable key to source files or commit `local.properties`.
-
-Run a debug build with the repository's GitHub Actions workflow or from Code on the Go after syncing Gradle dependencies.
+Do not add service-role keys, signing keys, keystores, or local SDK configuration to the repository.
