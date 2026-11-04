@@ -3,3 +3,11 @@
 # Never put a service-role or secret key in the Android app.
 SUPABASE_URL=https://jbcxqeuvzdwkaetaipln.supabase.co
 SUPABASE_PUBLISHABLE_KEY=YOUR_UNITYHUB_PUBLISHABLE_KEY
+
+# Firebase Android app configuration (from the registered com.unityhub.app app).
+# These are public app configuration values, not server credentials.
+# Leave blank until Firebase Cloud Messaging is configured.
+FIREBASE_API_KEY=
+FIREBASE_APPLICATION_ID=
+FIREBASE_PROJECT_ID=
+FIREBASE_SENDER_ID=

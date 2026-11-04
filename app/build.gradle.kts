@@ -26,6 +26,10 @@ fun String.asBuildConfigString(): String =
 
 val supabaseUrl = configurationValue("SUPABASE_URL")
 val supabasePublishableKey = configurationValue("SUPABASE_PUBLISHABLE_KEY")
+val firebaseApiKey = configurationValue("FIREBASE_API_KEY")
+val firebaseApplicationId = configurationValue("FIREBASE_APPLICATION_ID")
+val firebaseProjectId = configurationValue("FIREBASE_PROJECT_ID")
+val firebaseSenderId = configurationValue("FIREBASE_SENDER_ID")
 
 android {
     namespace = "com.unityhub.app"
@@ -35,15 +39,15 @@ android {
         applicationId = "com.unityhub.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
 
         buildConfigField("String", "SUPABASE_URL", supabaseUrl.asBuildConfigString())
-        buildConfigField(
-            "String",
-            "SUPABASE_PUBLISHABLE_KEY",
-            supabasePublishableKey.asBuildConfigString()
-        )
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", supabasePublishableKey.asBuildConfigString())
+        buildConfigField("String", "FIREBASE_API_KEY", firebaseApiKey.asBuildConfigString())
+        buildConfigField("String", "FIREBASE_APPLICATION_ID", firebaseApplicationId.asBuildConfigString())
+        buildConfigField("String", "FIREBASE_PROJECT_ID", firebaseProjectId.asBuildConfigString())
+        buildConfigField("String", "FIREBASE_SENDER_ID", firebaseSenderId.asBuildConfigString())
     }
 
     buildFeatures {
@@ -79,6 +83,9 @@ dependencies {
     implementation(libs.supabase.auth)
     implementation(libs.supabase.postgrest)
     implementation(libs.ktor.client.okhttp)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     testImplementation(libs.junit)
 

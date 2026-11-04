@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_notification_channel_id">team_updates</string>
+    <string name="notification_channel_name">Team updates</string>
+    <string name="notification_channel_description">Assignments and service reminders from UnityHub</string>
+</resources>
