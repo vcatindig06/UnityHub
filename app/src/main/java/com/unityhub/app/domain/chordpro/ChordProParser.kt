@@ -30,7 +30,7 @@ object ChordProParser {
         var activeSection: String? = null
         val lines = mutableListOf<ChordProLine>()
 
-        source.replace("\\r\\n", "\\n").replace('\\r', '\\n').lines().forEach { rawLine ->
+        source.replace("\r\n", "\n").replace('\r', '\n').lines().forEach { rawLine ->
             val trimmed = rawLine.trim()
             val match = directive.matchEntire(trimmed)
             if (match != null) {
