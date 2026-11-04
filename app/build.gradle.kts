@@ -30,6 +30,12 @@ val firebaseApiKey = configurationValue("FIREBASE_API_KEY")
 val firebaseApplicationId = configurationValue("FIREBASE_APPLICATION_ID")
 val firebaseProjectId = configurationValue("FIREBASE_PROJECT_ID")
 val firebaseSenderId = configurationValue("FIREBASE_SENDER_ID")
+val firebaseConfigurationIsComplete = listOf(
+    firebaseApiKey,
+    firebaseApplicationId,
+    firebaseProjectId,
+    firebaseSenderId
+).all(String::isNotBlank)
 
 android {
     namespace = "com.unityhub.app"
@@ -39,8 +45,8 @@ android {
         applicationId = "com.unityhub.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.5.0"
 
         buildConfigField("String", "SUPABASE_URL", supabaseUrl.asBuildConfigString())
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", supabasePublishableKey.asBuildConfigString())
@@ -48,6 +54,16 @@ android {
         buildConfigField("String", "FIREBASE_APPLICATION_ID", firebaseApplicationId.asBuildConfigString())
         buildConfigField("String", "FIREBASE_PROJECT_ID", firebaseProjectId.asBuildConfigString())
         buildConfigField("String", "FIREBASE_SENDER_ID", firebaseSenderId.asBuildConfigString())
+
+        // These resource names are read by FirebaseInitProvider before an Activity or
+        // FirebaseMessagingService starts, so notification delivery also works from a
+        // cold app process after Firebase has been configured.
+        if (firebaseConfigurationIsComplete) {
+            resValue("string", "google_app_id", firebaseApplicationId)
+            resValue("string", "google_api_key", firebaseApiKey)
+            resValue("string", "project_id", firebaseProjectId)
+            resValue("string", "gcm_defaultSenderId", firebaseSenderId)
+        }
     }
 
     buildFeatures {
