@@ -415,7 +415,12 @@ private fun WorkspaceDashboard(
                 role = workspace.role,
                 modifier = Modifier.padding(innerPadding)
             )
-            2 -> PlaceholderScreen("Service plans", "Create setlists, arrange songs, and coordinate assignments.", Modifier.padding(innerPadding))
+            2 -> ServicePlanningScreen(
+                organizationId = organization.id,
+                userId = userId,
+                role = workspace.role,
+                modifier = Modifier.padding(innerPadding)
+            )
             else -> TeamScreen(
                 workspace = workspace,
                 loading = loading,
