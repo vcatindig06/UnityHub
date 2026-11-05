@@ -38,6 +38,7 @@ import com.unityhub.app.ui.auth.AuthScreen
 import com.unityhub.app.ui.theme.UnityHubTheme
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.handleDeeplinks
+import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -46,6 +47,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SupabaseClientProvider.initializeRememberSession(this)
         capturePushNavigation(intent)
         if (SupabaseClientProvider.isConfigured) {
             runCatching { SupabaseClientProvider.client.handleDeeplinks(intent) }
@@ -63,15 +65,28 @@ class MainActivity : ComponentActivity() {
                     onResult = { showNotificationPermissionPrompt = false }
                 )
 
-                // Restore the Supabase session before deciding whether to show the
-                // sign-in screen. This prevents a signed-in user being logged out
-                // visually whenever Android recreates the app process.
                 LaunchedEffect(Unit) {
-                    authenticated = SupabaseClientProvider.isConfigured &&
-                        runCatching {
-                            SupabaseClientProvider.client.auth.currentSessionOrNull() != null
-                        }.getOrDefault(false)
-                    authenticationReady = true
+                    if (!SupabaseClientProvider.isConfigured) {
+                        authenticationReady = true
+                    } else {
+                        SupabaseClientProvider.client.auth.sessionStatus.collect { status ->
+                            when (status) {
+                                is SessionStatus.Authenticated -> {
+                                    authenticated = true
+                                    authenticationReady = true
+                                }
+                                is SessionStatus.NotAuthenticated -> {
+                                    authenticated = false
+                                    authenticationReady = true
+                                }
+                                is SessionStatus.RefreshFailure -> {
+                                    authenticated = false
+                                    authenticationReady = true
+                                }
+                                SessionStatus.Initializing -> Unit
+                            }
+                        }
+                    }
                 }
 
                 LaunchedEffect(authenticated) {
