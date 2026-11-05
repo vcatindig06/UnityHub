@@ -1,5 +1,6 @@
 package com.unityhub.app.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,6 +30,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
@@ -225,12 +227,15 @@ private fun OrganizationOnboardingScreen(
     onRefresh: () -> Unit,
     onSignOut: () -> Unit
 ) {
+    var step by rememberSaveable { mutableStateOf(1) }
+    var selectedPath by rememberSaveable { mutableStateOf("") }
     var organizationName by rememberSaveable { mutableStateOf("") }
     var search by rememberSaveable { mutableStateOf("") }
+
     val requestByOrganization = workspace.myRequests.associateBy { it.organizationId }
-    val filteredOrganizations = workspace.directory.filter {
-        it.name.contains(search.trim(), ignoreCase = true)
-    }
+    val filteredOrganizations = workspace.directory
+        .filter { it.name.contains(search.trim(), ignoreCase = true) }
+        .sortedBy { it.name.lowercase() }
 
     Scaffold(
         topBar = {
@@ -238,18 +243,23 @@ private fun OrganizationOnboardingScreen(
                 title = {
                     Column {
                         Text("Set up your team", fontWeight = FontWeight.Bold)
-                        Text("One place to serve together", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "A few steps to your worship workspace",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 },
                 actions = {
                     TextButton(onClick = onSignOut) { Text("Sign out") }
                 }
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(innerPadding),
-            contentPadding = PaddingValues(20.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 22.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -259,79 +269,322 @@ private fun OrganizationOnboardingScreen(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Create your worship team workspace, or request access to an existing team. An administrator must approve join requests.",
+                    "Connect your account to your church or worship team. You can create a new workspace or ask to join one that already exists.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
             item {
-                Card(shape = RoundedCornerShape(18.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Create a new team", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        OutlinedTextField(
-                            value = organizationName,
-                            onValueChange = { organizationName = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Church or worship team name") },
-                            singleLine = true,
-                            enabled = !loading,
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
-                        )
-                        Button(
-                            onClick = { onCreateOrganization(organizationName.trim()) },
-                            enabled = !loading && organizationName.trim().length in 2..100,
-                            modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    listOf(1, 2).forEach { number ->
+                        val active = number <= step
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (active) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                }
+                            )
                         ) {
-                            if (loading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                            else Text("Create team and become administrator")
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Text(
+                                    "STEP $number",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (active) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    if (number == 1) "Choose an option" else "Complete setup",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
-                        Text(
-                            "You will automatically become the first administrator of the team you create.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             }
-            item {
-                Text("Find an existing team", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                OutlinedTextField(
-                    value = search,
-                    onValueChange = { search = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Search team name") },
-                    singleLine = true,
-                    enabled = !loading
-                )
-            }
-            if (filteredOrganizations.isEmpty()) {
+
+            if (step == 1) {
                 item {
                     Text(
-                        if (workspace.directory.isEmpty()) "No teams are listed yet. You can create a new team above."
-                        else "No teams match your search.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium
+                        "How would you like to get started?",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedPath = "create"
+                                step = 2
+                            },
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Card(
+                                shape = RoundedCornerShape(13.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Default.Groups,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(12.dp).size(27.dp)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text("Create a new church or team", fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Start a workspace and become its first administrator.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text("›", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedPath = "join"
+                                step = 2
+                            },
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Card(
+                                shape = RoundedCornerShape(13.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Default.Home,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.padding(12.dp).size(27.dp)
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text("Join an existing church or team", fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Find your team and send a request to its administrator.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text("›", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                item {
+                    Text(
+                        "Not sure? Ask your worship leader whether your church already has a UnityHub workspace.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
-                items(filteredOrganizations, key = { it.organizationId }) { organization ->
-                    val request = requestByOrganization[organization.organizationId]
-                    OrganizationDirectoryCard(
-                        organization = organization,
-                        request = request,
-                        loading = loading,
-                        onRequest = { onRequestToJoin(organization.organizationId) }
-                    )
+                item {
+                    TextButton(
+                        onClick = {
+                            step = 1
+                            selectedPath = ""
+                        },
+                        enabled = !loading
+                    ) {
+                        Text("← Back to options")
+                    }
+                }
+
+                if (selectedPath == "create") {
+                    item {
+                        Text(
+                            "Create your workspace",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Enter the church or worship-team name exactly as your members will recognize it.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    item {
+                        Card(shape = RoundedCornerShape(18.dp)) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text("Church or team details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                OutlinedTextField(
+                                    value = organizationName,
+                                    onValueChange = { organizationName = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Church / worship team name") },
+                                    placeholder = { Text("e.g. Unity Worship Team") },
+                                    singleLine = true,
+                                    enabled = !loading,
+                                    isError = organizationName.isNotBlank() && organizationName.trim().length !in 2..100,
+                                    supportingText = {
+                                        Text(
+                                            if (organizationName.isBlank()) {
+                                                "Use 2–100 characters."
+                                            } else {
+                                                "${organizationName.trim().length}/100 characters"
+                                            }
+                                        )
+                                    },
+                                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
+                                )
+                                Text(
+                                    "Your account will become the first administrator. You can invite members and approve their join requests from the Team section.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Button(
+                                    onClick = { onCreateOrganization(organizationName.trim()) },
+                                    enabled = !loading && organizationName.trim().length in 2..100,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    if (loading) {
+                                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        Text("Create church workspace")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        Text(
+                            "Find your church or team",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Search the directory. When you request to join, an administrator must approve your membership before the workspace opens.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    item {
+                        OutlinedTextField(
+                            value = search,
+                            onValueChange = { search = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Search church or team name") },
+                            placeholder = { Text("Enter a team name") },
+                            singleLine = true,
+                            enabled = !loading
+                        )
+                    }
+                    if (filteredOrganizations.isEmpty()) {
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                                ) {
+                                    Text(
+                                        if (workspace.directory.isEmpty()) {
+                                            "No workspaces are listed yet"
+                                        } else {
+                                            "No matching teams found"
+                                        },
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        if (workspace.directory.isEmpty()) {
+                                            "Ask your church administrator to create a UnityHub workspace, or go back and create one for your team."
+                                        } else {
+                                            "Try a shorter search or check the spelling. You can also refresh the directory."
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        items(filteredOrganizations, key = { it.organizationId }) { organization ->
+                            OrganizationDirectoryCard(
+                                organization = organization,
+                                request = requestByOrganization[organization.organizationId],
+                                loading = loading,
+                                onRequest = { onRequestToJoin(organization.organizationId) }
+                            )
+                        }
+                    }
+                    item {
+                        OutlinedButton(
+                            onClick = onRefresh,
+                            enabled = !loading,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Refresh team directory")
+                        }
+                    }
                 }
             }
-            item {
-                TextButton(onClick = onRefresh, enabled = !loading) {
-                    Text("Refresh team list")
-                }
-            }
+
             if (errorMessage.isNotBlank()) {
                 item {
-                    Text(errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            errorMessage,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(14.dp)
+                        )
+                    }
                 }
             }
         }
@@ -345,20 +598,42 @@ private fun OrganizationDirectoryCard(
     loading: Boolean,
     onRequest: () -> Unit
 ) {
-    Card(shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
             Text(organization.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             when (request?.status) {
-                "pending" -> Text("Request sent · Waiting for administrator approval", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
-                "rejected" -> Text("Your previous request was declined. You may request again.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                else -> Text("Request to join this worship team.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                "pending" -> Text(
+                    "Request sent · Waiting for administrator approval",
+                    color = MaterialTheme.colorScheme.secondary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                "rejected" -> Text(
+                    "Your previous request was declined. You may submit a new request.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                else -> Text(
+                    "Send a membership request to this worship team.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
             Button(
                 onClick = onRequest,
                 enabled = !loading && request?.status != "pending",
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (request?.status == "pending") "Request pending" else if (request?.status == "rejected") "Request again" else "Request to join")
+                Text(
+                    if (request?.status == "pending") "Waiting for approval"
+                    else if (request?.status == "rejected") "Request to join again"
+                    else "Request to join"
+                )
             }
         }
     }
