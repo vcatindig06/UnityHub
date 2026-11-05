@@ -32,6 +32,12 @@ data class MyServiceAssignment(
     val servicePlan: ServicePlanDto
 )
 
+data class ServiceAssignmentOverviewEntry(
+    val assignment: ServiceAssignmentDto,
+    val servicePlan: ServicePlanDto,
+    val memberDisplayName: String
+)
+
 
 @Serializable
 private data class ProfileNameDto(
@@ -123,6 +129,49 @@ class ServiceAssignmentRepository(private val client: SupabaseClient) {
             compareBy<MyServiceAssignment> { it.servicePlan.serviceDate ?: "9999-12-31" }
                 .thenBy { it.servicePlan.startTime.orEmpty() }
                 .thenBy { it.assignment.roleLabel.lowercase() }
+        )
+    }
+
+    suspend fun loadOrganizationAssignments(
+        organizationId: String
+    ): List<ServiceAssignmentOverviewEntry> {
+        require(organizationId.isNotBlank())
+
+        // Keep every request scoped to the active organization. Supabase RLS remains
+        // the authorization boundary for the signed-in account.
+        val assignments = client.from("service_plan_assignments").select {
+            filter { eq("organization_id", organizationId) }
+        }.decodeList<ServiceAssignmentDto>()
+
+        if (assignments.isEmpty()) return emptyList()
+
+        val plansById = client.from("service_plans").select {
+            filter { eq("organization_id", organizationId) }
+        }.decodeList<ServicePlanDto>().associateBy { it.id }
+
+        val membersById = loadTeamMembers(organizationId).associateBy { it.memberId }
+
+        return assignments.mapNotNull { assignment ->
+            val plan = plansById[assignment.servicePlanId] ?: return@mapNotNull null
+            val member = membersById[assignment.memberId]
+            ServiceAssignmentOverviewEntry(
+                assignment = assignment,
+                servicePlan = plan,
+                memberDisplayName = member?.displayName?.takeIf(String::isNotBlank)
+                    ?: "Team member"
+            )
+        }.sortedWith(
+            compareBy<ServiceAssignmentOverviewEntry> {
+                it.servicePlan.serviceDate ?: "9999-12-31"
+            }.thenBy {
+                it.servicePlan.startTime ?: "99:99"
+            }.thenBy {
+                it.servicePlan.title.lowercase()
+            }.thenBy {
+                it.assignment.roleLabel.lowercase()
+            }.thenBy {
+                it.memberDisplayName.lowercase()
+            }
         )
     }
 

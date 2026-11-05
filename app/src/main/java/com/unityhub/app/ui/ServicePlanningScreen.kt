@@ -89,6 +89,7 @@ fun ServicePlanningScreen(
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
+    var assignmentOverviewOpen by rememberSaveable { mutableStateOf(false) }
     var editingPlan by remember { mutableStateOf<ServicePlanDto?>(null) }
     var hasLoadedPlans by remember { mutableStateOf(false) }
     var consumedNavigationRequestId by remember { mutableStateOf<String?>(null) }
@@ -186,6 +187,26 @@ fun ServicePlanningScreen(
             onBack = {
                 selectedPlan = null
                 reload()
+            },
+            modifier = modifier
+        )
+        return
+    }
+
+    if (assignmentOverviewOpen) {
+        AssignmentOverviewScreen(
+            organizationId = organizationId,
+            onBack = { assignmentOverviewOpen = false },
+            onOpenServicePlan = { planId ->
+                val matchingPlan = plans.firstOrNull { it.id == planId }
+                if (matchingPlan != null) {
+                    selectedPlan = matchingPlan
+                    assignmentOverviewOpen = false
+                } else {
+                    assignmentOverviewOpen = false
+                    error = "That service could not be found. Refresh the service list and try again."
+                    reload()
+                }
             },
             modifier = modifier
         )
@@ -295,6 +316,18 @@ fun ServicePlanningScreen(
                 }
             }
         }
+
+        if (canManage) {
+            item {
+                androidx.compose.material3.OutlinedButton(
+                    onClick = { assignmentOverviewOpen = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Assignment overview · Response tracker")
+                }
+            }
+        }
+
         if (loading) {
             item {
                 Column(Modifier.fillMaxWidth().padding(28.dp)) {
