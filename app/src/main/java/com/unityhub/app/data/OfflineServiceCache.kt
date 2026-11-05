@@ -17,7 +17,7 @@ data class OfflineServiceSnapshot(
 
 data class OfflineServiceAssignmentEntry(
     val assignment: ServiceAssignmentDto,
-    val memberUserId: String?,
+    val isCurrentUser: Boolean,
     val memberDisplayName: String
 )
 
@@ -95,7 +95,8 @@ class OfflineServiceCache(context: Context) {
         organizationId: String,
         servicePlanId: String,
         assignments: List<ServiceAssignmentDto>,
-        members: List<ServiceMemberOption>
+        members: List<ServiceMemberOption>,
+        currentUserId: String
     ): Long = withContext(Dispatchers.IO) {
         require(userId.isNotBlank() && organizationId.isNotBlank() && servicePlanId.isNotBlank())
         require(assignments.all {
@@ -113,7 +114,7 @@ class OfflineServiceCache(context: Context) {
                 this.organizationId = assignment.organizationId
                 this.servicePlanId = assignment.servicePlanId
                 memberId = assignment.memberId
-                memberUserId = member?.userId
+                memberIsCurrentUser = member?.userId == currentUserId
                 memberDisplayName = member?.displayName?.takeIf(String::isNotBlank) ?: "Team member"
                 roleLabel = assignment.roleLabel
                 responseStatus = assignment.responseStatus
@@ -152,8 +153,8 @@ class OfflineServiceCache(context: Context) {
                         respondedAt = cached.respondedAt,
                         createdAt = cached.createdAt
                     ),
-                    memberUserId = cached.memberUserId,
-                    memberDisplayName = cached.memberDisplayName,
+                    isCurrentUser = cached.memberIsCurrentUser,
+                    memberDisplayName = cached.memberDisplayName
                 )
             }
         val syncedAt = preferences.getLong(
