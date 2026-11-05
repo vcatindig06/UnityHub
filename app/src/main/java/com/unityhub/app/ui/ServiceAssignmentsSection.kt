@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -87,7 +86,7 @@ fun ServiceAssignmentsSection(
             val member = loadedMembers.firstOrNull { it.memberId == assignment.memberId }
             OfflineServiceAssignmentEntry(
                 assignment = assignment,
-                memberUserId = member?.userId,
+                isCurrentUser = member?.userId == currentUserId,
                 memberDisplayName = member?.displayName?.takeIf(String::isNotBlank) ?: "Team member"
             )
         }
@@ -101,7 +100,8 @@ fun ServiceAssignmentsSection(
                 organizationId,
                 servicePlanId,
                 loadedAssignments,
-                loadedMembers
+                loadedMembers,
+                currentUserId
             )
         }.getOrNull() ?: lastSyncedAtMillis
         showingOfflineCopy = false
@@ -252,7 +252,7 @@ fun ServiceAssignmentsSection(
             } else {
                 assignmentEntries.forEach { entry ->
                     val assignment = entry.assignment
-                    val isCurrentUser = entry.memberUserId == currentUserId
+                    val isCurrentUser = entry.isCurrentUser
                     ServiceAssignmentCard(
                         assignment = assignment,
                         memberName = entry.memberDisplayName,
