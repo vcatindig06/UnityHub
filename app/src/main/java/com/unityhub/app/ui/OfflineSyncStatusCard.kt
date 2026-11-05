@@ -71,7 +71,7 @@ fun OfflineSyncStatusCard(
         OfflineSyncDisplayState.RUNNING -> OfflineSyncStatusRules.progressLabel(
             runningWork?.progress?.getString(OfflineSyncWorker.PROGRESS_STAGE_KEY)
         )
-        OfflineSyncDisplayState.QUEUED -> "Waiting for a network connection"
+        OfflineSyncDisplayState.QUEUED -> "Sync queued · waiting for network or retry"
         OfflineSyncDisplayState.RETRYING -> "Sync needs attention"
         OfflineSyncDisplayState.SYNCED -> "Offline data is up to date"
         OfflineSyncDisplayState.NOT_SYNCED -> "Not synced yet"
