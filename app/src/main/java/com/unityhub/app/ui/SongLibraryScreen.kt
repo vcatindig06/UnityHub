@@ -139,7 +139,7 @@ fun SongLibraryScreen(
                 importMessage = ""
                 try {
                     val source = context.contentResolver.openInputStream(uri)?.use(::readLimitedText)
-                        ?: error("The selected file could not be opened.")
+                        ?: throw IllegalStateException("The selected file could not be opened.")
                     require(source.isNotBlank()) { "The selected file is empty." }
                     val document = ChordProParser.parse(source)
                     editingSong = null
