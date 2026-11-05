@@ -234,11 +234,7 @@ fun ServicePlanningScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(
-                            "Service planning",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("Service planning", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         Text(
                             "${plans.size} planned services · Build and organize your setlists",
                             style = MaterialTheme.typography.bodyMedium,
@@ -299,7 +295,6 @@ fun ServicePlanningScreen(
                 }
             }
         }
-
         if (loading) {
             item {
                 Column(Modifier.fillMaxWidth().padding(28.dp)) {
