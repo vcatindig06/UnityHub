@@ -753,9 +753,9 @@ private fun WorkspaceDashboard(
                 },
                 modifier = Modifier.padding(innerPadding)
             )
-            else -> TeamScreen(
+            else -> TeamManagementScreen(
                 workspace = workspace,
-                loading = loading,
+                currentUserId = userId,
                 onReviewRequest = onReviewRequest,
                 errorMessage = errorMessage,
                 modifier = Modifier.padding(innerPadding)
