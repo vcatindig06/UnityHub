@@ -20,7 +20,7 @@ public class CachedServiceAssignmentEntity {
     @NonNull @ColumnInfo(name = "organization_id") public String organizationId = "";
     @NonNull @ColumnInfo(name = "service_plan_id") public String servicePlanId = "";
     @NonNull @ColumnInfo(name = "member_id") public String memberId = "";
-    @Nullable @ColumnInfo(name = "member_user_id") public String memberUserId;
+    @ColumnInfo(name = "member_is_current_user") public boolean memberIsCurrentUser;
     @NonNull @ColumnInfo(name = "member_display_name") public String memberDisplayName = "Team member";
     @NonNull @ColumnInfo(name = "role_label") public String roleLabel = "";
     @NonNull @ColumnInfo(name = "response_status") public String responseStatus = "pending";
