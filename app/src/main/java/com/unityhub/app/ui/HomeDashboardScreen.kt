@@ -252,6 +252,13 @@ fun HomeDashboardScreen(
         }
 
         item {
+            OfflineSyncStatusCard(
+                userId = userId,
+                organizationId = organizationId
+            )
+        }
+
+        item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("My upcoming assignments", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
