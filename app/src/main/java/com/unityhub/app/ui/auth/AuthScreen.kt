@@ -1,5 +1,10 @@
 package com.unityhub.app.ui.auth
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -63,10 +68,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -83,6 +91,10 @@ import io.github.jan.supabase.auth.providers.Github
 import io.github.jan.supabase.auth.providers.OAuthProvider
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -803,64 +815,10 @@ private fun GradientAuthButton(
 private fun BrandPanel(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .background(Slate900)
+            .background(Color(0xFF07080A))
             .clip(RoundedCornerShape(0.dp))
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            val step = 52.dp.toPx()
-            var x = 0f
-            while (x <= size.width) {
-                drawLine(
-                    color = Color.White.copy(alpha = 0.035f),
-                    start = androidx.compose.ui.geometry.Offset(x, 0f),
-                    end = androidx.compose.ui.geometry.Offset(x, size.height),
-                    strokeWidth = 1.dp.toPx()
-                )
-                x += step
-            }
-            var y = 0f
-            while (y <= size.height) {
-                drawLine(
-                    color = Color.White.copy(alpha = 0.035f),
-                    start = androidx.compose.ui.geometry.Offset(0f, y),
-                    end = androidx.compose.ui.geometry.Offset(size.width, y),
-                    strokeWidth = 1.dp.toPx()
-                )
-                y += step
-            }
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Emerald500.copy(alpha = 0.28f), Color.Transparent),
-                    center = androidx.compose.ui.geometry.Offset(size.width * 0.88f, size.height * 0.12f),
-                    radius = size.width * 0.60f
-                ),
-                radius = size.width * 0.60f,
-                center = androidx.compose.ui.geometry.Offset(size.width * 0.88f, size.height * 0.12f)
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Emerald700.copy(alpha = 0.30f), Color.Transparent),
-                    center = androidx.compose.ui.geometry.Offset(size.width * 0.05f, size.height * 0.85f),
-                    radius = size.width * 0.52f
-                ),
-                radius = size.width * 0.52f,
-                center = androidx.compose.ui.geometry.Offset(size.width * 0.05f, size.height * 0.85f)
-            )
-            val dotStep = 22.dp.toPx()
-            var dotX = 0f
-            while (dotX <= size.width) {
-                var dotY = 0f
-                while (dotY <= size.height) {
-                    drawCircle(
-                        color = Color.White.copy(alpha = 0.045f),
-                        radius = 0.8.dp.toPx(),
-                        center = androidx.compose.ui.geometry.Offset(dotX, dotY)
-                    )
-                    dotY += dotStep
-                }
-                dotX += dotStep
-            }
-        }
+        WarmAuroraBackground(Modifier.fillMaxSize())
 
         Column(
             modifier = Modifier
@@ -899,7 +857,7 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        "One team.\nOne purpose.\nIn unity.",
+                        "One team.\\nOne purpose.\\nIn unity.",
                         color = Color.White,
                         fontSize = 36.sp,
                         lineHeight = 43.sp,
@@ -931,7 +889,7 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                             .background(
                                 listOf(Emerald700, Emerald600, Emerald500)[index]
                             )
-                            .border(2.dp, Slate900, CircleShape),
+                            .border(2.dp, Color(0xFF07080A), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -959,6 +917,207 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
         }
     }
 }
+
+/**
+ * Native Compose equivalent of the supplied animated warm-aurora CSS background.
+ * Each light blade drifts and breathes independently behind the brand-panel content.
+ * The mobile sign-in form remains light and uncluttered.
+ */
+@Composable
+private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "unityhub-warm-aurora")
+
+    val slowDrift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 22_000, easing = LinearEasing)
+        ),
+        label = "aurora-slow-drift"
+    )
+    val middleDrift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 18_000, easing = LinearEasing)
+        ),
+        label = "aurora-middle-drift"
+    )
+    val quickDrift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 15_000, easing = LinearEasing)
+        ),
+        label = "aurora-quick-drift"
+    )
+
+    // A fixed seed keeps the fine film grain stable while the light itself moves.
+    val grain = remember {
+        val random = Random(2_026)
+        List(230) {
+            GrainPoint(
+                x = random.nextFloat(),
+                y = random.nextFloat(),
+                radius = 0.35f + random.nextFloat() * 0.55f,
+                alpha = 0.018f + random.nextFloat() * 0.025f
+            )
+        }
+    }
+
+    Canvas(modifier = modifier) {
+        val panelWidth = size.width
+        val panelHeight = size.height
+        val twoPi = (2.0 * PI).toFloat()
+
+        val crimson = Color(0xFFFF2F3A)
+        val coral = Color(0xFFFF6B4A)
+        val amber = Color(0xFFFFB347)
+
+        fun drawBlade(
+            start: Offset,
+            end: Offset,
+            pulse: Float,
+            widthFactor: Float
+        ) {
+            val bladeBrush = Brush.linearGradient(
+                colorStops = arrayOf(
+                    0.00f to Color.Transparent,
+                    0.13f to crimson.copy(alpha = 0.10f),
+                    0.36f to crimson.copy(alpha = 0.48f),
+                    0.58f to coral.copy(alpha = 0.43f),
+                    0.79f to amber.copy(alpha = 0.23f),
+                    1.00f to Color.Transparent
+                ),
+                start = start,
+                end = end
+            )
+
+            // Broad low-opacity bloom provides the soft-focus edge of the blade.
+            drawLine(
+                brush = bladeBrush,
+                start = start,
+                end = end,
+                strokeWidth = panelWidth * widthFactor * 2.7f,
+                cap = StrokeCap.Round,
+                alpha = pulse * 0.30f,
+                blendMode = BlendMode.Screen
+            )
+            // Narrower centre line keeps the warm light visible without overpowering text.
+            drawLine(
+                brush = bladeBrush,
+                start = start,
+                end = end,
+                strokeWidth = panelWidth * widthFactor,
+                cap = StrokeCap.Round,
+                alpha = pulse * 0.78f,
+                blendMode = BlendMode.Screen
+            )
+        }
+
+        // 22-second upper blade. The first frame starts at full bloom.
+        val slowAngle = slowDrift * twoPi
+        val slowShift = sin(slowAngle)
+        val slowPulse = 0.84f + 0.16f * ((cos(slowAngle) + 1f) / 2f)
+        drawBlade(
+            start = Offset(
+                -panelWidth * 0.18f + slowShift * panelWidth * 0.045f,
+                panelHeight * 0.40f + cos(slowAngle) * panelHeight * 0.025f
+            ),
+            end = Offset(
+                panelWidth * 1.16f + slowShift * panelWidth * 0.045f,
+                panelHeight * 0.06f - cos(slowAngle) * panelHeight * 0.025f
+            ),
+            pulse = slowPulse,
+            widthFactor = 0.095f * (1f + 0.035f * slowShift)
+        )
+
+        // 18-second middle blade moves on its own loop.
+        val middleAngle = middleDrift * twoPi
+        val middleShift = sin(middleAngle)
+        val middlePulse = 0.82f + 0.18f * ((cos(middleAngle) + 1f) / 2f)
+        drawBlade(
+            start = Offset(
+                -panelWidth * 0.16f + middleShift * panelWidth * 0.055f,
+                panelHeight * 0.82f + cos(middleAngle) * panelHeight * 0.035f
+            ),
+            end = Offset(
+                panelWidth * 1.14f + middleShift * panelWidth * 0.055f,
+                panelHeight * 0.40f - cos(middleAngle) * panelHeight * 0.035f
+            ),
+            pulse = middlePulse,
+            widthFactor = 0.075f * (1f + 0.04f * middleShift)
+        )
+
+        // 15-second lower blade adds a slower secondary glow near the panel edge.
+        val quickAngle = quickDrift * twoPi
+        val quickShift = sin(quickAngle)
+        val quickPulse = 0.80f + 0.20f * ((cos(quickAngle) + 1f) / 2f)
+        drawBlade(
+            start = Offset(
+                -panelWidth * 0.12f + quickShift * panelWidth * 0.04f,
+                panelHeight * 1.02f + cos(quickAngle) * panelHeight * 0.025f
+            ),
+            end = Offset(
+                panelWidth * 1.10f + quickShift * panelWidth * 0.04f,
+                panelHeight * 0.76f - cos(quickAngle) * panelHeight * 0.025f
+            ),
+            pulse = quickPulse,
+            widthFactor = 0.060f * (1f + 0.035f * quickShift)
+        )
+
+        // Fine neutral grid.
+        val gridStep = 56.dp.toPx()
+        var gridX = 0f
+        while (gridX <= panelWidth) {
+            drawLine(
+                color = Color.White.copy(alpha = 0.025f),
+                start = Offset(gridX, 0f),
+                end = Offset(gridX, panelHeight),
+                strokeWidth = 1.dp.toPx()
+            )
+            gridX += gridStep
+        }
+        var gridY = 0f
+        while (gridY <= panelHeight) {
+            drawLine(
+                color = Color.White.copy(alpha = 0.025f),
+                start = Offset(0f, gridY),
+                end = Offset(panelWidth, gridY),
+                strokeWidth = 1.dp.toPx()
+            )
+            gridY += gridStep
+        }
+
+        // Subtle film grain: deterministic speckles, not a distracting star field.
+        grain.forEach { point ->
+            drawCircle(
+                color = Color.White.copy(alpha = point.alpha),
+                radius = point.radius.dp.toPx(),
+                center = Offset(point.x * panelWidth, point.y * panelHeight)
+            )
+        }
+
+        // Vignette keeps the copy and service preview legible over the light blades.
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    Color(0xA807080A)
+                ),
+                center = Offset(panelWidth * 0.52f, panelHeight * 0.48f),
+                radius = maxOf(panelWidth, panelHeight) * 0.78f
+            )
+        )
+    }
+}
+
+private data class GrainPoint(
+    val x: Float,
+    val y: Float,
+    val radius: Float,
+    val alpha: Float
+)
 
 @Composable
 private fun ShowcaseCard() {
