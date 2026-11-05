@@ -222,8 +222,16 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val recoveryCode = deepLinkIntent.data?.getQueryParameter("code")
-        if (!SupabaseClientProvider.isConfigured || recoveryCode.isNullOrBlank()) {
+        val recoveryUri = deepLinkIntent.data
+        val recoveryCode = recoveryUri?.getQueryParameter("code")
+        val recoveryError = recoveryUri?.getQueryParameter("error")
+        val recoveryErrorCode = recoveryUri?.getQueryParameter("error_code")
+        if (
+            !SupabaseClientProvider.isConfigured ||
+            recoveryCode.isNullOrBlank() ||
+            !recoveryError.isNullOrBlank() ||
+            !recoveryErrorCode.isNullOrBlank()
+        ) {
             passwordRecoveryFailed = true
             return
         }
