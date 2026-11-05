@@ -89,7 +89,7 @@ Implemented workflows include:
 - Song library search and editor-only song management
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
-- Read-only offline service plans and ordered setlists, including saved ChordPro snapshots
+- Read-only offline service plans and ordered setlists, including saved ChordPro snapshots. The offline screen does not cache team assignment responses.
 
 The app uses Supabase Row Level Security for authorization. Authorization decisions must remain enforced by database policies and trusted server-side functions; hiding controls in the Android UI is not a security boundary.
 
