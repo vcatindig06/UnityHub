@@ -4,14 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -37,13 +33,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.unityhub.app.data.OfflineServiceAssignmentEntry
+import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.ServiceAssignmentDto
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceMemberOption
 import com.unityhub.app.data.SupabaseClientProvider
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun ServiceAssignmentsSection(
@@ -51,28 +54,92 @@ fun ServiceAssignmentsSection(
     organizationId: String,
     currentUserId: String,
     canManage: Boolean,
-    allowResponses: Boolean
+    allowResponses: Boolean,
+    offlineOnly: Boolean = false
 ) {
     val repository = remember { ServiceAssignmentRepository(SupabaseClientProvider.client) }
+    val context = LocalContext.current
+    val offlineCache = remember(context) { OfflineServiceCache(context) }
     val scope = rememberCoroutineScope()
-    var assignments by remember(servicePlanId) { mutableStateOf<List<ServiceAssignmentDto>>(emptyList()) }
+    var assignmentEntries by remember(servicePlanId) {
+        mutableStateOf<List<OfflineServiceAssignmentEntry>>(emptyList())
+    }
     var members by remember(servicePlanId) { mutableStateOf<List<ServiceMemberOption>>(emptyList()) }
     var suggestedRoles by remember(servicePlanId) { mutableStateOf<List<String>>(emptyList()) }
     var loading by remember(servicePlanId) { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
+    var lastSyncedAtMillis by remember(servicePlanId) { mutableStateOf<Long?>(null) }
+    var showingOfflineCopy by remember(servicePlanId, offlineOnly) { mutableStateOf(offlineOnly) }
     var addDialogOpen by rememberSaveable(servicePlanId) { mutableStateOf(false) }
+
+    val offlineReadOnly = offlineOnly || showingOfflineCopy
+
+    suspend fun refreshOnlineData() {
+        val loadedAssignments = repository.loadAssignments(servicePlanId, organizationId)
+        val loadedMembers = repository.loadTeamMembers(organizationId)
+        val loadedRoles = if (canManage) {
+            repository.loadSuggestedRoles(organizationId)
+        } else {
+            emptyList()
+        }
+        val entries = loadedAssignments.map { assignment ->
+            val member = loadedMembers.firstOrNull { it.memberId == assignment.memberId }
+            OfflineServiceAssignmentEntry(
+                assignment = assignment,
+                isCurrentUser = member?.userId == currentUserId,
+                memberDisplayName = member?.displayName?.takeIf(String::isNotBlank) ?: "Team member"
+            )
+        }
+
+        assignmentEntries = entries
+        members = loadedMembers
+        suggestedRoles = loadedRoles
+        lastSyncedAtMillis = runCatching {
+            offlineCache.saveAssignments(
+                currentUserId,
+                organizationId,
+                servicePlanId,
+                loadedAssignments,
+                loadedMembers,
+                currentUserId
+            )
+        }.getOrNull() ?: lastSyncedAtMillis
+        showingOfflineCopy = false
+    }
 
     fun reload() {
         scope.launch {
             loading = true
+            error = ""
             try {
-                assignments = repository.loadAssignments(servicePlanId, organizationId)
-                members = repository.loadTeamMembers(organizationId)
-                suggestedRoles = repository.loadSuggestedRoles(organizationId)
-                error = ""
+                if (offlineOnly) {
+                    val cached = offlineCache.loadAssignments(currentUserId, organizationId, servicePlanId)
+                    assignmentEntries = cached.assignments
+                    lastSyncedAtMillis = cached.syncedAtMillis
+                    members = emptyList()
+                    suggestedRoles = emptyList()
+                    showingOfflineCopy = true
+                } else {
+                    try {
+                        refreshOnlineData()
+                    } catch (_: Exception) {
+                        val cached = runCatching {
+                            offlineCache.loadAssignments(currentUserId, organizationId, servicePlanId)
+                        }.getOrNull()
+                        if (cached?.syncedAtMillis != null) {
+                            assignmentEntries = cached.assignments
+                            lastSyncedAtMillis = cached.syncedAtMillis
+                            members = emptyList()
+                            suggestedRoles = emptyList()
+                            showingOfflineCopy = true
+                        } else {
+                            error = "Could not load service assignments. Check your connection and try again."
+                        }
+                    }
+                }
             } catch (_: Exception) {
-                error = "Could not load service assignments. Check your connection and try again."
+                error = "The saved service assignments could not be opened on this device."
             } finally {
                 loading = false
             }
@@ -85,7 +152,7 @@ fun ServiceAssignmentsSection(
             error = ""
             try {
                 action()
-                assignments = repository.loadAssignments(servicePlanId, organizationId)
+                refreshOnlineData()
             } catch (exception: Exception) {
                 error = exception.message ?: "The assignment could not be updated."
             } finally {
@@ -94,9 +161,9 @@ fun ServiceAssignmentsSection(
         }
     }
 
-    LaunchedEffect(servicePlanId, organizationId) { reload() }
+    LaunchedEffect(servicePlanId, organizationId, offlineOnly) { reload() }
 
-    if (addDialogOpen) {
+    if (addDialogOpen && !offlineReadOnly) {
         AddServiceAssignmentDialog(
             members = members,
             suggestedRoles = suggestedRoles,
@@ -129,12 +196,12 @@ fun ServiceAssignmentsSection(
                 Column(Modifier.weight(1f)) {
                     Text("Team assignments", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        "${assignments.size} assigned roles",
+                        "${assignmentEntries.size} assigned roles",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (canManage && allowResponses) {
+                if (canManage && allowResponses && !offlineReadOnly) {
                     Button(
                         onClick = { addDialogOpen = true },
                         enabled = !saving && !loading && members.isNotEmpty()
@@ -145,25 +212,54 @@ fun ServiceAssignmentsSection(
                 }
             }
 
+            if (offlineReadOnly) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "Offline copy · Read only",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Text(
+                        lastSyncedAtMillis?.let { timestamp ->
+                            "Last synced " + DateTimeFormatter
+                                .ofPattern("MMM d, yyyy · h:mm a", Locale.getDefault())
+                                .withZone(ZoneId.systemDefault())
+                                .format(Instant.ofEpochMilli(timestamp))
+                        } ?: "No assignment snapshot has been synced to this device yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             if (loading) {
                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-            } else if (assignments.isEmpty()) {
+            } else if (assignmentEntries.isEmpty()) {
                 Text(
-                    if (canManage) "No one has been assigned yet. Assign team members to their ministry roles for this service."
-                    else "No team members have been assigned to this service yet.",
+                    when {
+                        offlineReadOnly && lastSyncedAtMillis == null ->
+                            "No saved assignment snapshot is available on this device yet."
+                        offlineReadOnly ->
+                            "No assignments were recorded at the last successful sync."
+                        canManage ->
+                            "No one has been assigned yet. Assign team members to their ministry roles for this service."
+                        else ->
+                            "No team members have been assigned to this service yet."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                assignments.forEach { assignment ->
-                    val member = members.firstOrNull { it.memberId == assignment.memberId }
-                    val isCurrentUser = member?.userId == currentUserId
+                assignmentEntries.forEach { entry ->
+                    val assignment = entry.assignment
+                    val isCurrentUser = entry.isCurrentUser
                     ServiceAssignmentCard(
                         assignment = assignment,
-                        memberName = member?.displayName ?: "Team member",
+                        memberName = entry.memberDisplayName,
                         isCurrentUser = isCurrentUser,
-                        canManage = canManage,
-                        canRespond = allowResponses && isCurrentUser,
+                        canManage = canManage && !offlineReadOnly,
+                        canRespond = allowResponses && isCurrentUser && !offlineReadOnly,
                         saving = saving,
                         onConfirm = {
                             runAction {
@@ -187,8 +283,10 @@ fun ServiceAssignmentsSection(
             if (error.isNotBlank()) {
                 Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
-            TextButton(onClick = { reload() }, enabled = !loading && !saving) {
-                Text("Refresh assignments")
+            if (!offlineReadOnly) {
+                TextButton(onClick = { reload() }, enabled = !loading && !saving) {
+                    Text("Refresh assignments")
+                }
             }
         }
     }

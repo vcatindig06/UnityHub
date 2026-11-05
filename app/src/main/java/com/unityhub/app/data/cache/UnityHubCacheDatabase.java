@@ -12,9 +12,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
     entities = {
         CachedSongEntity.class,
         CachedServicePlanEntity.class,
-        CachedServicePlanItemEntity.class
+        CachedServicePlanItemEntity.class,
+        CachedServiceAssignmentEntity.class
     },
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 public abstract class UnityHubCacheDatabase extends RoomDatabase {
@@ -50,8 +51,31 @@ public abstract class UnityHubCacheDatabase extends RoomDatabase {
         }
     };
 
+    public static final Migration MIGRATION_2_3 = new Migration(2, 3) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS cached_service_assignments (" +
+                "id TEXT NOT NULL, owner_user_id TEXT NOT NULL, organization_id TEXT NOT NULL, " +
+                "service_plan_id TEXT NOT NULL, member_id TEXT NOT NULL, member_is_current_user INTEGER NOT NULL, " +
+                "member_display_name TEXT NOT NULL, role_label TEXT NOT NULL, " +
+                "response_status TEXT NOT NULL, responded_at TEXT, created_at TEXT NOT NULL, cached_at INTEGER NOT NULL, " +
+                "PRIMARY KEY(id, owner_user_id))"
+            );
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_cached_service_assignments_owner_user_id_organization_id_service_plan_id_role_label " +
+                "ON cached_service_assignments(owner_user_id, organization_id, service_plan_id, role_label)"
+            );
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_cached_service_assignments_owner_user_id_organization_id_service_plan_id_created_at " +
+                "ON cached_service_assignments(owner_user_id, organization_id, service_plan_id, created_at)"
+            );
+        }
+    };
+
     public abstract CachedSongDao cachedSongDao();
     public abstract CachedServicePlanDao cachedServicePlanDao();
+    public abstract CachedServiceAssignmentDao cachedServiceAssignmentDao();
 
     public static UnityHubCacheDatabase getInstance(@NonNull Context context) {
         if (instance == null) {
@@ -61,7 +85,7 @@ public abstract class UnityHubCacheDatabase extends RoomDatabase {
                         context.getApplicationContext(),
                         UnityHubCacheDatabase.class,
                         "unityhub_offline_cache.db"
-                    ).addMigrations(MIGRATION_1_2).build();
+                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build();
                 }
             }
         }
