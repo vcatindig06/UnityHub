@@ -87,9 +87,10 @@ fun HomeDashboardScreen(
     }
 
     val today = LocalDate.now()
-    val upcomingPlans = remember(plans, today) {
-        HomeDashboardRules.upcomingPlans(plans, today).take(4)
+    val allUpcomingPlans = remember(plans, today) {
+        HomeDashboardRules.upcomingPlans(plans, today)
     }
+    val upcomingPlans = allUpcomingPlans.take(4)
     val isAdmin = role == "admin"
     val greeting = when (LocalTime.now().hour) {
         in 5..11 -> "Good morning"
@@ -167,7 +168,7 @@ fun HomeDashboardScreen(
                 )
                 DashboardMetricCard(
                     label = "Upcoming",
-                    value = if (loading) "—" else upcomingPlans.size.toString(),
+                    value = if (loading) "—" else allUpcomingPlans.size.toString(),
                     modifier = Modifier.weight(1f)
                 )
                 if (isAdmin) {
