@@ -88,8 +88,7 @@ fun ServiceAssignmentsSection(
             OfflineServiceAssignmentEntry(
                 assignment = assignment,
                 memberUserId = member?.userId,
-                memberDisplayName = member?.displayName?.takeIf(String::isNotBlank) ?: "Team member",
-                memberTeamRole = member?.teamRole.orEmpty()
+                memberDisplayName = member?.displayName?.takeIf(String::isNotBlank) ?: "Team member"
             )
         }
 
@@ -106,17 +105,6 @@ fun ServiceAssignmentsSection(
             )
         }.getOrNull() ?: lastSyncedAtMillis
         showingOfflineCopy = false
-    }
-
-    fun loadOfflineCopy() {
-        scope.launch {
-            val cached = offlineCache.loadAssignments(currentUserId, organizationId, servicePlanId)
-            assignmentEntries = cached.assignments
-            lastSyncedAtMillis = cached.syncedAtMillis
-            members = emptyList()
-            suggestedRoles = emptyList()
-            showingOfflineCopy = true
-        }
     }
 
     fun reload() {
