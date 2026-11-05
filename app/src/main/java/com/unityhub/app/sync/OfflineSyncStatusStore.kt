@@ -68,7 +68,7 @@ object OfflineSyncStatusStore {
         val prefs = preferences(context)
         val prefix = "$userId:"
         val editor = prefs.edit()
-        prefs.all.keys.filter { it.startsWith(prefix) }.forEach(editor::remove)
+        prefs.all.keys.filter { it.startsWith(prefix) }.forEach { key -> editor.remove(key) }
         editor.apply()
     }
 
