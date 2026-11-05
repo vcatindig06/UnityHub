@@ -126,11 +126,14 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
     var creating by rememberSaveable { mutableStateOf(false) }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    var confirmValidationTriggered by rememberSaveable { mutableStateOf(false) }
     var notice by rememberSaveable { mutableStateOf("") }
     var noticeIsError by rememberSaveable { mutableStateOf(false) }
     var loading by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val passwordMismatch = creating && confirmInput.isNotEmpty() && passwordInput != confirmInput
+    val passwordMismatch = creating &&
+        (confirmInput.isNotEmpty() || confirmValidationTriggered) &&
+        passwordInput != confirmInput
 
     fun showNotice(message: String, isError: Boolean = false) {
         notice = message
@@ -505,6 +508,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                             enabled = !loading
                         ) {
                             notice = ""
+                            if (creating) confirmValidationTriggered = true
                             when {
                                 !SupabaseClientProvider.isConfigured ->
                                     showNotice(
@@ -585,6 +589,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                     confirmInput = ""
                                     passwordVisible = false
                                     confirmPasswordVisible = false
+                                    confirmValidationTriggered = false
                                 },
                                 enabled = !loading,
                                 contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
