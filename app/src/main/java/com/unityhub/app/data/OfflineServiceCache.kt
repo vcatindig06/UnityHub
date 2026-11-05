@@ -80,11 +80,11 @@ class OfflineServiceCache(context: Context) {
         if (userId.isBlank()) return
         withContext(Dispatchers.IO) {
             dao.clearUser(userId)
-            preferences.edit().apply {
-                preferences.all.keys
-                    .filter { it.startsWith("$userId:") }
-                    .forEach(::remove)
-            }.apply()
+            val editor = preferences.edit()
+            preferences.all.keys
+                .filter { it.startsWith("$userId:") }
+                .forEach { key -> editor.remove(key) }
+            editor.apply()
         }
     }
 
