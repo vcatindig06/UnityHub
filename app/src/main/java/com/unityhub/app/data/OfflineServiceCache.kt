@@ -33,6 +33,14 @@ class OfflineServiceCache(context: Context) {
         items: List<ServicePlanItemDto>
     ): Long = withContext(Dispatchers.IO) {
         require(userId.isNotBlank() && organizationId.isNotBlank())
+        require(plans.all { it.organizationId == organizationId }) {
+            "A service plan belongs to a different organization."
+        }
+        require(items.all { item ->
+            item.organizationId == organizationId && plans.any { plan -> plan.id == item.servicePlanId }
+        }) {
+            "A service item does not belong to this organization's cached plans."
+        }
         val timestamp = System.currentTimeMillis()
         val cachedPlans = plans.map { it.toCachedEntity(userId, timestamp) }
         val cachedItems = items.map { it.toCachedEntity(userId, timestamp) }
@@ -48,6 +56,10 @@ class OfflineServiceCache(context: Context) {
         items: List<ServicePlanItemDto>
     ) = withContext(Dispatchers.IO) {
         require(userId.isNotBlank() && organizationId.isNotBlank())
+        require(plan.organizationId == organizationId)
+        require(items.all { it.organizationId == organizationId && it.servicePlanId == plan.id }) {
+            "A setlist item does not belong to this service plan."
+        }
         val timestamp = System.currentTimeMillis()
         dao.replacePlanItems(
             plan.toCachedEntity(userId, timestamp),
