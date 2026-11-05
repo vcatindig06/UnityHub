@@ -104,6 +104,10 @@ private val Emerald500 = Color(0xFF10B981)
 private val Emerald400 = Color(0xFF34D399)
 private val Emerald300 = Color(0xFF6EE7B7)
 
+private val GoogleOAuthProvider = object : OAuthProvider() {
+    override val name: String = "google"
+}
+
 @Composable
 fun AuthScreen(onAuthenticated: () -> Unit) {
     val context = LocalContext.current
@@ -239,7 +243,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                     label = "Google",
                                     modifier = Modifier.weight(1f),
                                     enabled = !loading,
-                                    onClick = { startOAuth(OAuthProvider("google"), "Google") }
+                                    onClick = { startOAuth(GoogleOAuthProvider, "Google") }
                                 ) {
                                     Text(
                                         "G",
