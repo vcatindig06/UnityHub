@@ -709,7 +709,7 @@ private fun ServicePlanDetailScreen(
             }
         }
 
-        if (canManage) {
+        if (effectiveCanManage) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Service status", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
