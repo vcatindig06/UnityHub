@@ -47,8 +47,6 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -75,7 +73,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -122,20 +119,18 @@ private val GoogleOAuthProvider = object : OAuthProvider() {
 
 @Composable
 fun AuthScreen(onAuthenticated: () -> Unit) {
-    val context = LocalContext.current
     var displayNameInput by rememberSaveable { mutableStateOf("") }
     var emailInput by rememberSaveable { mutableStateOf("") }
     var passwordInput by rememberSaveable { mutableStateOf("") }
     var confirmInput by rememberSaveable { mutableStateOf("") }
     var creating by rememberSaveable { mutableStateOf(false) }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
-    var keepSignedIn by rememberSaveable {
-        mutableStateOf(SupabaseClientProvider.readRememberSession(context))
-    }
+    var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
     var notice by rememberSaveable { mutableStateOf("") }
     var noticeIsError by rememberSaveable { mutableStateOf(false) }
     var loading by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val passwordMismatch = creating && confirmInput.isNotEmpty() && passwordInput != confirmInput
 
     fun showNotice(message: String, isError: Boolean = false) {
         notice = message
@@ -150,7 +145,6 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
             showNotice("UnityHub sign-in is not configured yet. Please contact your administrator.", true)
             return
         }
-        SupabaseClientProvider.setRememberSession(context, keepSignedIn)
         scope.launch {
             loading = true
             notice = ""
@@ -182,7 +176,16 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                 modifier = Modifier
                     .weight(if (wideLayout) 1.04f else 1f)
                     .fillMaxHeight()
-                    .background(Color.White)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White,
+                                Color(0xFFF7FCFA),
+                                Color(0xFFF1F8F5),
+                                Color.White
+                            )
+                        )
+                    )
             ) {
                 Row(
                     modifier = Modifier
@@ -383,16 +386,43 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                     keyboardType = KeyboardType.Password,
                                     imeAction = ImeAction.Done
                                 ),
-                                visualTransformation = PasswordVisualTransformation(),
+                                visualTransformation = if (confirmPasswordVisible) {
+                                    VisualTransformation.None
+                                } else {
+                                    PasswordVisualTransformation()
+                                },
+                                trailingContent = {
+                                    IconButton(
+                                        onClick = { confirmPasswordVisible = !confirmPasswordVisible },
+                                        enabled = !loading,
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            if (confirmPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                            contentDescription = if (confirmPasswordVisible) "Hide confirm password" else "Show confirm password",
+                                            tint = if (passwordMismatch) Color(0xFFDC2626) else Slate400,
+                                            modifier = Modifier.size(19.dp)
+                                        )
+                                    }
+                                },
+                                isError = passwordMismatch,
                                 enabled = !loading
                             )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "Use at least 12 characters and no more than 72 UTF-8 bytes.",
-                                color = Slate500,
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp
-                            )
+                            if (passwordMismatch) {
+                                Text(
+                                    "Passwords do not match. Re-enter the same password.",
+                                    color = Color(0xFFDC2626),
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp
+                                )
+                            } else {
+                                Text(
+                                    "Use at least 12 characters and no more than 72 UTF-8 bytes.",
+                                    color = Slate500,
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
                         }
 
                         if (!creating) {
@@ -402,29 +432,13 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(
-                                        checked = keepSignedIn,
-                                        onCheckedChange = {
-                                            keepSignedIn = it
-                                            SupabaseClientProvider.setRememberSession(context, it)
-                                        },
-                                        enabled = !loading,
-                                        colors = CheckboxDefaults.colors(
-                                            checkedColor = Emerald600,
-                                            uncheckedColor = Slate400,
-                                            checkmarkColor = Color.White
-                                        ),
-                                        modifier = Modifier.size(34.dp)
-                                    )
-                                    Spacer(Modifier.width(5.dp))
-                                    Text(
-                                        "Keep me signed in",
-                                        color = Slate600,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
+                                Text(
+                                    "Your session stays active until you sign out.",
+                                    color = Slate500,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
                                 TextButton(
                                     onClick = {
                                         notice = ""
@@ -507,12 +521,11 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                         true
                                     )
                                 creating && passwordInput != confirmInput ->
-                                    showNotice("The passwords do not match.", true)
+                                    showNotice("Passwords do not match. Re-enter the same password.", true)
                                 passwordInput.isBlank() ->
                                     showNotice("Enter your password.", true)
                                 else -> scope.launch {
                                     loading = true
-                                    SupabaseClientProvider.setRememberSession(context, keepSignedIn)
                                     try {
                                         if (creating) {
                                             SupabaseClientProvider.client.auth.signUpWith(Email) {
@@ -537,13 +550,12 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                             }
                                             onAuthenticated()
                                         }
-                                    } catch (_: Exception) {
+                                    } catch (exception: Exception) {
                                         showNotice(
-                                            if (creating) {
-                                                "We could not create your account. Check your details and connection."
-                                            } else {
-                                                "Sign-in failed. Check your email, password, and email confirmation."
-                                            },
+                                            authFailureMessage(
+                                                errorMessage = exception.message.orEmpty(),
+                                                creatingAccount = creating
+                                            ),
                                             true
                                         )
                                     } finally {
@@ -572,6 +584,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                     passwordInput = ""
                                     confirmInput = ""
                                     passwordVisible = false
+                                    confirmPasswordVisible = false
                                 },
                                 enabled = !loading,
                                 contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
@@ -685,6 +698,7 @@ private fun AuthField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingContent: (@Composable () -> Unit)? = null,
+    isError: Boolean = false,
     enabled: Boolean = true
 ) {
     val shape = RoundedCornerShape(12.dp)
@@ -694,7 +708,7 @@ private fun AuthField(
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             label,
-            color = Slate700,
+            color = if (isError) Color(0xFFDC2626) else Slate700,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -703,7 +717,7 @@ private fun AuthField(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(
-                    if (focused) Modifier.border(
+                    if (focused && !isError) Modifier.border(
                         4.dp,
                         Emerald500.copy(alpha = 0.12f),
                         shape
@@ -713,7 +727,7 @@ private fun AuthField(
                 .background(if (focused) Color.White else Slate50.copy(alpha = 0.78f))
                 .border(
                     width = 1.dp,
-                    color = if (focused) Emerald500 else Slate200,
+                    color = if (isError) Color(0xFFDC2626) else if (focused) Emerald500 else Slate200,
                     shape = shape
                 )
                 .padding(horizontal = 14.dp, vertical = 14.dp),
@@ -812,7 +826,7 @@ private fun GradientAuthButton(
 private fun BrandPanel(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .background(Color(0xFF07080A))
+            .background(Color(0xFF071B17))
             .clip(RoundedCornerShape(0.dp))
     ) {
         WarmAuroraBackground(Modifier.fillMaxSize())
@@ -886,7 +900,7 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                             .background(
                                 listOf(Emerald700, Emerald600, Emerald500)[index]
                             )
-                            .border(2.dp, Color(0xFF07080A), CircleShape),
+                            .border(2.dp, Color(0xFF071B17), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -916,13 +930,13 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
 }
 
 /**
- * Native Compose equivalent of the supplied animated warm-aurora CSS background.
+ * Native Compose aurora using UnityHub's emerald, teal, and blue-green brand palette.
  * Each light blade drifts and breathes independently behind the brand-panel content.
- * The mobile sign-in form remains light and uncluttered.
+ * The mobile form receives a subtle matching green gradient for a consistent experience.
  */
 @Composable
 private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "unityhub-warm-aurora")
+    val transition = rememberInfiniteTransition(label = "unityhub-brand-aurora")
 
     val slowDrift by transition.animateFloat(
         initialValue = 0f,
@@ -967,9 +981,9 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
         val panelHeight = size.height
         val twoPi = (2.0 * PI).toFloat()
 
-        val crimson = Color(0xFFFF2F3A)
-        val coral = Color(0xFFFF6B4A)
-        val amber = Color(0xFFFFB347)
+        val emerald = Color(0xFF28745D)
+        val teal = Color(0xFF35A89A)
+        val blueGreen = Color(0xFF5B9EAE)
 
         fun drawBlade(
             start: Offset,
@@ -980,10 +994,10 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
             val bladeBrush = Brush.linearGradient(
                 colorStops = arrayOf(
                     0.00f to Color.Transparent,
-                    0.13f to crimson.copy(alpha = 0.10f),
-                    0.36f to crimson.copy(alpha = 0.48f),
-                    0.58f to coral.copy(alpha = 0.43f),
-                    0.79f to amber.copy(alpha = 0.23f),
+                    0.13f to emerald.copy(alpha = 0.12f),
+                    0.36f to emerald.copy(alpha = 0.48f),
+                    0.58f to teal.copy(alpha = 0.43f),
+                    0.79f to blueGreen.copy(alpha = 0.25f),
                     1.00f to Color.Transparent
                 ),
                 start = start,
@@ -1100,7 +1114,7 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
             brush = Brush.radialGradient(
                 colors = listOf(
                     Color.Transparent,
-                    Color(0xA807080A)
+                    Color(0xB8071B17)
                 ),
                 center = Offset(panelWidth * 0.52f, panelHeight * 0.48f),
                 radius = maxOf(panelWidth, panelHeight) * 0.78f
