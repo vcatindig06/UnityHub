@@ -28,6 +28,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.unityhub.app.data.DevicePushTokenRepository
+import com.unityhub.app.data.OfflineServiceCache
+import com.unityhub.app.data.OfflineSongCache
+import com.unityhub.app.data.OfflineWorkspaceCache
 import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.push.UnityHubFirebase
 import com.unityhub.app.push.UnityHubFirebaseMessagingService
@@ -139,6 +142,11 @@ class MainActivity : ComponentActivity() {
                                         )
                                         if (!userId.isNullOrBlank() && !token.isNullOrBlank()) {
                                             DevicePushTokenRepository(client).unregisterToken(userId, token)
+                                        }
+                                        if (!userId.isNullOrBlank()) {
+                                            OfflineSongCache(applicationContext).clearUser(userId)
+                                            OfflineServiceCache(applicationContext).clearUser(userId)
+                                            OfflineWorkspaceCache(applicationContext).clear(userId)
                                         }
                                     }
                                     runCatching { SupabaseClientProvider.client.auth.signOut() }
