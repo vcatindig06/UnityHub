@@ -139,7 +139,7 @@ fun HomeDashboardScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "${roleLabel(role)} workspace",
+                            "${dashboardRoleLabel(role)} workspace",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f)
                         )
@@ -428,4 +428,14 @@ private fun dashboardDateTimeLabel(dateValue: String?, timeValue: String?, today
         }.getOrNull()
     }
     return if (timeLabel.isNullOrBlank()) dateLabel else "$dateLabel · $timeLabel"
+}
+
+
+private fun dashboardRoleLabel(role: String?): String = when (role) {
+    "admin" -> "Administrator"
+    "worship_leader" -> "Worship Leader"
+    "song_editor" -> "Song Editor"
+    "viewer" -> "Viewer"
+    "team_member" -> "Team Member"
+    else -> "Team Member"
 }
