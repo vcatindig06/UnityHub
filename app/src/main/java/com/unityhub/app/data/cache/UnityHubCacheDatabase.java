@@ -57,7 +57,7 @@ public abstract class UnityHubCacheDatabase extends RoomDatabase {
             database.execSQL(
                 "CREATE TABLE IF NOT EXISTS cached_service_assignments (" +
                 "id TEXT NOT NULL, owner_user_id TEXT NOT NULL, organization_id TEXT NOT NULL, " +
-                "service_plan_id TEXT NOT NULL, member_id TEXT NOT NULL, member_user_id TEXT, " +
+                "service_plan_id TEXT NOT NULL, member_id TEXT NOT NULL, member_is_current_user INTEGER NOT NULL, " +
                 "member_display_name TEXT NOT NULL, role_label TEXT NOT NULL, " +
                 "response_status TEXT NOT NULL, responded_at TEXT, created_at TEXT NOT NULL, cached_at INTEGER NOT NULL, " +
                 "PRIMARY KEY(id, owner_user_id))"
