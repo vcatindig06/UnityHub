@@ -60,6 +60,7 @@ import com.unityhub.app.data.OrganizationJoinRequestDto
 import com.unityhub.app.data.OrganizationRepository
 import com.unityhub.app.data.OrganizationWorkspace
 import com.unityhub.app.data.SupabaseClientProvider
+import com.unityhub.app.sync.OfflineSyncScheduler
 import com.unityhub.app.push.UnityHubPushNavigation
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
@@ -148,6 +149,15 @@ fun UnityHubApp(
             loading = false
         } else {
             reload()
+        }
+    }
+
+    LaunchedEffect(userId, workspace?.organization?.id) {
+        val activeOrganizationId = workspace?.organization?.id
+        if (userId.isNotBlank() && !activeOrganizationId.isNullOrBlank()) {
+            OfflineSyncScheduler.schedule(context, userId, activeOrganizationId)
+        } else if (workspace != null && userId.isNotBlank()) {
+            OfflineSyncScheduler.cancel(context, userId)
         }
     }
 

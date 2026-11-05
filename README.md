@@ -90,6 +90,7 @@ Implemented workflows include:
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
 - Read-only offline service plans, ordered setlists (including saved ChordPro snapshots), and the last-synced service team assignments with their response statuses. Offline assignment data is scoped to the signed-in user, and assignment creation, removal, and response updates remain online-only.
+- Automatic background refresh of the signed-in user's song library, service plans/setlists, and service assignment snapshots. WorkManager runs after a workspace is opened and periodically when a network connection is available; background sync is read-only and scoped to the saved user and active organization.
 - A personal Home dashboard section for the signed-in member's upcoming service assignments, with role, service date, response status, and quick Confirm / Can't serve actions.
 - An administrator and worship-leader assignment overview for upcoming services, with response totals, member/role/service search, and filters for awaiting, confirmed, and unable-to-serve replies.
 
@@ -98,7 +99,7 @@ The app uses Supabase Row Level Security for authorization. Authorization decisi
 ## Planned engineering direction
 
 - Separate domain logic from Compose screens and Supabase data access.
-- Add WorkManager for reliable background synchronization and safe queued edits.
+- Continue the read-only WorkManager background refresh for offline cache data. Queued offline writes remain a separate future feature.
 - Add automated unit, integration, and UI tests as workflows are implemented.
 - Add observability, accessibility checks, and release signing before production distribution.
 
