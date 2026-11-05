@@ -46,15 +46,15 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private var pendingPushNavigation by mutableStateOf<UnityHubPushNavigation?>(null)
     private var passwordRecoveryMode by mutableStateOf(false)
+    private var passwordRecoverySessionReady by mutableStateOf(false)
+    private var passwordRecoveryFailed by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         SupabaseClientProvider.initializeRememberSession(this)
         capturePushNavigation(intent)
         capturePasswordRecovery(intent)
-        if (SupabaseClientProvider.isConfigured) {
-            runCatching { SupabaseClientProvider.client.handleDeeplinks(intent) }
-        }
+        handleAuthenticationDeepLink(intent)
         UnityHubNotificationManager.createChannel(this)
 
         setContent {
@@ -116,17 +116,11 @@ class MainActivity : ComponentActivity() {
                         }
                     } else if (passwordRecoveryMode) {
                         PasswordRecoveryScreen(
-                            canUpdatePassword = authenticated,
+                            isLoading = !passwordRecoveryFailed &&
+                                (!passwordRecoverySessionReady || !authenticated),
+                            canUpdatePassword = passwordRecoverySessionReady && authenticated,
                             onPasswordUpdated = { passwordRecoveryMode = false },
-                            onBackToSignIn = {
-                                scope.launch {
-                                    if (authenticated && SupabaseClientProvider.isConfigured) {
-                                        runCatching { SupabaseClientProvider.client.auth.signOut() }
-                                    }
-                                    authenticated = false
-                                    passwordRecoveryMode = false
-                                }
-                            }
+                            onBackToSignIn = { passwordRecoveryMode = false }
                         )
                     } else if (authenticated) {
                         UnityHubApp(
@@ -206,10 +200,42 @@ class MainActivity : ComponentActivity() {
     private fun capturePasswordRecovery(source: Intent?) {
         val deepLink = source?.data ?: return
         if (
-            deepLink.getQueryParameter("mode") == "recovery" ||
-            deepLink.getQueryParameter("type") == "recovery"
+            deepLink.scheme == "unityhub" &&
+            deepLink.host == "auth" &&
+            (
+                deepLink.getQueryParameter("mode") == "recovery" ||
+                    deepLink.getQueryParameter("type") == "recovery"
+            )
         ) {
             passwordRecoveryMode = true
+            passwordRecoverySessionReady = false
+            passwordRecoveryFailed = false
+        }
+    }
+
+    private fun handleAuthenticationDeepLink(source: Intent?) {
+        val deepLinkIntent = source ?: return
+        if (!passwordRecoveryMode) {
+            if (SupabaseClientProvider.isConfigured) {
+                runCatching { SupabaseClientProvider.client.handleDeeplinks(deepLinkIntent) }
+            }
+            return
+        }
+
+        val recoveryCode = deepLinkIntent.data?.getQueryParameter("code")
+        if (!SupabaseClientProvider.isConfigured || recoveryCode.isNullOrBlank()) {
+            passwordRecoveryFailed = true
+            return
+        }
+
+        runCatching {
+            SupabaseClientProvider.client.handleDeeplinks(
+                deepLinkIntent,
+                onSessionSuccess = { passwordRecoverySessionReady = true },
+                onError = { passwordRecoveryFailed = true }
+            )
+        }.onFailure {
+            passwordRecoveryFailed = true
         }
     }
 
@@ -238,8 +264,6 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         capturePushNavigation(intent)
         capturePasswordRecovery(intent)
-        if (SupabaseClientProvider.isConfigured) {
-            runCatching { SupabaseClientProvider.client.handleDeeplinks(intent) }
-        }
+        handleAuthenticationDeepLink(intent)
     }
 }

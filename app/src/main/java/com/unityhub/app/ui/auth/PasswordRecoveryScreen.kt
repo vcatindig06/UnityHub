@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun PasswordRecoveryScreen(
+    isLoading: Boolean,
     canUpdatePassword: Boolean,
     onPasswordUpdated: () -> Unit,
     onBackToSignIn: () -> Unit
@@ -67,6 +69,23 @@ fun PasswordRecoveryScreen(
                 )
 
                 when {
+                    isLoading -> {
+                        Text(
+                            "Verifying your recovery link",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "UnityHub is securely checking the password-reset link.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        CircularProgressIndicator(
+                            modifier = Modifier.height(24.dp).width(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+
                     !canUpdatePassword -> {
                         Text(
                             "Recovery link unavailable",
@@ -74,7 +93,7 @@ fun PasswordRecoveryScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "This password-reset link may have expired or already been used. Return to sign in and request a new link.",
+                            "This password-reset link may have expired or already been used. Return to UnityHub. If you are not signed in, request a new link from the sign-in screen.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -82,7 +101,7 @@ fun PasswordRecoveryScreen(
                             onClick = onBackToSignIn,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Back to sign in")
+                            Text("Return to UnityHub")
                         }
                     }
 
