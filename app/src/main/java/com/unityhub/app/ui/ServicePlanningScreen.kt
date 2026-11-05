@@ -228,9 +228,17 @@ fun ServicePlanningScreen(
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Service planning", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Service planning",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
                         Text(
                             "${plans.size} planned services · Build and organize your setlists",
                             style = MaterialTheme.typography.bodyMedium,
@@ -238,16 +246,17 @@ fun ServicePlanningScreen(
                         )
                     }
                     if (canManage) {
-                    Button(
-                        onClick = {
-                            editingPlan = null
-                            error = ""
-                            editorOpen = true
-                        },
-                        enabled = !saving
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Text("New")
+                        Button(
+                            onClick = {
+                                editingPlan = null
+                                error = ""
+                                editorOpen = true
+                            },
+                            enabled = !saving
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Text("New")
+                        }
                     }
                 }
                 if (usingOfflineCopy) {
@@ -258,7 +267,10 @@ fun ServicePlanningScreen(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer
                         )
                     ) {
-                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
                             Text(
                                 "Offline copy · Read only",
                                 fontWeight = FontWeight.SemiBold,
@@ -282,10 +294,9 @@ fun ServicePlanningScreen(
                         }
                     }
                 }
-            }
-            if (error.isNotBlank() && !editorOpen) {
-                Spacer(Modifier.height(8.dp))
-                Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                if (error.isNotBlank() && !editorOpen) {
+                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
 
