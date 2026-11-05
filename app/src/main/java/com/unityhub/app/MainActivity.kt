@@ -141,12 +141,14 @@ class MainActivity : ComponentActivity() {
                                             null
                                         )
                                         if (!userId.isNullOrBlank() && !token.isNullOrBlank()) {
-                                            DevicePushTokenRepository(client).unregisterToken(userId, token)
+                                            runCatching {
+                                                DevicePushTokenRepository(client).unregisterToken(userId, token)
+                                            }
                                         }
                                         if (!userId.isNullOrBlank()) {
-                                            OfflineSongCache(applicationContext).clearUser(userId)
-                                            OfflineServiceCache(applicationContext).clearUser(userId)
-                                            OfflineWorkspaceCache(applicationContext).clear(userId)
+                                            runCatching { OfflineSongCache(applicationContext).clearUser(userId) }
+                                            runCatching { OfflineServiceCache(applicationContext).clearUser(userId) }
+                                            runCatching { OfflineWorkspaceCache(applicationContext).clear(userId) }
                                         }
                                     }
                                     runCatching { SupabaseClientProvider.client.auth.signOut() }
