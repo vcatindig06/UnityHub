@@ -42,6 +42,34 @@ class ChordProParserTest {
     }
 
     @Test
+    fun parsesTempoAndTimeSignatureMetadataForImport() {
+        val document = ChordProParser.parse(
+            """
+            {tempo: 74}
+            {time: 6/8}
+            {start_of_intro}
+            [G]Instrumental
+            {end_of_intro}
+            {start_of_refrain}
+            [C]Sing together
+            {end_of_refrain}
+            """.trimIndent()
+        )
+
+        assertEquals(74, document.tempo)
+        assertEquals("6/8", document.timeSignature)
+        assertTrue(document.lines.any { it.section == "Intro" })
+        assertTrue(document.lines.any { it.section == "Chorus" })
+    }
+
+    @Test
+    fun ignoresOutOfRangeTempoAndInvalidTimeSignature() {
+        val document = ChordProParser.parse("{tempo: 999}\n{time: fast}")
+        assertEquals(null, document.tempo)
+        assertEquals(null, document.timeSignature)
+    }
+
+    @Test
     fun transposesChordRootsAndSlashBassNotes() {
         assertEquals("A", ChordTransposer.transposeChord("G", 2))
         assertEquals("A/C#", ChordTransposer.transposeChord("G/B", 2))

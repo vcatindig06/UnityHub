@@ -16,17 +16,22 @@ data class ChordProDocument(
     val title: String? = null,
     val artist: String? = null,
     val key: String? = null,
-    val lines: List<ChordProLine>
+    val lines: List<ChordProLine>,
+    val tempo: Int? = null,
+    val timeSignature: String? = null
 )
 
 object ChordProParser {
     private val inlineChord = Regex("\\[([^\\]]+)]")
     private val directive = Regex("^\\{\\s*([a-zA-Z0-9_]+)\\s*(?::\\s*(.*?))?\\s*}$")
+    private val timeSignaturePattern = Regex("^\\d{1,2}/\\d{1,2}$")
 
     fun parse(source: String): ChordProDocument {
         var title: String? = null
         var artist: String? = null
         var key: String? = null
+        var tempo: Int? = null
+        var timeSignature: String? = null
         var activeSection: String? = null
         val lines = mutableListOf<ChordProLine>()
 
@@ -38,26 +43,34 @@ object ChordProParser {
                 val value = match.groupValues[2].trim()
                 when (name) {
                     "title", "t" -> title = value.takeIf(String::isNotBlank)
-                    "artist", "subtitle", "st" -> if (name != "subtitle" && name != "st") artist = value.takeIf(String::isNotBlank)
+                    "artist", "subtitle", "st" -> if (name != "subtitle" && name != "st") {
+                        artist = value.takeIf(String::isNotBlank)
+                    }
                     "key" -> key = value.takeIf(String::isNotBlank)
-                    "start_of_verse", "sov" -> {
-                        activeSection = "Verse"
-                        lines += ChordProLine("", section = activeSection)
+                    "tempo" -> {
+                        val parsedTempo = Regex("\\d{1,3}").find(value)?.value?.toIntOrNull()
+                        tempo = parsedTempo?.takeIf { it in 20..300 }
                     }
-                    "start_of_chorus", "soc" -> {
-                        activeSection = "Chorus"
-                        lines += ChordProLine("", section = activeSection)
+                    "time", "timesig", "time_signature" -> {
+                        timeSignature = value.takeIf { timeSignaturePattern.matches(it) }
                     }
-                    "start_of_bridge" -> {
-                        activeSection = "Bridge"
-                        lines += ChordProLine("", section = activeSection)
-                    }
-                    "start_of_pre_chorus" -> {
-                        activeSection = "Pre-Chorus"
-                        lines += ChordProLine("", section = activeSection)
-                    }
-                    "end_of_verse", "eov", "end_of_chorus", "eoc", "end_of_bridge",
-                    "end_of_pre_chorus", "end_of_tab", "end_of_grid" -> activeSection = null
+                    "start_of_verse", "sov" -> addSection("Verse", lines) { activeSection = it }
+                    "start_of_chorus", "start_of_refrain", "soc" ->
+                        addSection("Chorus", lines) { activeSection = it }
+                    "start_of_bridge", "sob" -> addSection("Bridge", lines) { activeSection = it }
+                    "start_of_pre_chorus" -> addSection("Pre-Chorus", lines) { activeSection = it }
+                    "start_of_intro" -> addSection("Intro", lines) { activeSection = it }
+                    "start_of_outro" -> addSection("Outro", lines) { activeSection = it }
+                    "start_of_interlude" -> addSection("Interlude", lines) { activeSection = it }
+                    "start_of_solo" -> addSection("Solo", lines) { activeSection = it }
+                    "start_of_tab" -> addSection("Tab", lines) { activeSection = it }
+                    "start_of_grid" -> addSection("Chord Grid", lines) { activeSection = it }
+                    "start_of_instruction" -> addSection("Instruction", lines) { activeSection = it }
+                    "start_of_section" -> addSection(value.ifBlank { "Section" }, lines) { activeSection = it }
+                    "end_of_verse", "eov", "end_of_chorus", "eoc", "end_of_refrain",
+                    "end_of_bridge", "end_of_pre_chorus", "end_of_intro", "end_of_outro",
+                    "end_of_interlude", "end_of_solo", "end_of_tab", "end_of_grid",
+                    "end_of_instruction", "end_of_section" -> activeSection = null
                     "comment", "c" -> if (value.isNotBlank()) {
                         lines += ChordProLine(value, section = activeSection, comment = true)
                     }
@@ -82,7 +95,23 @@ object ChordProParser {
             }
         }
 
-        return ChordProDocument(title, artist, key, lines)
+        return ChordProDocument(
+            title = title,
+            artist = artist,
+            key = key,
+            lines = lines,
+            tempo = tempo,
+            timeSignature = timeSignature
+        )
+    }
+
+    private inline fun addSection(
+        label: String,
+        lines: MutableList<ChordProLine>,
+        updateActiveSection: (String) -> Unit
+    ) {
+        updateActiveSection(label)
+        lines += ChordProLine("", section = label)
     }
 }
 
