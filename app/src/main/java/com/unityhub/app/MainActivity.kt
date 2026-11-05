@@ -33,6 +33,7 @@ import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.OfflineWorkspaceCache
 import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.push.UnityHubFirebase
+import com.unityhub.app.sync.OfflineSyncScheduler
 import com.unityhub.app.push.UnityHubFirebaseMessagingService
 import com.unityhub.app.push.UnityHubNotificationManager
 import com.unityhub.app.push.UnityHubPushNavigation
@@ -146,6 +147,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                         if (!userId.isNullOrBlank()) {
+                                            OfflineSyncScheduler.cancel(applicationContext, userId)
                                             runCatching { OfflineSongCache(applicationContext).clearUser(userId) }
                                             runCatching { OfflineServiceCache(applicationContext).clearUser(userId) }
                                             runCatching { OfflineWorkspaceCache(applicationContext).clear(userId) }
