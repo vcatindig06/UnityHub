@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -920,7 +921,7 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                 listOf("T", "S", "P").forEachIndexed { index, letter ->
                     Box(
                         modifier = Modifier
-                            .padding(end = if (index == 0) (-5).dp else 0.dp)
+                            .offset(x = if (index == 0) 0.dp else (-5).dp)
                             .size(35.dp)
                             .clip(CircleShape)
                             .background(
