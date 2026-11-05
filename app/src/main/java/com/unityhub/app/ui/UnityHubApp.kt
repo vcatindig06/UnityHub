@@ -703,10 +703,24 @@ private fun WorkspaceDashboard(
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         when (selectedTab) {
-            0 -> HomeScreen(
+            0 -> HomeDashboardScreen(
+                organizationId = organization.id,
                 organizationName = organization.name,
+                role = workspace.role,
                 memberCount = workspace.members.size,
                 pendingCount = workspace.pendingRequests.size,
+                onOpenSongs = { selectedTab = 1 },
+                onOpenServices = {
+                    requestedServicePlanId = null
+                    serviceNavigationRequestId = null
+                    selectedTab = 2
+                },
+                onOpenServicePlan = { planId ->
+                    requestedServicePlanId = planId
+                    serviceNavigationRequestId = "dashboard-$planId"
+                    selectedTab = 2
+                },
+                onOpenTeam = { selectedTab = 4 },
                 modifier = Modifier.padding(innerPadding)
             )
             1 -> SongLibraryScreen(
