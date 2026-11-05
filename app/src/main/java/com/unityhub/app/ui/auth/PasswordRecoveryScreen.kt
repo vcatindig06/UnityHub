@@ -13,11 +13,16 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -44,10 +50,13 @@ fun PasswordRecoveryScreen(
 ) {
     var newPassword by rememberSaveable { mutableStateOf("") }
     var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
     var message by rememberSaveable { mutableStateOf("") }
     var saving by rememberSaveable { mutableStateOf(false) }
     var completed by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val passwordMismatch = confirmPassword.isNotEmpty() && confirmPassword != newPassword
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -145,7 +154,20 @@ fun PasswordRecoveryScreen(
                             label = { Text("New password") },
                             singleLine = true,
                             enabled = !saving,
-                            visualTransformation = PasswordVisualTransformation(),
+                            visualTransformation = if (passwordVisible) {
+                                androidx.compose.ui.text.input.VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                            trailingIcon = {
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                    )
+                                }
+                            },
+                            isError = newPassword.isNotEmpty() && !isValidUnityHubPassword(newPassword),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
                         )
                         OutlinedTextField(
@@ -158,9 +180,30 @@ fun PasswordRecoveryScreen(
                             label = { Text("Confirm new password") },
                             singleLine = true,
                             enabled = !saving,
-                            visualTransformation = PasswordVisualTransformation(),
+                            visualTransformation = if (confirmPasswordVisible) {
+                                androidx.compose.ui.text.input.VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                            trailingIcon = {
+                                IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                                    Icon(
+                                        if (confirmPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                        contentDescription = if (confirmPasswordVisible) "Hide confirm password" else "Show confirm password",
+                                        tint = if (passwordMismatch) Color(0xFFDC2626) else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            isError = passwordMismatch,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
                         )
+                        if (passwordMismatch) {
+                            Text(
+                                "Passwords do not match.",
+                                color = Color(0xFFDC2626),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                         Text(
                             "Use at least 12 characters and no more than 72 UTF-8 bytes.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
