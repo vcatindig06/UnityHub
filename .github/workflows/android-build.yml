@@ -41,7 +41,7 @@ jobs:
           mkdir -p .wrapper-bootstrap
           printf "rootProject.name = 'unityhub-wrapper-bootstrap'\\n" > .wrapper-bootstrap/settings.gradle
           : > .wrapper-bootstrap/build.gradle
-          gradle --no-daemon -p .wrapper-bootstrap wrapper --gradle-version 9.7.0 --distribution-type bin
+          gradle --no-daemon -p .wrapper-bootstrap wrapper --gradle-version 9.7.0 --distribution-type bin --no-validate-url
           mkdir -p gradle/wrapper
           cp .wrapper-bootstrap/gradlew ./gradlew
           cp .wrapper-bootstrap/gradlew.bat ./gradlew.bat
