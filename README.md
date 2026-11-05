@@ -48,7 +48,7 @@ Add these entries to the root local.properties file, preserving the sdk.dir line
 
 Use only the Supabase publishable key in this Android app. Never use a service-role or secret key in a mobile client.
 
-Add unityhub://auth to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs for email confirmation callbacks.
+Add `unityhub://auth` and `unityhub://auth?mode=recovery` to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs. The first handles email confirmation and OAuth callbacks; the second returns password-reset links to the in-app password update screen.
 
 ### GitHub Actions configuration
 

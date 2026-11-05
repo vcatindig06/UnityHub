@@ -438,7 +438,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                                 try {
                                                     SupabaseClientProvider.client.auth.resetPasswordForEmail(
                                                         email = emailInput.trim(),
-                                                        redirectUrl = "unityhub://auth"
+                                                        redirectUrl = "unityhub://auth?mode=recovery"
                                                     )
                                                     showNotice(
                                                         "If an account exists for that email, a password reset link has been sent."
@@ -501,10 +501,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                     showNotice("Enter your name using 2 to 80 characters.", true)
                                 !validEmail() ->
                                     showNotice("Enter a valid email address.", true)
-                                creating && (
-                                    passwordInput.length < 12 ||
-                                        passwordInput.encodeToByteArray().size > 72
-                                    ) ->
+                                creating && !isValidUnityHubPassword(passwordInput) ->
                                     showNotice(
                                         "Use at least 12 characters and no more than 72 UTF-8 bytes.",
                                         true

@@ -35,6 +35,7 @@ import com.unityhub.app.push.UnityHubNotificationManager
 import com.unityhub.app.push.UnityHubPushNavigation
 import com.unityhub.app.ui.UnityHubApp
 import com.unityhub.app.ui.auth.AuthScreen
+import com.unityhub.app.ui.auth.PasswordRecoveryScreen
 import com.unityhub.app.ui.theme.UnityHubTheme
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.handleDeeplinks
@@ -44,11 +45,13 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var pendingPushNavigation by mutableStateOf<UnityHubPushNavigation?>(null)
+    private var passwordRecoveryMode by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         SupabaseClientProvider.initializeRememberSession(this)
         capturePushNavigation(intent)
+        capturePasswordRecovery(intent)
         if (SupabaseClientProvider.isConfigured) {
             runCatching { SupabaseClientProvider.client.handleDeeplinks(intent) }
         }
@@ -89,8 +92,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                LaunchedEffect(authenticated) {
-                    if (authenticated && UnityHubFirebase.initialize(this@MainActivity)) {
+                LaunchedEffect(authenticated, passwordRecoveryMode) {
+                    if (authenticated && !passwordRecoveryMode && UnityHubFirebase.initialize(this@MainActivity)) {
                         syncFcmToken()
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                             ContextCompat.checkSelfPermission(
@@ -111,6 +114,20 @@ class MainActivity : ComponentActivity() {
                         ) {
                             CircularProgressIndicator()
                         }
+                    } else if (passwordRecoveryMode) {
+                        PasswordRecoveryScreen(
+                            canUpdatePassword = authenticated,
+                            onPasswordUpdated = { passwordRecoveryMode = false },
+                            onBackToSignIn = {
+                                scope.launch {
+                                    if (authenticated && SupabaseClientProvider.isConfigured) {
+                                        runCatching { SupabaseClientProvider.client.auth.signOut() }
+                                    }
+                                    authenticated = false
+                                    passwordRecoveryMode = false
+                                }
+                            }
+                        )
                     } else if (authenticated) {
                         UnityHubApp(
                             pushNavigation = pendingPushNavigation,
@@ -186,6 +203,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun capturePasswordRecovery(source: Intent?) {
+        val deepLink = source?.data ?: return
+        if (
+            deepLink.getQueryParameter("mode") == "recovery" ||
+            deepLink.getQueryParameter("type") == "recovery"
+        ) {
+            passwordRecoveryMode = true
+        }
+    }
+
     private fun syncFcmToken() {
         if (!UnityHubFirebase.isConfigured || !SupabaseClientProvider.isConfigured) return
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
@@ -210,6 +237,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         capturePushNavigation(intent)
+        capturePasswordRecovery(intent)
         if (SupabaseClientProvider.isConfigured) {
             runCatching { SupabaseClientProvider.client.handleDeeplinks(intent) }
         }
