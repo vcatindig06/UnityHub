@@ -116,9 +116,9 @@ fun ServicePlanningScreen(
                         }
                         plans = onlinePlans
                         usingOfflineCopy = false
-                        lastSyncedAtMillis = offlineCache.saveServiceData(
-                            userId, organizationId, onlinePlans, onlineItems
-                        )
+                        lastSyncedAtMillis = runCatching {
+                            offlineCache.saveServiceData(userId, organizationId, onlinePlans, onlineItems)
+                        }.getOrNull()
                     } catch (_: Exception) {
                         val cached = offlineCache.loadServicePlans(userId, organizationId)
                         if (cached.plans.isNotEmpty()) {
@@ -157,9 +157,9 @@ fun ServicePlanningScreen(
                 }
                 plans = loadedPlans
                 usingOfflineCopy = false
-                lastSyncedAtMillis = offlineCache.saveServiceData(
-                    userId, organizationId, loadedPlans, loadedItems
-                )
+                lastSyncedAtMillis = runCatching {
+                    offlineCache.saveServiceData(userId, organizationId, loadedPlans, loadedItems)
+                }.getOrNull()
                 hasLoadedPlans = true
                 selectedPlan = loadedPlans.firstOrNull { it.id == openServicePlanId }
                 error = if (selectedPlan == null) {
@@ -497,9 +497,11 @@ private fun ServicePlanDetailScreen(
                     try {
                         items = repository.loadPlanItems(plan.id, organizationId)
                         songs = repository.loadSongs(organizationId)
-                        offlineCache.saveServicePlan(
-                            currentUserId, organizationId, plan.copy(status = currentStatus), items
-                        )
+                        runCatching {
+                            offlineCache.saveServicePlan(
+                                currentUserId, organizationId, plan.copy(status = currentStatus), items
+                            )
+                        }
                         usingOfflineCopy = false
                     } catch (_: Exception) {
                         items = offlineCache.loadPlanItems(currentUserId, organizationId, plan.id)
