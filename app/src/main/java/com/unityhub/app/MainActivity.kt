@@ -51,7 +51,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        SupabaseClientProvider.initializeRememberSession(this)
         capturePushNavigation(intent)
         capturePasswordRecovery(intent)
         handleAuthenticationDeepLink(intent)
