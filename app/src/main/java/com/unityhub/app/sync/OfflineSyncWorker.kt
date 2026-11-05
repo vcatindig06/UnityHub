@@ -3,6 +3,7 @@ package com.unityhub.app.sync
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.OfflineWorkspaceCache
@@ -32,10 +33,12 @@ class OfflineSyncWorker(
         if (!SupabaseClientProvider.isConfigured) return Result.success()
 
         return try {
+            setProgress(workDataOf(PROGRESS_STAGE_KEY to "checking_access"))
             val client = SupabaseClientProvider.client
             val initialUserId = client.auth.currentUserOrNull()?.id
-            val initialMembership = loadMembership(client, requestedUserId, requestedOrganizationId)
+            if (initialUserId != requestedUserId) return Result.success()
 
+            val initialMembership = loadMembership(client, requestedUserId, requestedOrganizationId)
             if (!OfflineSyncScopeRules.maySync(
                     requestedUserId,
                     initialUserId,
@@ -43,8 +46,17 @@ class OfflineSyncWorker(
                     initialMembership?.organizationId
                 )
             ) {
+                OfflineSyncStatusStore.markFailure(
+                    applicationContext,
+                    requestedUserId,
+                    requestedOrganizationId,
+                    "This account no longer has access to the selected team. Refresh your workspace to sync again."
+                )
                 return Result.success()
             }
+
+            OfflineSyncStatusStore.markStarted(applicationContext, requestedUserId, requestedOrganizationId)
+            setProgress(workDataOf(PROGRESS_STAGE_KEY to "downloading_songs"))
 
             val songRepository = SongRepository(client)
             val servicePlanRepository = ServicePlanRepository(client)
@@ -52,10 +64,12 @@ class OfflineSyncWorker(
 
             // Read the full remote snapshot before replacing any local cache.
             val songs = songRepository.loadSongs(requestedOrganizationId)
+            setProgress(workDataOf(PROGRESS_STAGE_KEY to "downloading_services"))
             val plans = servicePlanRepository.loadPlans(requestedOrganizationId)
             val items = mutableListOf<ServicePlanItemDto>()
             val assignmentsByPlan = linkedMapOf<String, List<ServiceAssignmentDto>>()
 
+            setProgress(workDataOf(PROGRESS_STAGE_KEY to "downloading_assignments"))
             for (plan in plans) {
                 items += servicePlanRepository.loadPlanItems(plan.id, requestedOrganizationId)
                 assignmentsByPlan[plan.id] = assignmentRepository.loadAssignments(
@@ -75,6 +89,8 @@ class OfflineSyncWorker(
             // Re-check both the live session and membership after network reads.
             // A sign-out or membership change must never write data to another account's cache.
             val finalUserId = client.auth.currentUserOrNull()?.id
+            if (finalUserId != requestedUserId) return Result.success()
+
             val finalMembership = loadMembership(client, requestedUserId, requestedOrganizationId)
             if (!OfflineSyncScopeRules.maySync(
                     requestedUserId,
@@ -83,6 +99,12 @@ class OfflineSyncWorker(
                     finalMembership?.organizationId
                 )
             ) {
+                OfflineSyncStatusStore.markFailure(
+                    applicationContext,
+                    requestedUserId,
+                    requestedOrganizationId,
+                    "Team access changed during sync. Refresh your workspace and try again."
+                )
                 return Result.success()
             }
 
@@ -90,6 +112,7 @@ class OfflineSyncWorker(
                 "A song belongs to a different organization."
             }
 
+            setProgress(workDataOf(PROGRESS_STAGE_KEY to "saving_offline_copy"))
             OfflineSongCache(applicationContext).saveSongs(
                 requestedUserId,
                 requestedOrganizationId,
@@ -120,10 +143,22 @@ class OfflineSyncWorker(
                 organizationName = organizationName
             )
 
+            OfflineSyncStatusStore.markSuccess(
+                applicationContext,
+                requestedUserId,
+                requestedOrganizationId
+            )
+            setProgress(workDataOf(PROGRESS_STAGE_KEY to "completed"))
             Result.success()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
+            OfflineSyncStatusStore.markFailure(
+                applicationContext,
+                requestedUserId,
+                requestedOrganizationId,
+                "UnityHub couldn't refresh all offline data. It will retry when possible."
+            )
             Result.retry()
         }
     }
@@ -149,8 +184,9 @@ class OfflineSyncWorker(
         }.decodeList<OrganizationDto>().firstOrNull()?.name
             ?: error("The active organization is no longer available.")
 
-    private companion object {
-        const val KEY_USER_ID = "user_id"
-        const val KEY_ORGANIZATION_ID = "organization_id"
+    companion object {
+        const val PROGRESS_STAGE_KEY = "progress_stage"
+        private const val KEY_USER_ID = "user_id"
+        private const val KEY_ORGANIZATION_ID = "organization_id"
     }
 }
