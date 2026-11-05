@@ -27,6 +27,12 @@ data class ServiceMemberOption(
     val teamRole: String
 )
 
+data class MyServiceAssignment(
+    val assignment: ServiceAssignmentDto,
+    val servicePlan: ServicePlanDto
+)
+
+
 @Serializable
 private data class ProfileNameDto(
     val id: String,
@@ -79,6 +85,46 @@ class ServiceAssignmentRepository(private val client: SupabaseClient) {
         }.decodeList<ServiceAssignmentDto>()
             .sortedWith(compareBy<ServiceAssignmentDto> { it.roleLabel.lowercase() }
                 .thenBy { it.createdAt })
+
+    suspend fun loadMyAssignments(
+        organizationId: String,
+        userId: String
+    ): List<MyServiceAssignment> {
+        require(organizationId.isNotBlank() && userId.isNotBlank())
+
+        // Resolve only the membership row owned by the signed-in account.
+        val membership = client.from("organization_members").select {
+            filter {
+                eq("organization_id", organizationId)
+                eq("user_id", userId)
+            }
+        }.decodeList<OrganizationMemberDto>().firstOrNull() ?: return emptyList()
+
+        // Filtering by the owned membership ID keeps this view personal even though
+        // the organization-level RLS policy also permits members to read team assignments.
+        val assignments = client.from("service_plan_assignments").select {
+            filter {
+                eq("organization_id", organizationId)
+                eq("member_id", membership.id)
+            }
+        }.decodeList<ServiceAssignmentDto>()
+
+        if (assignments.isEmpty()) return emptyList()
+
+        val plansById = client.from("service_plans").select {
+            filter { eq("organization_id", organizationId) }
+        }.decodeList<ServicePlanDto>().associateBy { it.id }
+
+        return assignments.mapNotNull { assignment ->
+            plansById[assignment.servicePlanId]?.let { plan ->
+                MyServiceAssignment(assignment = assignment, servicePlan = plan)
+            }
+        }.sortedWith(
+            compareBy<MyServiceAssignment> { it.servicePlan.serviceDate ?: "9999-12-31" }
+                .thenBy { it.servicePlan.startTime.orEmpty() }
+                .thenBy { it.assignment.roleLabel.lowercase() }
+        )
+    }
 
     suspend fun loadTeamMembers(organizationId: String): List<ServiceMemberOption> {
         val memberships = client.from("organization_members").select {
