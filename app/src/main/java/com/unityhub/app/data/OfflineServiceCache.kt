@@ -18,8 +18,7 @@ data class OfflineServiceSnapshot(
 data class OfflineServiceAssignmentEntry(
     val assignment: ServiceAssignmentDto,
     val memberUserId: String?,
-    val memberDisplayName: String,
-    val memberTeamRole: String
+    val memberDisplayName: String
 )
 
 data class OfflineServiceAssignmentSnapshot(
@@ -116,11 +115,8 @@ class OfflineServiceCache(context: Context) {
                 memberId = assignment.memberId
                 memberUserId = member?.userId
                 memberDisplayName = member?.displayName?.takeIf(String::isNotBlank) ?: "Team member"
-                memberTeamRole = member?.teamRole.orEmpty()
                 roleLabel = assignment.roleLabel
                 responseStatus = assignment.responseStatus
-                responseNote = assignment.responseNote
-                assignedBy = assignment.assignedBy
                 respondedAt = assignment.respondedAt
                 createdAt = assignment.createdAt
                 cachedAt = timestamp
@@ -151,14 +147,13 @@ class OfflineServiceCache(context: Context) {
                         memberId = cached.memberId,
                         roleLabel = cached.roleLabel,
                         responseStatus = cached.responseStatus,
-                        responseNote = cached.responseNote,
-                        assignedBy = cached.assignedBy,
+                        responseNote = "",
+                        assignedBy = "",
                         respondedAt = cached.respondedAt,
                         createdAt = cached.createdAt
                     ),
                     memberUserId = cached.memberUserId,
                     memberDisplayName = cached.memberDisplayName,
-                    memberTeamRole = cached.memberTeamRole
                 )
             }
         val syncedAt = preferences.getLong(
