@@ -729,6 +729,7 @@ private fun WorkspaceDashboard(
             0 -> HomeDashboardScreen(
                 organizationId = organization.id,
                 organizationName = organization.name,
+                userId = userId,
                 role = workspace.role,
                 memberCount = workspace.members.size,
                 pendingCount = workspace.pendingRequests.size,
