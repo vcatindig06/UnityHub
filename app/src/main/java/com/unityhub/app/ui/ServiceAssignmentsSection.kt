@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.unityhub.app.data.OfflineServiceAssignmentEntry
 import com.unityhub.app.data.OfflineServiceCache
+import com.unityhub.app.data.ServiceAssignmentDto
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceMemberOption
 import com.unityhub.app.data.SupabaseClientProvider
