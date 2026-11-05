@@ -635,29 +635,15 @@ private fun ServicePlanDetailScreen(
             }
         }
 
-        if (!usingOfflineCopy) {
-            item {
-                ServiceAssignmentsSection(
-                    servicePlanId = plan.id,
-                    organizationId = organizationId,
-                    currentUserId = currentUserId,
-                    canManage = effectiveCanManage && currentStatus != "completed" && currentStatus != "cancelled",
-                    allowResponses = ServiceAssignmentRules.canRespondToService(currentStatus)
-                )
-            }
-        } else {
-            item {
-                Card(shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                        Text("Team assignments", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Assignment responses are not available offline. Reconnect to view the latest team confirmations.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+        item {
+            ServiceAssignmentsSection(
+                servicePlanId = plan.id,
+                organizationId = organizationId,
+                currentUserId = currentUserId,
+                canManage = effectiveCanManage && currentStatus != "completed" && currentStatus != "cancelled",
+                allowResponses = ServiceAssignmentRules.canRespondToService(currentStatus),
+                offlineOnly = offlineOnly || usingOfflineCopy
+            )
         }
 
         item {
