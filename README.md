@@ -90,6 +90,7 @@ Implemented workflows include:
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
 - Read-only offline service plans, ordered setlists (including saved ChordPro snapshots), and the last-synced service team assignments with their response statuses. Offline assignment data is scoped to the signed-in user, and assignment creation, removal, and response updates remain online-only.
+- A personal Home dashboard section for the signed-in member's upcoming service assignments, with role, service date, response status, and quick Confirm / Can't serve actions.
 
 The app uses Supabase Row Level Security for authorization. Authorization decisions must remain enforced by database policies and trusted server-side functions; hiding controls in the Android UI is not a security boundary.
 
