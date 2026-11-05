@@ -29,6 +29,7 @@ import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.push.UnityHubFirebase
 import com.unityhub.app.push.UnityHubFirebaseMessagingService
 import com.unityhub.app.push.UnityHubNotificationManager
+import com.unityhub.app.push.UnityHubPushNavigation
 import com.unityhub.app.ui.UnityHubApp
 import com.unityhub.app.ui.auth.AuthScreen
 import com.unityhub.app.ui.theme.UnityHubTheme
@@ -38,8 +39,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private var pendingPushNavigation by mutableStateOf<UnityHubPushNavigation?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        capturePushNavigation(intent)
         if (SupabaseClientProvider.isConfigured) {
             runCatching { SupabaseClientProvider.client.handleDeeplinks(intent) }
         }
@@ -72,6 +76,8 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     if (authenticated) {
                         UnityHubApp(
+                            pushNavigation = pendingPushNavigation,
+                            onPushNavigationHandled = { pendingPushNavigation = null },
                             onSignOut = {
                                 scope.launch {
                                     runCatching {
@@ -132,6 +138,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun capturePushNavigation(source: Intent?) {
+        if (source == null) return
+        val notificationId = source.getStringExtra(UnityHubNotificationManager.EXTRA_NOTIFICATION_ID)
+            ?: source.getStringExtra("notification_id")
+        val servicePlanId = source.getStringExtra(UnityHubNotificationManager.EXTRA_SERVICE_PLAN_ID)
+            ?: source.getStringExtra("service_plan_id")
+        if (!notificationId.isNullOrBlank() || !servicePlanId.isNullOrBlank()) {
+            pendingPushNavigation = UnityHubPushNavigation(notificationId, servicePlanId)
+        }
+    }
+
     private fun syncFcmToken() {
         if (!UnityHubFirebase.isConfigured || !SupabaseClientProvider.isConfigured) return
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
@@ -155,6 +172,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        capturePushNavigation(intent)
         if (SupabaseClientProvider.isConfigured) {
             runCatching { SupabaseClientProvider.client.handleDeeplinks(intent) }
         }

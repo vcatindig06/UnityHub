@@ -45,6 +45,7 @@ import java.time.Instant
 @Composable
 fun NotificationsScreen(
     userId: String,
+    onOpenServicePlan: (NotificationDto) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val repository = remember { NotificationsRepository(SupabaseClientProvider.client) }
@@ -160,7 +161,8 @@ fun NotificationsScreen(
                 NotificationCard(
                     notification = notification,
                     saving = notification.id in savingIds,
-                    onMarkRead = { markRead(notification) }
+                    onMarkRead = { markRead(notification) },
+                    onOpenServicePlan = { onOpenServicePlan(notification) }
                 )
             }
         }
@@ -180,7 +182,8 @@ fun NotificationsScreen(
 private fun NotificationCard(
     notification: NotificationDto,
     saving: Boolean,
-    onMarkRead: () -> Unit
+    onMarkRead: () -> Unit,
+    onOpenServicePlan: () -> Unit
 ) {
     val unread = NotificationRules.isUnread(notification)
     Card(
@@ -252,6 +255,11 @@ private fun NotificationCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+            if (NotificationRules.hasServicePlan(notification)) {
+                TextButton(onClick = onOpenServicePlan, enabled = !saving) {
+                    Text("View service")
                 }
             }
         }

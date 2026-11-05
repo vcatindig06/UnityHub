@@ -30,6 +30,16 @@ class NotificationRulesTest {
     }
 
     @Test
+    fun notificationsWithAServicePlanCanOpenThatService() {
+        assertTrue(NotificationRules.hasServicePlan(notification()))
+    }
+
+    @Test
+    fun notificationsWithoutAServicePlanCannotOpenAService() {
+        assertFalse(NotificationRules.hasServicePlan(notification().copy(servicePlanId = null)))
+    }
+
+    @Test
     fun eachNotificationTypeHasAReadableLabel() {
         assertEquals("New assignment", NotificationRules.typeLabel("assignment_created"))
         assertEquals("Response reminder", NotificationRules.typeLabel("assignment_reminder"))

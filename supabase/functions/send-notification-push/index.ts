@@ -10,6 +10,7 @@ type NotificationRow = {
   id: string;
   recipient_user_id: string;
   notification_type: string;
+  service_plan_id: string | null;
   title: string;
   message: string;
 };
@@ -122,7 +123,7 @@ Deno.serve(async (request: Request) => {
 
   const { data: notificationData, error: notificationError } = await admin
     .from("notifications")
-    .select("id, recipient_user_id, notification_type, title, message")
+    .select("id, recipient_user_id, notification_type, service_plan_id, title, message")
     .eq("id", notificationId)
     .maybeSingle();
   const notification = notificationData as NotificationRow | null;
@@ -176,6 +177,7 @@ Deno.serve(async (request: Request) => {
               data: {
                 notification_id: notification.id,
                 notification_type: notification.notification_type,
+                service_plan_id: notification.service_plan_id ?? "",
                 title: notification.title,
                 message: notification.message,
               },

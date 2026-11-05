@@ -55,6 +55,7 @@ import com.unityhub.app.data.OrganizationJoinRequestDto
 import com.unityhub.app.data.OrganizationRepository
 import com.unityhub.app.data.OrganizationWorkspace
 import com.unityhub.app.data.SupabaseClientProvider
+import com.unityhub.app.push.UnityHubPushNavigation
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 
@@ -72,7 +73,11 @@ private val destinations = listOf(
 )
 
 @Composable
-fun UnityHubApp(onSignOut: () -> Unit) {
+fun UnityHubApp(
+    onSignOut: () -> Unit,
+    pushNavigation: UnityHubPushNavigation? = null,
+    onPushNavigationHandled: () -> Unit = {}
+) {
     val client = remember { SupabaseClientProvider.client }
     val userId = remember { client.auth.currentSessionOrNull()?.user?.id.orEmpty() }
     val repository = remember { OrganizationRepository(client) }
@@ -157,7 +162,9 @@ fun UnityHubApp(onSignOut: () -> Unit) {
                 runAction { repository.reviewJoinRequest(requestId, approve) }
             },
             onRefresh = { reload() },
-            onSignOut = onSignOut
+            onSignOut = onSignOut,
+            pushNavigation = pushNavigation,
+            onPushNavigationHandled = onPushNavigationHandled
         )
     }
 }
@@ -366,10 +373,26 @@ private fun WorkspaceDashboard(
     errorMessage: String,
     onReviewRequest: (String, Boolean) -> Unit,
     onRefresh: () -> Unit,
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    pushNavigation: UnityHubPushNavigation?,
+    onPushNavigationHandled: () -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
+    var requestedServicePlanId by remember { mutableStateOf<String?>(null) }
+    var serviceNavigationRequestId by remember { mutableStateOf<String?>(null) }
     val organization = workspace.organization ?: return
+
+    LaunchedEffect(pushNavigation?.notificationId, pushNavigation?.servicePlanId) {
+        val navigation = pushNavigation ?: return@LaunchedEffect
+        if (!navigation.servicePlanId.isNullOrBlank()) {
+            requestedServicePlanId = navigation.servicePlanId
+            serviceNavigationRequestId = navigation.notificationId ?: navigation.servicePlanId
+            selectedTab = 2
+        } else {
+            selectedTab = 3
+        }
+        onPushNavigationHandled()
+    }
 
     Scaffold(
         topBar = {
@@ -421,10 +444,24 @@ private fun WorkspaceDashboard(
                 organizationId = organization.id,
                 userId = userId,
                 role = workspace.role,
+                openServicePlanId = requestedServicePlanId,
+                openServicePlanRequestId = serviceNavigationRequestId,
+                onOpenServicePlanHandled = {
+                    requestedServicePlanId = null
+                    serviceNavigationRequestId = null
+                },
                 modifier = Modifier.padding(innerPadding)
             )
             3 -> NotificationsScreen(
                 userId = userId,
+                onOpenServicePlan = { notification ->
+                    val servicePlanId = notification.servicePlanId
+                    if (!servicePlanId.isNullOrBlank()) {
+                        requestedServicePlanId = servicePlanId
+                        serviceNavigationRequestId = notification.id
+                        selectedTab = 2
+                    }
+                },
                 modifier = Modifier.padding(innerPadding)
             )
             else -> TeamScreen(

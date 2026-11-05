@@ -64,6 +64,9 @@ fun ServicePlanningScreen(
     organizationId: String,
     userId: String,
     role: String?,
+    openServicePlanId: String? = null,
+    openServicePlanRequestId: String? = null,
+    onOpenServicePlanHandled: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
@@ -77,12 +80,15 @@ fun ServicePlanningScreen(
     var error by remember { mutableStateOf("") }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingPlan by remember { mutableStateOf<ServicePlanDto?>(null) }
+    var hasLoadedPlans by remember { mutableStateOf(false) }
+    var consumedNavigationRequestId by remember { mutableStateOf<String?>(null) }
 
     fun reload() {
         scope.launch {
             loading = true
             try {
                 plans = repository.loadPlans(organizationId)
+                hasLoadedPlans = true
                 error = ""
             } catch (_: Exception) {
                 error = "Could not load service plans. Check your connection and try again."
@@ -92,7 +98,31 @@ fun ServicePlanningScreen(
         }
     }
 
-    LaunchedEffect(organizationId) { reload() }
+    LaunchedEffect(organizationId, openServicePlanRequestId) {
+        if (openServicePlanRequestId.isNullOrBlank()) {
+            consumedNavigationRequestId = null
+            if (!hasLoadedPlans) reload()
+        } else if (consumedNavigationRequestId != openServicePlanRequestId) {
+            consumedNavigationRequestId = openServicePlanRequestId
+            loading = true
+            try {
+                val loadedPlans = repository.loadPlans(organizationId)
+                plans = loadedPlans
+                hasLoadedPlans = true
+                selectedPlan = loadedPlans.firstOrNull { it.id == openServicePlanId }
+                error = if (selectedPlan == null) {
+                    "The service linked to this notification is no longer available."
+                } else {
+                    ""
+                }
+            } catch (_: Exception) {
+                error = "The linked service could not be opened. Check your connection and try again."
+            } finally {
+                loading = false
+                onOpenServicePlanHandled()
+            }
+        }
+    }
 
     selectedPlan?.let { plan ->
         ServicePlanDetailScreen(

@@ -14,8 +14,15 @@ import androidx.core.content.ContextCompat
 import com.unityhub.app.MainActivity
 import com.unityhub.app.R
 
+data class UnityHubPushNavigation(
+    val notificationId: String?,
+    val servicePlanId: String?
+)
+
 object UnityHubNotificationManager {
     const val CHANNEL_ID = "team_updates"
+    const val EXTRA_NOTIFICATION_ID = "unityhub.notification_id"
+    const val EXTRA_SERVICE_PLAN_ID = "unityhub.service_plan_id"
 
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -34,7 +41,8 @@ object UnityHubNotificationManager {
         context: Context,
         title: String,
         message: String,
-        notificationId: String? = null
+        notificationId: String? = null,
+        servicePlanId: String? = null
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
@@ -46,6 +54,8 @@ object UnityHubNotificationManager {
         createChannel(context)
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+            putExtra(EXTRA_SERVICE_PLAN_ID, servicePlanId)
         }
         val requestCode = notificationId?.hashCode() ?: 0
         val pendingIntent = PendingIntent.getActivity(

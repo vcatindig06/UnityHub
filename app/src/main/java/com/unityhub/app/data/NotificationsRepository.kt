@@ -23,6 +23,9 @@ data class NotificationDto(
 internal object NotificationRules {
     fun isUnread(notification: NotificationDto): Boolean = notification.readAt == null
 
+    fun hasServicePlan(notification: NotificationDto): Boolean =
+        !notification.servicePlanId.isNullOrBlank()
+
     fun typeLabel(type: String): String = when (type) {
         "assignment_created" -> "New assignment"
         "assignment_reminder" -> "Response reminder"
