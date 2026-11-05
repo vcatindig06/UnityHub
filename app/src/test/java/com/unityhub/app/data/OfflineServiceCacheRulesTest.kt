@@ -47,4 +47,66 @@ class OfflineServiceCacheRulesTest {
     fun emptySetlistsRemainEmpty() {
         assertEquals(emptyList<ServicePlanItemDto>(), OfflineServiceCacheRules.orderedItems(emptyList()))
     }
+
+    private fun assignmentEntry(
+        id: String,
+        role: String,
+        createdAt: String,
+        responseStatus: String,
+        memberUserId: String,
+        memberDisplayName: String
+    ) = OfflineServiceAssignmentEntry(
+        assignment = ServiceAssignmentDto(
+            id = id,
+            organizationId = "organization-a",
+            servicePlanId = "service-a",
+            memberId = "member-$id",
+            roleLabel = role,
+            responseStatus = responseStatus,
+            responseNote = "",
+            assignedBy = "",
+            respondedAt = if (responseStatus == "pending") null else createdAt,
+            createdAt = createdAt
+        ),
+        memberUserId = memberUserId,
+        memberDisplayName = memberDisplayName
+    )
+
+    @Test
+    fun cachedAssignmentsAreOrderedByRoleAndThenCreationTime() {
+        val result = OfflineServiceCacheRules.orderedAssignments(
+            listOf(
+                assignmentEntry("later", "Drums", "2026-11-05T02:00:00Z", "pending", "user-c", "Casey"),
+                assignmentEntry("vocal", "Main Vocal", "2026-11-05T01:00:00Z", "confirmed", "user-b", "Jordan"),
+                assignmentEntry("earlier", "Drums", "2026-11-05T01:00:00Z", "declined", "user-a", "Alex")
+            )
+        )
+
+        assertEquals(listOf("earlier", "later", "vocal"), result.map { it.assignment.id })
+    }
+
+    @Test
+    fun cachedAssignmentsRetainLastKnownResponseAndMemberIdentity() {
+        val result = OfflineServiceCacheRules.orderedAssignments(
+            listOf(
+                assignmentEntry("a", "Keys", "2026-11-05T01:00:00Z", "confirmed", "user-a", "Alex"),
+                assignmentEntry("b", "Drums", "2026-11-05T02:00:00Z", "declined", "user-b", "Jordan"),
+                assignmentEntry("c", "Bass", "2026-11-05T03:00:00Z", "pending", "user-c", "Casey")
+            )
+        ).associateBy { it.assignment.id }
+
+        assertEquals("confirmed", result.getValue("a").assignment.responseStatus)
+        assertEquals("declined", result.getValue("b").assignment.responseStatus)
+        assertEquals("pending", result.getValue("c").assignment.responseStatus)
+        assertEquals("user-b", result.getValue("b").memberUserId)
+        assertEquals("Jordan", result.getValue("b").memberDisplayName)
+    }
+
+    @Test
+    fun emptyAssignmentSnapshotsRemainEmpty() {
+        assertEquals(
+            emptyList<OfflineServiceAssignmentEntry>(),
+            OfflineServiceCacheRules.orderedAssignments(emptyList())
+        )
+    }
 }
