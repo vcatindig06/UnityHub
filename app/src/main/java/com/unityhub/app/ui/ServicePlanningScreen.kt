@@ -44,15 +44,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.ServicePlanDto
 import com.unityhub.app.data.ServicePlanItemDto
 import com.unityhub.app.data.ServicePlanRepository
 import com.unityhub.app.data.ServiceAssignmentRules
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.data.SupabaseClientProvider
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
@@ -67,11 +72,16 @@ fun ServicePlanningScreen(
     openServicePlanId: String? = null,
     openServicePlanRequestId: String? = null,
     onOpenServicePlanHandled: () -> Unit = {},
+    offlineOnly: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
+    val context = LocalContext.current
+    val offlineCache = remember(context) { OfflineServiceCache(context) }
     val scope = rememberCoroutineScope()
-    val canManage = role in listOf("admin", "worship_leader")
+    var usingOfflineCopy by remember(organizationId, userId, offlineOnly) { mutableStateOf(offlineOnly) }
+    var lastSyncedAtMillis by remember(organizationId, userId) { mutableStateOf<Long?>(null) }
+    val canManage = !usingOfflineCopy && !offlineOnly && role in listOf("admin", "worship_leader")
 
     var plans by remember { mutableStateOf<List<ServicePlanDto>>(emptyList()) }
     var selectedPlan by remember { mutableStateOf<ServicePlanDto?>(null) }
@@ -86,12 +96,45 @@ fun ServicePlanningScreen(
     fun reload() {
         scope.launch {
             loading = true
+            error = ""
             try {
-                plans = repository.loadPlans(organizationId)
+                if (offlineOnly) {
+                    val cached = offlineCache.loadServicePlans(userId, organizationId)
+                    plans = cached.plans
+                    lastSyncedAtMillis = cached.syncedAtMillis
+                    usingOfflineCopy = true
+                    if (plans.isEmpty()) {
+                        error = "No saved services are available on this device yet. Connect to the internet and refresh to sync your service plans."
+                    }
+                } else {
+                    try {
+                        val onlinePlans = repository.loadPlans(organizationId)
+                        val onlineItems = coroutineScope {
+                            onlinePlans.map { servicePlan ->
+                                async { repository.loadPlanItems(servicePlan.id, organizationId) }
+                            }.awaitAll().flatten()
+                        }
+                        plans = onlinePlans
+                        usingOfflineCopy = false
+                        lastSyncedAtMillis = offlineCache.saveServiceData(
+                            userId, organizationId, onlinePlans, onlineItems
+                        )
+                    } catch (_: Exception) {
+                        val cached = offlineCache.loadServicePlans(userId, organizationId)
+                        if (cached.plans.isNotEmpty()) {
+                            plans = cached.plans
+                            lastSyncedAtMillis = cached.syncedAtMillis
+                            usingOfflineCopy = true
+                        } else {
+                            plans = emptyList()
+                            usingOfflineCopy = false
+                            error = "Could not load services and no offline copy is saved. Check your internet connection."
+                        }
+                    }
+                }
                 hasLoadedPlans = true
-                error = ""
             } catch (_: Exception) {
-                error = "Could not load service plans. Check your connection and try again."
+                error = "The saved service plans could not be opened on this device."
             } finally {
                 loading = false
             }
@@ -107,7 +150,16 @@ fun ServicePlanningScreen(
             loading = true
             try {
                 val loadedPlans = repository.loadPlans(organizationId)
+                val loadedItems = coroutineScope {
+                    loadedPlans.map { servicePlan ->
+                        async { repository.loadPlanItems(servicePlan.id, organizationId) }
+                    }.awaitAll().flatten()
+                }
                 plans = loadedPlans
+                usingOfflineCopy = false
+                lastSyncedAtMillis = offlineCache.saveServiceData(
+                    userId, organizationId, loadedPlans, loadedItems
+                )
                 hasLoadedPlans = true
                 selectedPlan = loadedPlans.firstOrNull { it.id == openServicePlanId }
                 error = if (selectedPlan == null) {
@@ -130,6 +182,7 @@ fun ServicePlanningScreen(
             organizationId = organizationId,
             currentUserId = userId,
             canManage = canManage,
+            offlineOnly = offlineOnly || usingOfflineCopy,
             onBack = {
                 selectedPlan = null
                 reload()
@@ -174,16 +227,17 @@ fun ServicePlanningScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(Modifier.weight(1f)) {
-                    Text("Service planning", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(
-                        "${plans.size} planned services · Build and organize your setlists",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (canManage) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Service planning", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${plans.size} planned services · Build and organize your setlists",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (canManage) {
                     Button(
                         onClick = {
                             editingPlan = null
@@ -194,6 +248,38 @@ fun ServicePlanningScreen(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Text("New")
+                    }
+                }
+                if (usingOfflineCopy) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = androidx.compose.material3.CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "Offline copy · Read only",
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                lastSyncedAtMillis?.let { timestamp ->
+                                    "Last synced " + java.time.format.DateTimeFormatter
+                                        .ofPattern("MMM d, yyyy · h:mm a", Locale.getDefault())
+                                        .withZone(java.time.ZoneId.systemDefault())
+                                        .format(java.time.Instant.ofEpochMilli(timestamp))
+                                } ?: "This device has a saved copy of your service plans.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                "Service details and saved setlists are available offline. Changes require an internet connection.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                     }
                 }
             }
@@ -231,7 +317,18 @@ fun ServicePlanningScreen(
         }
 
         item {
-            TextButton(onClick = { reload() }, enabled = !loading) { Text("Refresh services") }
+            if (!offlineOnly) {
+                TextButton(onClick = { reload() }, enabled = !loading) {
+                    Text(if (usingOfflineCopy) "Retry online sync" else "Refresh services")
+                }
+            } else {
+                Text(
+                    "Reconnect and refresh your workspace to sync the latest service plans.",
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     }
 }
@@ -359,11 +456,16 @@ private fun ServicePlanDetailScreen(
     organizationId: String,
     currentUserId: String,
     canManage: Boolean,
+    offlineOnly: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
+    val context = LocalContext.current
+    val offlineCache = remember(context) { OfflineServiceCache(context) }
     val scope = rememberCoroutineScope()
+    var usingOfflineCopy by remember(plan.id, offlineOnly) { mutableStateOf(offlineOnly) }
+    val effectiveCanManage = canManage && !usingOfflineCopy
     var items by remember(plan.id) { mutableStateOf<List<ServicePlanItemDto>>(emptyList()) }
     var songs by remember(plan.id) { mutableStateOf<List<SongDto>>(emptyList()) }
     var currentStatus by remember(plan.id) { mutableStateOf(plan.status) }
@@ -376,12 +478,34 @@ private fun ServicePlanDetailScreen(
     fun reload() {
         scope.launch {
             loading = true
+            error = ""
             try {
-                items = repository.loadPlanItems(plan.id, organizationId)
-                songs = repository.loadSongs(organizationId)
-                error = ""
+                if (offlineOnly || usingOfflineCopy) {
+                    items = offlineCache.loadPlanItems(currentUserId, organizationId, plan.id)
+                    songs = emptyList()
+                    usingOfflineCopy = true
+                    if (items.isEmpty()) {
+                        error = "No saved setlist is available for this service on this device."
+                    }
+                } else {
+                    try {
+                        items = repository.loadPlanItems(plan.id, organizationId)
+                        songs = repository.loadSongs(organizationId)
+                        offlineCache.saveServicePlan(
+                            currentUserId, organizationId, plan.copy(status = currentStatus), items
+                        )
+                        usingOfflineCopy = false
+                    } catch (_: Exception) {
+                        items = offlineCache.loadPlanItems(currentUserId, organizationId, plan.id)
+                        songs = emptyList()
+                        usingOfflineCopy = true
+                        if (items.isEmpty()) {
+                            error = "Could not load this setlist and no offline copy is saved."
+                        }
+                    }
+                }
             } catch (_: Exception) {
-                error = "Could not load the service order. Please try again."
+                error = "The saved setlist could not be opened on this device."
             } finally {
                 loading = false
             }
@@ -464,6 +588,22 @@ private fun ServicePlanDetailScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
+            if (usingOfflineCopy) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Text(
+                        "Offline copy · Read only. This setlist reflects the last successful sync.",
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back to services")
@@ -487,14 +627,29 @@ private fun ServicePlanDetailScreen(
             }
         }
 
-        item {
-            ServiceAssignmentsSection(
-                servicePlanId = plan.id,
-                organizationId = organizationId,
-                currentUserId = currentUserId,
-                canManage = canManage && currentStatus != "completed" && currentStatus != "cancelled",
-                allowResponses = ServiceAssignmentRules.canRespondToService(currentStatus)
-            )
+        if (!usingOfflineCopy) {
+            item {
+                ServiceAssignmentsSection(
+                    servicePlanId = plan.id,
+                    organizationId = organizationId,
+                    currentUserId = currentUserId,
+                    canManage = effectiveCanManage && currentStatus != "completed" && currentStatus != "cancelled",
+                    allowResponses = ServiceAssignmentRules.canRespondToService(currentStatus)
+                )
+            }
+        } else {
+            item {
+                Card(shape = RoundedCornerShape(14.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        Text("Team assignments", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Assignment responses are not available offline. Reconnect to view the latest team confirmations.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
 
         item {
@@ -503,13 +658,13 @@ private fun ServicePlanDetailScreen(
                     Text("Order of worship", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("${items.size} items in the setlist", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (canManage && currentStatus != "completed" && currentStatus != "cancelled") {
+                if (effectiveCanManage && currentStatus != "completed" && currentStatus != "cancelled") {
                     TextButton(onClick = { songPickerOpen = true }, enabled = !saving) { Text("Add song") }
                 }
             }
         }
 
-        if (canManage && currentStatus != "completed" && currentStatus != "cancelled") {
+        if (effectiveCanManage && currentStatus != "completed" && currentStatus != "cancelled") {
             item {
                 OutlinedActionButton(
                     label = "Add prayer, reading or other item",
@@ -537,7 +692,7 @@ private fun ServicePlanDetailScreen(
                 ServicePlanItemCard(
                     item = serviceItem,
                     position = index + 1,
-                    canManage = canManage && currentStatus != "completed" && currentStatus != "cancelled",
+                    canManage = effectiveCanManage && currentStatus != "completed" && currentStatus != "cancelled",
                     saving = saving,
                     canMoveUp = index > 0,
                     canMoveDown = index < items.lastIndex,
@@ -601,7 +756,9 @@ private fun ServicePlanDetailScreen(
         if (error.isNotBlank()) {
             item { Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         }
-        item { TextButton(onClick = { reload() }, enabled = !loading && !saving) { Text("Refresh setlist") } }
+        if (!offlineOnly) {
+            item { TextButton(onClick = { reload() }, enabled = !loading && !saving) { Text("Refresh setlist") } }
+        }
     }
 }
 
