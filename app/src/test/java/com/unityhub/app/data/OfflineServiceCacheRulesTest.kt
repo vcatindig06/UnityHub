@@ -53,7 +53,7 @@ class OfflineServiceCacheRulesTest {
         role: String,
         createdAt: String,
         responseStatus: String,
-        memberUserId: String,
+        isCurrentUser: Boolean,
         memberDisplayName: String
     ) = OfflineServiceAssignmentEntry(
         assignment = ServiceAssignmentDto(
@@ -68,7 +68,7 @@ class OfflineServiceCacheRulesTest {
             respondedAt = if (responseStatus == "pending") null else createdAt,
             createdAt = createdAt
         ),
-        memberUserId = memberUserId,
+        isCurrentUser = isCurrentUser,
         memberDisplayName = memberDisplayName
     )
 
@@ -76,9 +76,9 @@ class OfflineServiceCacheRulesTest {
     fun cachedAssignmentsAreOrderedByRoleAndThenCreationTime() {
         val result = OfflineServiceCacheRules.orderedAssignments(
             listOf(
-                assignmentEntry("later", "Drums", "2026-11-05T02:00:00Z", "pending", "user-c", "Casey"),
-                assignmentEntry("vocal", "Main Vocal", "2026-11-05T01:00:00Z", "confirmed", "user-b", "Jordan"),
-                assignmentEntry("earlier", "Drums", "2026-11-05T01:00:00Z", "declined", "user-a", "Alex")
+                assignmentEntry("later", "Drums", "2026-11-05T02:00:00Z", "pending", false, "Casey"),
+                assignmentEntry("vocal", "Main Vocal", "2026-11-05T01:00:00Z", "confirmed", true, "Jordan"),
+                assignmentEntry("earlier", "Drums", "2026-11-05T01:00:00Z", "declined", false, "Alex")
             )
         )
 
@@ -89,16 +89,16 @@ class OfflineServiceCacheRulesTest {
     fun cachedAssignmentsRetainLastKnownResponseAndMemberIdentity() {
         val result = OfflineServiceCacheRules.orderedAssignments(
             listOf(
-                assignmentEntry("a", "Keys", "2026-11-05T01:00:00Z", "confirmed", "user-a", "Alex"),
-                assignmentEntry("b", "Drums", "2026-11-05T02:00:00Z", "declined", "user-b", "Jordan"),
-                assignmentEntry("c", "Bass", "2026-11-05T03:00:00Z", "pending", "user-c", "Casey")
+                assignmentEntry("a", "Keys", "2026-11-05T01:00:00Z", "confirmed", false, "Alex"),
+                assignmentEntry("b", "Drums", "2026-11-05T02:00:00Z", "declined", true, "Jordan"),
+                assignmentEntry("c", "Bass", "2026-11-05T03:00:00Z", "pending", false, "Casey")
             )
         ).associateBy { it.assignment.id }
 
         assertEquals("confirmed", result.getValue("a").assignment.responseStatus)
         assertEquals("declined", result.getValue("b").assignment.responseStatus)
         assertEquals("pending", result.getValue("c").assignment.responseStatus)
-        assertEquals("user-b", result.getValue("b").memberUserId)
+        assertEquals(true, result.getValue("b").isCurrentUser)
         assertEquals("Jordan", result.getValue("b").memberDisplayName)
     }
 
