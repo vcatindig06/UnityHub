@@ -50,24 +50,33 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.data.SongRepository
+import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.domain.chordpro.ChordProParser
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun SongLibraryScreen(
     organizationId: String,
     userId: String,
     role: String?,
+    offlineOnly: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val repository = remember { SongRepository(SupabaseClientProvider.client) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val canEdit = role in listOf("admin", "worship_leader", "song_editor")
+    val offlineCache = remember(context) { OfflineSongCache(context) }
+    var usingOfflineCopy by remember(organizationId, userId, offlineOnly) { mutableStateOf(offlineOnly) }
+    var lastSyncedAtMillis by remember(organizationId, userId) { mutableStateOf<Long?>(null) }
+    val canEdit = !offlineOnly && !usingOfflineCopy &&
+        role in listOf("admin", "worship_leader", "song_editor")
 
     var songs by remember { mutableStateOf<List<SongDto>>(emptyList()) }
     var selectedSong by remember { mutableStateOf<SongDto?>(null) }
@@ -90,11 +99,39 @@ fun SongLibraryScreen(
     fun reload() {
         scope.launch {
             loading = true
+            error = ""
             try {
-                songs = repository.loadSongs(organizationId)
-                error = ""
+                if (offlineOnly) {
+                    val cached = offlineCache.loadSongs(userId, organizationId)
+                    songs = cached.songs
+                    lastSyncedAtMillis = cached.syncedAtMillis
+                    usingOfflineCopy = true
+                    if (songs.isEmpty()) {
+                        error = "No saved songs are available on this device yet. Connect to the internet to sync this team's library."
+                    }
+                } else {
+                    try {
+                        val remoteSongs = repository.loadSongs(organizationId)
+                        songs = remoteSongs
+                        usingOfflineCopy = false
+                        lastSyncedAtMillis = runCatching {
+                            offlineCache.saveSongs(userId, organizationId, remoteSongs)
+                        }.getOrNull()
+                    } catch (_: Exception) {
+                        val cached = offlineCache.loadSongs(userId, organizationId)
+                        if (cached.songs.isNotEmpty()) {
+                            songs = cached.songs
+                            lastSyncedAtMillis = cached.syncedAtMillis
+                            usingOfflineCopy = true
+                        } else {
+                            songs = emptyList()
+                            usingOfflineCopy = false
+                            error = "Could not load songs and no offline copy is saved. Check your internet connection."
+                        }
+                    }
+                }
             } catch (_: Exception) {
-                error = "Could not load songs. Check your connection and try again."
+                error = "The saved song library could not be opened on this device."
             } finally {
                 loading = false
             }
@@ -161,7 +198,7 @@ fun SongLibraryScreen(
         }
     }
 
-    LaunchedEffect(organizationId) { reload() }
+    LaunchedEffect(organizationId, userId, offlineOnly) { reload() }
 
     selectedSong?.let { song ->
         SongChartScreen(song = song, onBack = { selectedSong = null }, modifier = modifier)
@@ -289,6 +326,31 @@ fun SongLibraryScreen(
                             }
                         }
                     }
+                    if (usingOfflineCopy) {
+                        Spacer(Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("Offline copy · Read only", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                Text(
+                                    lastSyncedAtMillis?.let(::formatOfflineSyncTime)
+                                        ?: "This device has a saved copy of the team's song library.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    "Song charts remain available without internet. Reconnect to edit or refresh.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
                     if (canEdit) {
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
@@ -381,8 +443,17 @@ fun SongLibraryScreen(
                 }
             }
             item {
-                TextButton(onClick = { reload() }, enabled = !loading && !saving, modifier = Modifier.fillMaxWidth()) {
-                    Text("Refresh song library")
+                if (!offlineOnly) {
+                    TextButton(onClick = { reload() }, enabled = !loading && !saving, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (usingOfflineCopy) "Retry online sync" else "Refresh song library")
+                    }
+                } else {
+                    Text(
+                        "Reconnect and refresh your workspace to sync the latest songs.",
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
                 Spacer(Modifier.height(12.dp))
             }
@@ -533,4 +604,11 @@ private fun importedFileTitle(uri: Uri): String {
         .replace('-', ' ')
         .trim()
     return cleanName.ifBlank { "Imported song" }
+}
+
+
+private fun formatOfflineSyncTime(timestamp: Long): String {
+    val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy · h:mm a", java.util.Locale.getDefault())
+        .withZone(ZoneId.systemDefault())
+    return "Last synced ${formatter.format(Instant.ofEpochMilli(timestamp))}"
 }

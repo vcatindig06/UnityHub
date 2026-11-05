@@ -50,8 +50,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import com.unityhub.app.data.OfflineWorkspaceCache
+import com.unityhub.app.data.OfflineWorkspaceSnapshot
 import com.unityhub.app.data.OrganizationDirectoryDto
 import com.unityhub.app.data.OrganizationJoinRequestDto
 import com.unityhub.app.data.OrganizationRepository
@@ -83,9 +86,12 @@ fun UnityHubApp(
     val client = remember { SupabaseClientProvider.client }
     val userId = remember { client.auth.currentSessionOrNull()?.user?.id.orEmpty() }
     val repository = remember { OrganizationRepository(client) }
+    val context = LocalContext.current
+    val offlineWorkspaceCache = remember(context) { OfflineWorkspaceCache(context) }
     val scope = rememberCoroutineScope()
 
     var workspace by remember { mutableStateOf<OrganizationWorkspace?>(null) }
+    var offlineWorkspace by remember { mutableStateOf<OfflineWorkspaceSnapshot?>(null) }
     var loading by remember { mutableStateOf(true) }
     var actionInProgress by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
@@ -95,9 +101,20 @@ fun UnityHubApp(
             loading = true
             errorMessage = ""
             try {
-                workspace = repository.loadWorkspace(userId)
+                val loadedWorkspace = repository.loadWorkspace(userId)
+                workspace = loadedWorkspace
+                offlineWorkspace = null
+                val organization = loadedWorkspace.organization
+                if (organization == null) {
+                    offlineWorkspaceCache.clear(userId)
+                } else {
+                    offlineWorkspaceCache.save(userId, organization.id, organization.name)
+                }
             } catch (_: Exception) {
-                errorMessage = "UnityHub could not load your team information. Check your internet connection and try again."
+                offlineWorkspace = offlineWorkspaceCache.load(userId)
+                if (offlineWorkspace == null) {
+                    errorMessage = "UnityHub could not load your team information. Check your internet connection and try again."
+                }
             } finally {
                 loading = false
             }
@@ -110,7 +127,12 @@ fun UnityHubApp(
             errorMessage = ""
             try {
                 action()
-                workspace = repository.loadWorkspace(userId)
+                val refreshedWorkspace = repository.loadWorkspace(userId)
+                workspace = refreshedWorkspace
+                offlineWorkspace = null
+                refreshedWorkspace.organization?.let { organization ->
+                    offlineWorkspaceCache.save(userId, organization.id, organization.name)
+                } ?: offlineWorkspaceCache.clear(userId)
             } catch (exception: Exception) {
                 errorMessage = friendlyMessage(exception)
             } finally {
@@ -125,18 +147,19 @@ fun UnityHubApp(
             errorMessage = "Your sign-in session could not be read. Please sign in again."
             loading = false
         } else {
-            try {
-                workspace = repository.loadWorkspace(userId)
-            } catch (_: Exception) {
-                errorMessage = "UnityHub could not load your team information. Check your internet connection and try again."
-            } finally {
-                loading = false
-            }
+            reload()
         }
     }
 
     when {
         loading && workspace == null -> LoadingScreen()
+        workspace == null && offlineWorkspace != null -> OfflineWorkspaceScreen(
+            organizationId = offlineWorkspace!!.organizationId,
+            organizationName = offlineWorkspace!!.organizationName,
+            userId = userId,
+            onRetry = { reload() },
+            onSignOut = onSignOut
+        )
         workspace == null -> ErrorScreen(
             message = errorMessage.ifBlank { "Your workspace could not be loaded." },
             onRetry = { reload() },
