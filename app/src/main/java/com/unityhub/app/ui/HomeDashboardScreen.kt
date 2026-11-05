@@ -40,6 +40,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.unityhub.app.data.MyServiceAssignment
+import com.unityhub.app.data.ServiceAssignmentRepository
+import com.unityhub.app.data.ServiceAssignmentRules
 import com.unityhub.app.data.ServicePlanDto
 import com.unityhub.app.data.ServicePlanRepository
 import com.unityhub.app.data.SupabaseClientProvider
@@ -53,6 +56,7 @@ import java.util.Locale
 fun HomeDashboardScreen(
     organizationId: String,
     organizationName: String,
+    userId: String,
     role: String?,
     memberCount: Int,
     pendingCount: Int,
@@ -63,21 +67,55 @@ fun HomeDashboardScreen(
     modifier: Modifier = Modifier
 ) {
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
+    val assignmentRepository = remember { ServiceAssignmentRepository(SupabaseClientProvider.client) }
     val scope = rememberCoroutineScope()
     var plans by remember { mutableStateOf<List<ServicePlanDto>>(emptyList()) }
+    var myAssignments by remember { mutableStateOf<List<MyServiceAssignment>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var assignmentsLoading by remember { mutableStateOf(true) }
+    var respondingAssignmentId by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf("") }
+    var assignmentErrorMessage by remember { mutableStateOf("") }
 
     fun refresh() {
         scope.launch {
             loading = true
+            assignmentsLoading = true
             errorMessage = ""
+            assignmentErrorMessage = ""
             try {
                 plans = repository.loadPlans(organizationId)
             } catch (_: Exception) {
                 errorMessage = "Upcoming services could not be loaded. Check your connection and try again."
             } finally {
                 loading = false
+            }
+
+            try {
+                myAssignments = assignmentRepository.loadMyAssignments(organizationId, userId)
+            } catch (_: Exception) {
+                assignmentErrorMessage = "Your assignments could not be loaded. Check your connection and try again."
+            } finally {
+                assignmentsLoading = false
+            }
+        }
+    }
+
+    fun respondToAssignment(item: MyServiceAssignment, response: String) {
+        scope.launch {
+            respondingAssignmentId = item.assignment.id
+            assignmentErrorMessage = ""
+            try {
+                assignmentRepository.respond(
+                    assignmentId = item.assignment.id,
+                    memberId = item.assignment.memberId,
+                    response = response
+                )
+                myAssignments = assignmentRepository.loadMyAssignments(organizationId, userId)
+            } catch (_: Exception) {
+                assignmentErrorMessage = "Your response could not be saved. Check your connection and try again."
+            } finally {
+                respondingAssignmentId = null
             }
         }
     }
@@ -91,6 +129,10 @@ fun HomeDashboardScreen(
         HomeDashboardRules.upcomingPlans(plans, today)
     }
     val upcomingPlans = allUpcomingPlans.take(4)
+    val allUpcomingAssignments = remember(myAssignments, today) {
+        HomeDashboardRules.upcomingAssignments(myAssignments, today)
+    }
+    val upcomingAssignments = allUpcomingAssignments.take(3)
     val isAdmin = role == "admin"
     val greeting = when (LocalTime.now().hour) {
         in 5..11 -> "Good morning"
@@ -210,6 +252,80 @@ fun HomeDashboardScreen(
         }
 
         item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("My upcoming assignments", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "The ministry roles your team has assigned to you",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (assignmentsLoading && myAssignments.isEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text("Loading your assignments", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else if (assignmentErrorMessage.isNotBlank() && myAssignments.isEmpty()) {
+                    Card(shape = RoundedCornerShape(14.dp)) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(assignmentErrorMessage, color = MaterialTheme.colorScheme.error)
+                            TextButton(onClick = { refresh() }, enabled = !assignmentsLoading) {
+                                Text("Try again")
+                            }
+                        }
+                    }
+                } else if (upcomingAssignments.isEmpty()) {
+                    Card(shape = RoundedCornerShape(14.dp)) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text("No upcoming roles assigned to you", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "When a worship leader assigns you to a service, your role and response status will appear here.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    upcomingAssignments.forEach { assignment ->
+                        MyUpcomingAssignmentCard(
+                            item = assignment,
+                            today = today,
+                            responding = respondingAssignmentId == assignment.assignment.id,
+                            onOpen = { onOpenServicePlan(assignment.servicePlan.id) },
+                            onConfirm = { respondToAssignment(assignment, "confirmed") },
+                            onDecline = { respondToAssignment(assignment, "declined") }
+                        )
+                    }
+                    if (allUpcomingAssignments.size > upcomingAssignments.size) {
+                        TextButton(onClick = onOpenServices) {
+                            Text("View all ${allUpcomingAssignments.size} upcoming roles")
+                        }
+                    }
+                }
+
+                if (assignmentErrorMessage.isNotBlank() && myAssignments.isNotEmpty()) {
+                    Text(
+                        assignmentErrorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
+        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -298,6 +414,90 @@ fun HomeDashboardScreen(
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(Modifier.size(6.dp))
                 Text("Refresh dashboard")
+            }
+        }
+    }
+}
+
+@Composable
+private fun MyUpcomingAssignmentCard(
+    item: MyServiceAssignment,
+    today: LocalDate,
+    responding: Boolean,
+    onOpen: () -> Unit,
+    onConfirm: () -> Unit,
+    onDecline: () -> Unit
+) {
+    val status = item.assignment.responseStatus
+    val canRespond = ServiceAssignmentRules.canRespondToService(item.servicePlan.status)
+
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
+        shape = RoundedCornerShape(15.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    item.assignment.roleLabel,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    when (status) {
+                        "confirmed" -> "Confirmed"
+                        "declined" -> "Unable to serve"
+                        else -> "Awaiting response"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = when (status) {
+                        "confirmed" -> MaterialTheme.colorScheme.primary
+                        "declined" -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+            Text(item.servicePlan.title, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                dashboardDateTimeLabel(item.servicePlan.serviceDate, item.servicePlan.startTime, today),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (canRespond) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onConfirm,
+                        enabled = !responding && status != "confirmed"
+                    ) {
+                        if (responding) {
+                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text(if (status == "confirmed") "Confirmed" else "Confirm")
+                        }
+                    }
+                    TextButton(
+                        onClick = onDecline,
+                        enabled = !responding && status != "declined"
+                    ) {
+                        Text(if (status == "declined") "Unable to serve" else "Can't serve")
+                    }
+                }
+            } else {
+                Text(
+                    if (item.servicePlan.status == "completed") "Service completed"
+                    else "Service cancelled",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
