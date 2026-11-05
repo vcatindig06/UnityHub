@@ -9,8 +9,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -52,12 +55,24 @@ class MainActivity : ComponentActivity() {
         setContent {
             UnityHubTheme {
                 var authenticated by rememberSaveable { mutableStateOf(false) }
+                var authenticationReady by rememberSaveable { mutableStateOf(false) }
                 var showNotificationPermissionPrompt by rememberSaveable { mutableStateOf(false) }
                 val scope = rememberCoroutineScope()
                 val notificationPermissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission(),
                     onResult = { showNotificationPermissionPrompt = false }
                 )
+
+                // Restore the Supabase session before deciding whether to show the
+                // sign-in screen. This prevents a signed-in user being logged out
+                // visually whenever Android recreates the app process.
+                LaunchedEffect(Unit) {
+                    authenticated = SupabaseClientProvider.isConfigured &&
+                        runCatching {
+                            SupabaseClientProvider.client.auth.currentSessionOrNull() != null
+                        }.getOrDefault(false)
+                    authenticationReady = true
+                }
 
                 LaunchedEffect(authenticated) {
                     if (authenticated && UnityHubFirebase.initialize(this@MainActivity)) {
@@ -74,7 +89,14 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    if (authenticated) {
+                    if (!authenticationReady) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else if (authenticated) {
                         UnityHubApp(
                             pushNavigation = pendingPushNavigation,
                             onPushNavigationHandled = { pendingPushNavigation = null },
