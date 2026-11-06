@@ -134,6 +134,52 @@ class ServicePlanRepository(private val client: SupabaseClient) {
         )
     }
 
+    suspend fun copySetlist(
+        sourcePlanId: String,
+        targetPlanId: String,
+        organizationId: String
+    ): Int {
+        require(sourcePlanId.isNotBlank() && targetPlanId.isNotBlank() && organizationId.isNotBlank())
+        require(sourcePlanId != targetPlanId) {
+            "Choose a different service to copy the setlist from."
+        }
+
+        val organizationPlans = loadPlans(organizationId)
+        val sourcePlan = organizationPlans.firstOrNull { it.id == sourcePlanId }
+            ?: throw IllegalArgumentException("The source service does not belong to this worship team.")
+        val targetPlan = organizationPlans.firstOrNull { it.id == targetPlanId }
+            ?: throw IllegalArgumentException("The destination service does not belong to this worship team.")
+        require(targetPlan.status != "completed" && targetPlan.status != "cancelled") {
+            "A completed or cancelled service cannot be changed."
+        }
+
+        val sourceItems = loadPlanItems(sourcePlan.id, organizationId)
+        val existingItems = loadPlanItems(targetPlan.id, organizationId)
+        val preparedItems = ServicePlanCopyRules.prepareCopy(
+            sourceItems = sourceItems,
+            destinationItems = existingItems,
+            organizationId = organizationId,
+            targetPlanId = targetPlan.id
+        )
+
+        client.from("service_plan_items").insert(
+            preparedItems.map { item ->
+                NewServicePlanItem(
+                    organizationId = item.organizationId,
+                    servicePlanId = item.servicePlanId,
+                    songId = item.songId,
+                    title = item.title,
+                    itemType = item.itemType,
+                    chordproSnapshot = item.chordproSnapshot,
+                    itemOrder = item.itemOrder,
+                    durationMinutes = item.durationMinutes,
+                    notes = item.notes
+                )
+            }
+        )
+        return preparedItems.size
+    }
+
     suspend fun addCustomItem(
         planId: String, organizationId: String, title: String,
         itemType: String, durationMinutes: Int?, itemOrder: Int

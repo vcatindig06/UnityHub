@@ -185,6 +185,7 @@ fun ServicePlanningScreen(
     selectedPlan?.let { plan ->
         ServicePlanDetailScreen(
             plan = plan,
+            availablePlans = plans,
             organizationId = organizationId,
             currentUserId = userId,
             canManage = canManage,
@@ -524,6 +525,7 @@ private fun ServicePlanEditorDialog(
 @Composable
 private fun ServicePlanDetailScreen(
     plan: ServicePlanDto,
+    availablePlans: List<ServicePlanDto>,
     organizationId: String,
     currentUserId: String,
     canManage: Boolean,
@@ -546,6 +548,14 @@ private fun ServicePlanDetailScreen(
     var error by remember { mutableStateOf("") }
     var songPickerOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
     var customItemOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var copySourceDialogOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var copySourceCandidate by remember(plan.id) { mutableStateOf<ServicePlanDto?>(null) }
+    var copySuccessMessage by remember(plan.id) { mutableStateOf("") }
+    val copySourcePlans = availablePlans
+        .filter { it.id != plan.id && it.organizationId == organizationId }
+        .sortedWith(compareByDescending<ServicePlanDto> { it.serviceDate.orEmpty() }
+            .thenByDescending { it.startTime.orEmpty() }
+            .thenBy { it.title.lowercase() })
 
     fun reload() {
         scope.launch {
@@ -656,6 +666,38 @@ private fun ServicePlanDetailScreen(
         )
     }
 
+    if (copySourceDialogOpen) {
+        CopySetlistSourceDialog(
+            plans = copySourcePlans,
+            onDismiss = { copySourceDialogOpen = false },
+            onSelect = { sourcePlan ->
+                copySourceCandidate = sourcePlan
+                copySourceDialogOpen = false
+            }
+        )
+    }
+
+    copySourceCandidate?.let { sourcePlan ->
+        ConfirmCopySetlistDialog(
+            sourcePlan = sourcePlan,
+            targetPlan = plan,
+            saving = saving,
+            onDismiss = { if (!saving) copySourceCandidate = null },
+            onConfirm = {
+                copySourceCandidate = null
+                copySuccessMessage = ""
+                runAction {
+                    val copiedCount = repository.copySetlist(
+                        sourcePlanId = sourcePlan.id,
+                        targetPlanId = plan.id,
+                        organizationId = organizationId
+                    )
+                    copySuccessMessage = "$copiedCount setlist items copied from ${sourcePlan.title}."
+                }
+            }
+        )
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -739,6 +781,16 @@ private fun ServicePlanDetailScreen(
             }
         }
 
+        if (effectiveCanManage && currentStatus != "completed" && currentStatus != "cancelled" && copySourcePlans.isNotEmpty()) {
+            item {
+                OutlinedActionButton(
+                    label = "Copy setlist from another service",
+                    onClick = { copySourceDialogOpen = true },
+                    enabled = !saving && !loading
+                )
+            }
+        }
+
         if (loading) {
             item { CircularProgressIndicator(Modifier.size(26.dp)) }
         } else if (items.isEmpty()) {
@@ -815,6 +867,16 @@ private fun ServicePlanDetailScreen(
                         Text("This service is ${currentStatus} and its setlist is read-only.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+            }
+        }
+
+        if (copySuccessMessage.isNotBlank()) {
+            item {
+                Text(
+                    copySuccessMessage,
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
 
@@ -942,3 +1004,80 @@ private fun serviceDateTimeLabel(date: String?, time: String?): String {
     }
     return if (timeLabel == null) dateLabel else "$dateLabel · $timeLabel"
 }
+
+@Composable
+private fun CopySetlistSourceDialog(
+    plans: List<ServicePlanDto>,
+    onDismiss: () -> Unit,
+    onSelect: (ServicePlanDto) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Copy from another service") },
+        text = {
+            if (plans.isEmpty()) {
+                Text("There are no other services available in this team.")
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(plans, key = { it.id }) { sourcePlan ->
+                        TextButton(
+                            onClick = { onSelect(sourcePlan) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    sourcePlan.title,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    serviceDateTimeLabel(sourcePlan.serviceDate, sourcePlan.startTime) +
+                                        " · " + sourcePlan.status.replaceFirstChar { it.uppercase() },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun ConfirmCopySetlistDialog(
+    sourcePlan: ServicePlanDto,
+    targetPlan: ServicePlanDto,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Copy this setlist?") },
+        text = {
+            Text(
+                "Copy the ordered setlist from “${sourcePlan.title}” into “${targetPlan.title}”? " +
+                    "Items will be appended after the current items. Existing items will not be removed, " +
+                    "and saved ChordPro chart snapshots will be preserved."
+            )
+        },
+        confirmButton = {
+            Button(onClick = onConfirm, enabled = !saving) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Copy setlist")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") }
+        }
+    )
+}
+
