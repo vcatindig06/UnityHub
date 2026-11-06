@@ -263,7 +263,7 @@ internal fun ChordProChartLine(line: ChordProLine, transpose: Int, scale: Float 
     }
 }
 
-private fun buildChordRow(line: ChordProLine, transpose: Int): String {
+internal fun buildChordRow(line: ChordProLine, transpose: Int): String {
     val output = StringBuilder()
     var cursor = 0
     line.chords.forEach { chord ->
