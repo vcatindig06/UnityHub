@@ -2,6 +2,8 @@ package com.unityhub.app.data
 
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.rpc
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -26,6 +28,57 @@ private data class NewMemberMinistryPosition(
     @SerialName("position_id") val positionId: String,
     @SerialName("assigned_by") val assignedBy: String
 )
+
+@Serializable
+private data class ChangeMemberRoleParams(
+    @SerialName("p_member_id") val memberId: String,
+    @SerialName("p_new_role") val newRole: String
+)
+
+@Serializable
+private data class RemoveMemberParams(
+    @SerialName("p_member_id") val memberId: String
+)
+
+@Serializable
+private data class TransferOrganizationOwnershipParams(
+    @SerialName("p_organization_id") val organizationId: String,
+    @SerialName("p_new_owner_user_id") val newOwnerUserId: String
+)
+
+internal object TeamAccessRules {
+    val availableRoles = listOf("worship_leader", "song_editor", "team_member", "viewer", "admin")
+
+    fun normalizeRole(value: String): String {
+        val normalized = value.trim().lowercase()
+        require(normalized in availableRoles) { "Choose a valid team access role." }
+        return normalized
+    }
+
+    fun roleLabel(role: String): String = when (role) {
+        "admin" -> "Administrator"
+        "worship_leader" -> "Worship Leader"
+        "song_editor" -> "Song Editor"
+        "viewer" -> "Viewer"
+        else -> "Team Member"
+    }
+
+    fun canManageMember(
+        isAdmin: Boolean,
+        currentUserId: String,
+        organizationOwnerId: String,
+        targetUserId: String
+    ): Boolean = isAdmin && targetUserId.isNotBlank() &&
+        targetUserId != currentUserId && targetUserId != organizationOwnerId
+
+    fun canTransferOwnership(
+        currentUserId: String,
+        organizationOwnerId: String,
+        targetUserId: String
+    ): Boolean = currentUserId.isNotBlank() &&
+        currentUserId == organizationOwnerId &&
+        targetUserId.isNotBlank() && targetUserId != currentUserId
+}
 
 internal object TeamManagementRules {
     fun normalizePositionName(value: String): String {
@@ -73,6 +126,29 @@ internal object TeamDirectoryRules {
 }
 
 class TeamManagementRepository(private val client: SupabaseClient) {
+
+    suspend fun changeMemberRole(memberId: String, newRole: String) {
+        require(memberId.isNotBlank()) { "A team member must be selected." }
+        client.postgrest.rpc(
+            "change_member_role",
+            ChangeMemberRoleParams(memberId, TeamAccessRules.normalizeRole(newRole))
+        )
+    }
+
+    suspend fun removeMember(memberId: String) {
+        require(memberId.isNotBlank()) { "A team member must be selected." }
+        client.postgrest.rpc("remove_member", RemoveMemberParams(memberId))
+    }
+
+    suspend fun transferOrganizationOwnership(organizationId: String, newOwnerUserId: String) {
+        require(organizationId.isNotBlank() && newOwnerUserId.isNotBlank()) {
+            "Choose a valid organization member."
+        }
+        client.postgrest.rpc(
+            "transfer_organization_ownership",
+            TransferOrganizationOwnershipParams(organizationId, newOwnerUserId)
+        )
+    }
 
     suspend fun loadMinistryPositions(organizationId: String): List<MinistryPositionDto> =
         client.from("ministry_positions").select {
