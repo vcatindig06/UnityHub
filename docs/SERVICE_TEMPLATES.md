@@ -15,8 +15,10 @@ Applying a template appends its items after the target service's current items. 
 ## Preserved information
 
 - Item order
-- Song references
+- Song references while the source song exists
 - Saved ChordPro snapshots (the chart content as it appeared when added)
+
+If a source song is deleted from the library, its template item keeps the saved ChordPro snapshot and its live song reference is set to null. This prevents a reusable template from blocking song deletion or losing the saved chart.
 - Custom prayer, reading, announcement, and other items
 - Duration and notes
 
