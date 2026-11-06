@@ -1,6 +1,7 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,11 +20,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +53,7 @@ import com.unityhub.app.data.OrganizationWorkspace
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceMemberOption
 import com.unityhub.app.data.SupabaseClientProvider
+import com.unityhub.app.data.TeamDirectoryRules
 import com.unityhub.app.data.TeamManagementRepository
 import kotlinx.coroutines.launch
 
@@ -74,6 +79,29 @@ fun TeamManagementScreen(
     var managementError by remember { mutableStateOf("") }
     var addPositionOpen by rememberSaveable { mutableStateOf(false) }
     var selectedMember by remember { mutableStateOf<ServiceMemberOption?>(null) }
+    var memberSearchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedPositionFilter by rememberSaveable { mutableStateOf("") }
+
+    val assignedPositionsByMember = remember(memberPositions, positions) {
+        memberPositions.groupBy { it.memberId }.mapValues { (_, assignments) ->
+            assignments.mapNotNull { assignment ->
+                positions.firstOrNull { it.id == assignment.positionId }?.name
+            }.sortedBy { it.lowercase() }
+        }
+    }
+    val filteredMembers = remember(
+        members,
+        assignedPositionsByMember,
+        memberSearchQuery,
+        selectedPositionFilter
+    ) {
+        TeamDirectoryRules.filterMembers(
+            members = members,
+            assignedPositionsByMember = assignedPositionsByMember,
+            searchQuery = memberSearchQuery,
+            selectedPosition = selectedPositionFilter
+        )
+    }
 
     val canManagePositions = workspace.role == "admin" || workspace.role == "worship_leader"
 
@@ -235,6 +263,50 @@ fun TeamManagementScreen(
             }
         }
 
+        item {
+            OutlinedTextField(
+                value = memberSearchQuery,
+                onValueChange = { memberSearchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Search members") },
+                placeholder = { Text("Name, team role, or ministry position") },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = null)
+                },
+                singleLine = true
+            )
+        }
+
+        if (positions.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedPositionFilter.isBlank(),
+                        onClick = { selectedPositionFilter = "" },
+                        label = { Text("All positions") }
+                    )
+                    positions.forEach { position ->
+                        FilterChip(
+                            selected = selectedPositionFilter == position.name,
+                            onClick = {
+                                selectedPositionFilter = if (selectedPositionFilter == position.name) {
+                                    ""
+                                } else {
+                                    position.name
+                                }
+                            },
+                            label = { Text(position.name) }
+                        )
+                    }
+                }
+            }
+        }
+
         if (dataLoading && members.isEmpty()) {
             item {
                 Row(
@@ -250,19 +322,46 @@ fun TeamManagementScreen(
             item {
                 Text("No team members are available yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        } else {
-            items(members, key = { it.memberId }) { member ->
-                val memberPositionNames = memberPositions
-                    .filter { it.memberId == member.memberId }
-                    .mapNotNull { assigned ->
-                        positions.firstOrNull { it.id == assigned.positionId }?.name
+        } else if (filteredMembers.isEmpty()) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "No members match these filters.",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Try another name or ministry position, or clear the filters.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(
+                        onClick = {
+                            memberSearchQuery = ""
+                            selectedPositionFilter = ""
+                        }
+                    ) {
+                        Text("Clear filters")
                     }
-                    .sortedBy { it.lowercase() }
-
+                }
+            }
+        } else {
+            item {
+                Text(
+                    "Showing ${filteredMembers.size} of ${members.size} members",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            items(filteredMembers, key = { it.memberId }) { member ->
                 TeamMemberProfileCard(
                     member = member,
                     isCurrentUser = member.userId == currentUserId,
-                    assignedPositions = memberPositionNames,
+                    assignedPositions = assignedPositionsByMember[member.memberId].orEmpty(),
                     canManagePositions = canManagePositions,
                     saving = saving,
                     onManagePositions = { selectedMember = member }
