@@ -17,7 +17,7 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  if p_new_role not in ('admin', 'worship_leader', 'song_editor', 'team_member', 'viewer') then
+  if p_new_role is null or p_new_role not in ('admin', 'worship_leader', 'song_editor', 'team_member', 'viewer') then
     raise exception 'Invalid role';
   end if;
 
@@ -50,6 +50,10 @@ begin
 
   if not private.has_org_role(v_member.organization_id, array['admin']) then
     raise exception 'Only an administrator can change roles';
+  end if;
+
+  if v_member.user_id = auth.uid() then
+    raise exception 'Administrators cannot change their own team role';
   end if;
 
   if v_member.user_id = v_owner_id and p_new_role <> 'admin' then
@@ -117,6 +121,10 @@ begin
 
   if not private.has_org_role(v_member.organization_id, array['admin']) then
     raise exception 'Only an administrator can remove members';
+  end if;
+
+  if v_member.user_id = auth.uid() then
+    raise exception 'Administrators cannot remove their own membership';
   end if;
 
   if v_member.user_id = v_owner_id then
