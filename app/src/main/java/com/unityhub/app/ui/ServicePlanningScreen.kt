@@ -125,26 +125,6 @@ fun ServicePlanningScreen(
         scope.launch { loadTemplateLibrary() }
     }
 
-    suspend fun refreshTemplates() {
-        if (!canManage || offlineOnly || usingOfflineCopy) {
-            templates = emptyList()
-            templateItemCounts = emptyMap()
-            return
-        }
-        templatesLoading = true
-        templateDialogError = ""
-        try {
-            templates = templateRepository.loadTemplates(organizationId)
-            templateItemCounts = templateRepository.loadItemCounts(organizationId)
-        } catch (_: Exception) {
-            templates = emptyList()
-            templateItemCounts = emptyMap()
-            templateDialogError = "Saved templates could not be loaded. Check your connection and try again."
-        } finally {
-            templatesLoading = false
-        }
-    }
-
     fun reload() {
         scope.launch {
             loading = true
@@ -661,6 +641,26 @@ private fun ServicePlanDetailScreen(
         .sortedWith(compareByDescending<ServicePlanDto> { it.serviceDate.orEmpty() }
             .thenByDescending { it.startTime.orEmpty() }
             .thenBy { it.title.lowercase() })
+
+    suspend fun refreshTemplates() {
+        if (!canManage || offlineOnly || usingOfflineCopy) {
+            templates = emptyList()
+            templateItemCounts = emptyMap()
+            return
+        }
+        templatesLoading = true
+        templateDialogError = ""
+        try {
+            templates = templateRepository.loadTemplates(organizationId)
+            templateItemCounts = templateRepository.loadItemCounts(organizationId)
+        } catch (_: Exception) {
+            templates = emptyList()
+            templateItemCounts = emptyMap()
+            templateDialogError = "Saved templates could not be loaded. Check your connection and try again."
+        } finally {
+            templatesLoading = false
+        }
+    }
 
     fun reload() {
         scope.launch {
