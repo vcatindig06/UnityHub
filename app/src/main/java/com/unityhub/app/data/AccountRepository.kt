@@ -65,7 +65,7 @@ class AccountRepository(
 
         client.auth.updateUser {
             data {
-                put("display_name", displayName)
+                put("display_name", JsonPrimitive(displayName))
             }
         }
 
