@@ -100,7 +100,8 @@ class AccountRepository(
         }
 
         val updatedProfile = loadProfileRecord(user.id)
-        check(updatedProfile?.displayName == displayName) {
+            ?: error("Your profile record could not be loaded after saving.")
+        check(updatedProfile.displayName == displayName) {
             "Your display name could not be saved to your team profile."
         }
 
