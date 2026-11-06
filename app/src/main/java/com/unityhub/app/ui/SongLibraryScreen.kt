@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,16 +25,21 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,6 +56,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.unityhub.app.data.SongDto
+import com.unityhub.app.data.SongLibraryRules
 import com.unityhub.app.data.SongRepository
 import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.SupabaseClientProvider
@@ -75,10 +83,13 @@ fun SongLibraryScreen(
     val offlineCache = remember(context) { OfflineSongCache(context) }
     var usingOfflineCopy by remember(organizationId, userId, offlineOnly) { mutableStateOf(offlineOnly) }
     var lastSyncedAtMillis by remember(organizationId, userId) { mutableStateOf<Long?>(null) }
-    val canEdit = !offlineOnly && !usingOfflineCopy &&
-        role in listOf("admin", "worship_leader", "song_editor")
+    val canEdit = SongLibraryRules.canEditSongs(role, offlineOnly, usingOfflineCopy)
 
     var songs by remember { mutableStateOf<List<SongDto>>(emptyList()) }
+    var favoriteSongIds by remember(organizationId, userId) { mutableStateOf<Set<String>>(emptySet()) }
+    var favoriteFilter by rememberSaveable { mutableStateOf(false) }
+    var favoriteSavingIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var favoriteError by remember { mutableStateOf("") }
     var selectedSong by remember { mutableStateOf<SongDto?>(null) }
     var loading by remember { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
@@ -104,6 +115,9 @@ fun SongLibraryScreen(
                 if (offlineOnly) {
                     val cached = offlineCache.loadSongs(userId, organizationId)
                     songs = cached.songs
+                    favoriteSongIds = emptySet()
+                    favoriteFilter = false
+                    favoriteError = "Favorites are available when you are online."
                     lastSyncedAtMillis = cached.syncedAtMillis
                     usingOfflineCopy = true
                     if (songs.isEmpty()) {
@@ -114,6 +128,13 @@ fun SongLibraryScreen(
                         val remoteSongs = repository.loadSongs(organizationId)
                         songs = remoteSongs
                         usingOfflineCopy = false
+                        favoriteError = ""
+                        favoriteSongIds = runCatching {
+                            repository.loadFavoriteSongIds(userId)
+                        }.getOrElse {
+                            favoriteError = "Your favorites could not be loaded. Check your connection and refresh."
+                            emptySet()
+                        }
                         lastSyncedAtMillis = runCatching {
                             offlineCache.saveSongs(userId, organizationId, remoteSongs)
                         }.getOrNull()
@@ -121,16 +142,23 @@ fun SongLibraryScreen(
                         val cached = offlineCache.loadSongs(userId, organizationId)
                         if (cached.songs.isNotEmpty()) {
                             songs = cached.songs
+                            favoriteSongIds = emptySet()
+                            favoriteFilter = false
+                            favoriteError = "Favorites are unavailable while using an offline copy."
                             lastSyncedAtMillis = cached.syncedAtMillis
                             usingOfflineCopy = true
                         } else {
                             songs = emptyList()
+                            favoriteSongIds = emptySet()
+                            favoriteFilter = false
                             usingOfflineCopy = false
                             error = "Could not load songs and no offline copy is saved. Check your internet connection."
                         }
                     }
                 }
             } catch (_: Exception) {
+                favoriteSongIds = emptySet()
+                favoriteFilter = false
                 error = "The saved song library could not be opened on this device."
             } finally {
                 loading = false
@@ -164,6 +192,29 @@ fun SongLibraryScreen(
         error = ""
         importMessage = ""
         editorOpen = true
+    }
+
+    fun toggleFavorite(song: SongDto) {
+        if (offlineOnly || usingOfflineCopy || song.id in favoriteSavingIds) return
+
+        val wasFavorite = song.id in favoriteSongIds
+        favoriteSavingIds = favoriteSavingIds + song.id
+        scope.launch {
+            favoriteError = ""
+            try {
+                if (wasFavorite) {
+                    repository.removeSongFavorite(userId, song.id)
+                    favoriteSongIds = favoriteSongIds - song.id
+                } else {
+                    repository.addSongFavorite(userId, song.id)
+                    favoriteSongIds = favoriteSongIds + song.id
+                }
+            } catch (_: Exception) {
+                favoriteError = "That favorite could not be updated. Check your connection and try again."
+            } finally {
+                favoriteSavingIds = favoriteSavingIds - song.id
+            }
+        }
     }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -238,6 +289,7 @@ fun SongLibraryScreen(
 
     if (editorOpen) {
         SongEditor(
+            modifier = modifier,
             isEditing = editingSong != null,
             saving = saving,
             title = title,
@@ -291,14 +343,13 @@ fun SongLibraryScreen(
             }
         )
     } else {
-        val filteredSongs = songs.filter { song ->
-            val query = search.trim()
-            query.isBlank() ||
-                song.title.contains(query, ignoreCase = true) ||
-                song.artist.contains(query, ignoreCase = true) ||
-                song.keySignature.contains(query, ignoreCase = true) ||
-                song.timeSignature.contains(query, ignoreCase = true)
-        }
+        val filteredSongs = SongLibraryRules.filterSongs(
+            songs = songs,
+            searchQuery = search,
+            favoritesOnly = favoriteFilter,
+            favoriteSongIds = favoriteSongIds
+        )
+        val favoriteCount = songs.count { it.id in favoriteSongIds }
 
         LazyColumn(
             modifier = modifier.fillMaxSize(),
@@ -370,6 +421,30 @@ fun SongLibraryScreen(
                         label = { Text("Search title, artist, key, or time signature") },
                         singleLine = true
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = !favoriteFilter,
+                            onClick = { favoriteFilter = false },
+                            label = { Text("All songs") }
+                        )
+                        FilterChip(
+                            selected = favoriteFilter,
+                            onClick = { favoriteFilter = true },
+                            enabled = !usingOfflineCopy,
+                            label = { Text("Favorites (" + favoriteCount + ")") }
+                        )
+                    }
+                    if (favoriteError.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            favoriteError,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                     if (error.isNotBlank()) {
                         Spacer(Modifier.height(8.dp))
                         Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -387,11 +462,20 @@ fun SongLibraryScreen(
                     Column(Modifier.fillMaxWidth().padding(28.dp)) {
                         Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(8.dp))
-                        Text(if (songs.isEmpty()) "Your song library is empty" else "No matching songs")
                         Text(
-                            if (songs.isEmpty() && canEdit) "Add a song manually or import a ChordPro file to start building your team's chart library."
-                            else if (songs.isEmpty()) "A song editor or administrator can add songs for your team."
-                            else "Try another title, artist, key, or time signature.",
+                            when {
+                                songs.isEmpty() -> "Your song library is empty"
+                                favoriteFilter -> "No favorite songs yet"
+                                else -> "No matching songs"
+                            }
+                        )
+                        Text(
+                            when {
+                                songs.isEmpty() && canEdit -> "Add a song manually or import a ChordPro file to start building your team's chart library."
+                                songs.isEmpty() -> "A song editor or administrator can add songs for your team."
+                                favoriteFilter -> "Tap the star beside any song to save it to your personal favorites."
+                                else -> "Try another title, artist, key, or time signature."
+                            },
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -428,8 +512,25 @@ fun SongLibraryScreen(
                                     )
                                 }
                             }
-                            if (canEdit) {
-                                Row {
+                            Row {
+                                androidx.compose.material3.IconButton(
+                                    onClick = { toggleFavorite(song) },
+                                    enabled = !usingOfflineCopy && song.id !in favoriteSavingIds
+                                ) {
+                                    if (song.id in favoriteSongIds) {
+                                        Icon(
+                                            Icons.Filled.Star,
+                                            contentDescription = "Remove " + song.title + " from favorites",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Outlined.StarBorder,
+                                            contentDescription = "Add " + song.title + " to favorites"
+                                        )
+                                    }
+                                }
+                                if (canEdit) {
                                     androidx.compose.material3.IconButton(onClick = { startEditing(song) }, enabled = !saving) {
                                         Icon(Icons.Default.Edit, contentDescription = "Edit song")
                                     }
@@ -463,6 +564,7 @@ fun SongLibraryScreen(
 
 @Composable
 private fun SongEditor(
+    modifier: Modifier = Modifier,
     isEditing: Boolean,
     saving: Boolean,
     title: String,
@@ -484,8 +586,53 @@ private fun SongEditor(
     onCancel: () -> Unit,
     onSave: () -> Unit
 ) {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        bottomBar = {
+            Surface(
+                shadowElevation = 8.dp,
+                tonalElevation = 2.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .imePadding()
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (error.isNotBlank()) {
+                        Text(
+                            error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        TextButton(onClick = onCancel, enabled = !saving) {
+                            Text("Cancel")
+                        }
+                        Button(
+                            onClick = onSave,
+                            enabled = !saving && title.trim().length in 1..200,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            if (saving) {
+                                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text(if (isEditing) "Save changes" else "Save song")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ) { contentPadding ->
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
@@ -557,26 +704,18 @@ private fun SongEditor(
         item {
             OutlinedTextField(notes, onNotesChange, Modifier.fillMaxWidth().padding(horizontal = 20.dp), label = { Text("Team notes (optional)") }, minLines = 2, enabled = !saving)
         }
-        item {
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                if (importMessage.isNotBlank()) {
-                    Text(importMessage, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(6.dp))
-                }
-                if (error.isNotBlank()) {
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(8.dp))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TextButton(onClick = onCancel, enabled = !saving) { Text("Cancel") }
-                    Button(onClick = onSave, enabled = !saving && title.trim().length in 1..200, modifier = Modifier.weight(1f)) {
-                        if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        else Text(if (isEditing) "Save changes" else "Save song")
-                    }
-                }
+        if (importMessage.isNotBlank()) {
+            item {
+                Text(
+                    importMessage,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    color = MaterialTheme.colorScheme.secondary,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
-        item { Spacer(Modifier.height(24.dp)) }
+        item { Spacer(Modifier.height(16.dp)) }
+    }
     }
 }
 
