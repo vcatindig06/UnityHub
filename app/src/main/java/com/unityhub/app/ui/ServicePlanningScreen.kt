@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -639,6 +640,7 @@ private fun ServicePlanDetailScreen(
     var templateActionSaving by remember { mutableStateOf(false) }
     var templateDialogError by remember { mutableStateOf("") }
     var templateSuccessMessage by remember(plan.id) { mutableStateOf("") }
+    var liveStageOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
     val copySourcePlans = availablePlans
         .filter { it.id != plan.id && it.organizationId == organizationId }
         .sortedWith(compareByDescending<ServicePlanDto> { it.serviceDate.orEmpty() }
@@ -723,6 +725,16 @@ private fun ServicePlanDetailScreen(
     }
 
     LaunchedEffect(plan.id) { reload() }
+
+    if (liveStageOpen) {
+        LiveStageScreen(
+            serviceTitle = plan.title,
+            items = items,
+            onBack = { liveStageOpen = false },
+            modifier = modifier
+        )
+        return
+    }
 
     if (songPickerOpen) {
         AlertDialog(
@@ -935,6 +947,20 @@ private fun ServicePlanDetailScreen(
                 allowResponses = ServiceAssignmentRules.canRespondToService(currentStatus),
                 offlineOnly = offlineOnly || usingOfflineCopy
             )
+        }
+
+        if (!loading && items.isNotEmpty()) {
+            item {
+                Button(
+                    onClick = { liveStageOpen = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !saving
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("Start Live Stage")
+                }
+            }
         }
 
         item {
