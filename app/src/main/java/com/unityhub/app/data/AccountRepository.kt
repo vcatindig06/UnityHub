@@ -2,6 +2,9 @@ package com.unityhub.app.data
 
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.postgrest.from
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -9,6 +12,12 @@ import kotlinx.serialization.json.contentOrNull
 data class AccountProfile(
     val displayName: String,
     val email: String?
+)
+
+@Serializable
+private data class ProfileRecordDto(
+    val id: String,
+    @SerialName("display_name") val displayName: String
 )
 
 internal object AccountProfileRules {
@@ -34,41 +43,76 @@ internal object AccountProfileRules {
             }
             .orEmpty()
     }
+
+    fun resolveDisplayName(
+        profileName: String?,
+        metadata: JsonObject?,
+        email: String?
+    ): String =
+        profileName?.trim()?.takeIf(String::isNotBlank)
+            ?: displayNameFromMetadata(metadata)
+                .takeIf(String::isNotBlank)
+            ?: email?.substringBefore("@")?.trim()?.takeIf(String::isNotBlank)
+            ?: "UnityHub member"
 }
 
 /**
- * Reads and updates profile information in Supabase Auth user metadata.
+ * The public profiles row is the source of truth for display names shared with
+ * teammates, join requests, and the Team directory. The Auth metadata written at
+ * registration is only an initial value; editing a name must update this row.
  *
- * Display names are user-editable profile information only. Organization roles and
- * access decisions must continue to come from the protected organization membership
- * records and Supabase Row Level Security policies.
+ * The profiles_update_self RLS policy limits this update to the signed-in user.
+ * Organization roles remain separate and continue to come from organization_members.
  */
 class AccountRepository(
     private val client: SupabaseClient
 ) {
-    fun loadProfile(): AccountProfile {
+    suspend fun loadProfile(): AccountProfile {
         val user = client.auth.currentUserOrNull()
             ?: error("No signed-in account was found.")
 
-        val displayName = AccountProfileRules.displayNameFromMetadata(user.userMetadata)
-            .ifBlank { user.email?.substringBefore("@").orEmpty() }
-            .ifBlank { "UnityHub member" }
-
+        val profile = loadProfileRecord(user.id)
         return AccountProfile(
-            displayName = displayName,
+            displayName = AccountProfileRules.resolveDisplayName(
+                profileName = profile?.displayName,
+                metadata = user.userMetadata,
+                email = user.email
+            ),
             email = user.email
         )
     }
 
     suspend fun updateDisplayName(value: String): AccountProfile {
         val displayName = AccountProfileRules.normalizeDisplayName(value)
+        val user = client.auth.currentUserOrNull()
+            ?: error("No signed-in account was found.")
 
-        client.auth.updateUser {
-            data {
-                put("display_name", JsonPrimitive(displayName))
+        check(loadProfileRecord(user.id) != null) {
+            "Your profile record could not be found. Sign out and sign in again, then retry."
+        }
+
+        client.from("profiles").update({
+            set("display_name", displayName)
+        }) {
+            filter {
+                eq("id", user.id)
             }
         }
 
-        return loadProfile()
+        val updatedProfile = loadProfileRecord(user.id)
+            ?: error("Your profile record could not be loaded after saving.")
+        check(updatedProfile.displayName == displayName) {
+            "Your display name could not be saved to your team profile."
+        }
+
+        return AccountProfile(
+            displayName = updatedProfile.displayName,
+            email = user.email
+        )
     }
+
+    private suspend fun loadProfileRecord(userId: String): ProfileRecordDto? =
+        client.from("profiles").select {
+            filter { eq("id", userId) }
+        }.decodeList<ProfileRecordDto>().firstOrNull()
 }

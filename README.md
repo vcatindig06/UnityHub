@@ -80,12 +80,12 @@ GitHub Actions runs the same test and build tasks and publishes the APK as a wor
 Implemented workflows include:
 
 - Email/password registration, sign-in, and sign-out
-- Profile display name captured during registration
+- Profile display name captured during registration and stored in the RLS-protected public profiles table; account edits update the shared team profile
 - Organization creation
 - Authenticated organization directory search
 - Requests to join an organization
 - Administrator approval or decline of join requests
-- Team membership list and role display
+- Team directory with member display names, team access roles, and assigned ministry positions, including member search and ministry-position filters
 - Song library search and editor-only song management
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
