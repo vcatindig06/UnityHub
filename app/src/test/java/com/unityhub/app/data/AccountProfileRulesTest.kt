@@ -64,4 +64,60 @@ class AccountProfileRulesTest {
         assertEquals("", AccountProfileRules.displayNameFromMetadata(null))
         assertEquals("", AccountProfileRules.displayNameFromMetadata(buildJsonObject { }))
     }
+    @Test
+    fun databaseProfileNameTakesPrecedenceOverRegistrationMetadata() {
+        val metadata = buildJsonObject {
+            put("display_name", "Old registration name")
+        }
+
+        assertEquals(
+            "Current profile name",
+            AccountProfileRules.resolveDisplayName(
+                profileName = " Current profile name ",
+                metadata = metadata,
+                email = "member@example.com"
+            )
+        )
+    }
+
+    @Test
+    fun metadataIsUsedWhenTheProfileNameIsBlank() {
+        val metadata = buildJsonObject {
+            put("display_name", "Registration name")
+        }
+
+        assertEquals(
+            "Registration name",
+            AccountProfileRules.resolveDisplayName(
+                profileName = " ",
+                metadata = metadata,
+                email = "member@example.com"
+            )
+        )
+    }
+
+    @Test
+    fun emailNameIsUsedWhenNoProfileOrMetadataNameExists() {
+        assertEquals(
+            "member",
+            AccountProfileRules.resolveDisplayName(
+                profileName = null,
+                metadata = null,
+                email = "member@example.com"
+            )
+        )
+    }
+
+    @Test
+    fun safeDefaultIsUsedWhenAllProfileSourcesAreBlank() {
+        assertEquals(
+            "UnityHub member",
+            AccountProfileRules.resolveDisplayName(
+                profileName = " ",
+                metadata = buildJsonObject { },
+                email = null
+            )
+        )
+    }
+
 }
