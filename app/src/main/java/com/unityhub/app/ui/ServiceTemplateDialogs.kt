@@ -39,6 +39,7 @@ import com.unityhub.app.data.ServiceTemplateDto
 internal fun ServiceTemplateLibraryDialog(
     templates: List<ServiceTemplateDto>,
     itemCounts: Map<String, Int>,
+    canManage: Boolean,
     loading: Boolean,
     saving: Boolean,
     errorMessage: String,
@@ -108,22 +109,24 @@ internal fun ServiceTemplateLibraryDialog(
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.End,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            IconButton(
-                                                onClick = { renameTarget = template },
-                                                enabled = !saving
+                                        if (canManage) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End,
+                                                verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Icon(Icons.Default.Edit, contentDescription = "Rename ${template.name}")
-                                            }
-                                            IconButton(
-                                                onClick = { deleteTarget = template },
-                                                enabled = !saving
-                                            ) {
-                                                Icon(Icons.Default.DeleteOutline, contentDescription = "Delete ${template.name}", tint = MaterialTheme.colorScheme.error)
+                                                IconButton(
+                                                    onClick = { renameTarget = template },
+                                                    enabled = !saving
+                                                ) {
+                                                    Icon(Icons.Default.Edit, contentDescription = "Rename ${template.name}")
+                                                }
+                                                IconButton(
+                                                    onClick = { deleteTarget = template },
+                                                    enabled = !saving
+                                                ) {
+                                                    Icon(Icons.Default.DeleteOutline, contentDescription = "Delete ${template.name}", tint = MaterialTheme.colorScheme.error)
+                                                }
                                             }
                                         }
                                     }
