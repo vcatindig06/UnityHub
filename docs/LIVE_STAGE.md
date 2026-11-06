@@ -13,7 +13,7 @@ Live Stage is read-only. It never changes the saved service plan or song library
 
 ## Stage controls
 
-- **Previous / Next item:** move through the ordered service setlist.
+- **Previous / Next item:** move through the ordered service setlist. Navigation stops at the first and last items; it does not wrap around.
 - **Finish / Exit:** close the stage view and return to service details.
 - **Text size:** decrease or increase lyric and chord sizes.
 - **Show chords / Hide chords:** toggle chord rows without hiding lyrics.
