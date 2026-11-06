@@ -54,6 +54,10 @@ Add `unityhub://auth` and `unityhub://auth?mode=recovery` to Supabase Dashboard 
 
 Members can switch between all notifications and unread notifications, mark individual items as read, or mark all of their unread notifications as read. Bulk updates still write each notification only for its own recipient and use the existing authenticated-only read/update row policies; no new table privileges or server-side credentials are introduced.
 
+### Service plan editing
+
+Administrators and worship leaders can edit an existing service's title, date, start time, and notes from the service details screen. The edit action is hidden in read-only and offline views. Dates and times are validated before a write is sent to Supabase.
+
 ### Personal song favorites
 
 Members can save a private favorites list without changing the shared song library. The migration `supabase/migrations/20261106104500_add_personal_song_favorites.sql` creates the favorites table with authenticated-only Data API grants and row-level policies. A member can only list, add, or remove their own favorites for songs in organizations they currently belong to.

@@ -4,8 +4,6 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.time.LocalDate
-import java.time.LocalTime
 
 @Serializable
 data class ServicePlanDto(
@@ -85,14 +83,11 @@ class ServicePlanRepository(private val client: SupabaseClient) {
         organizationId: String, userId: String, title: String,
         serviceDate: String, startTime: String, notes: String
     ) {
-        val normalizedTitle = title.trim()
-        require(normalizedTitle.length in 1..160) {
-            "Enter a service title between 1 and 160 characters."
-        }
+        val normalizedTitle = ServicePlanRules.normalizeTitle(title)
         client.from("service_plans").insert(
             NewServicePlan(
-                organizationId, normalizedTitle, validateDate(serviceDate),
-                validateTime(startTime), notes.trim(), userId
+                organizationId, normalizedTitle, ServicePlanRules.normalizeDate(serviceDate),
+                ServicePlanRules.normalizeTime(startTime), notes.trim(), userId
             )
         )
     }
@@ -101,14 +96,11 @@ class ServicePlanRepository(private val client: SupabaseClient) {
         planId: String, organizationId: String, title: String,
         serviceDate: String, startTime: String, notes: String
     ) {
-        val normalizedTitle = title.trim()
-        require(normalizedTitle.length in 1..160) {
-            "Enter a service title between 1 and 160 characters."
-        }
+        val normalizedTitle = ServicePlanRules.normalizeTitle(title)
         client.from("service_plans").update({
             set("title", normalizedTitle)
-            set("service_date", validateDate(serviceDate))
-            set("start_time", validateTime(startTime))
+            set("service_date", ServicePlanRules.normalizeDate(serviceDate))
+            set("start_time", ServicePlanRules.normalizeTime(startTime))
             set("notes", notes.trim())
         }) {
             filter {
@@ -196,21 +188,4 @@ class ServicePlanRepository(private val client: SupabaseClient) {
         }
     }
 
-    private fun validateDate(value: String): String? {
-        val normalized = value.trim()
-        if (normalized.isBlank()) return null
-        require(runCatching { LocalDate.parse(normalized) }.isSuccess) {
-            "Use a valid date in YYYY-MM-DD format."
-        }
-        return normalized
-    }
-
-    private fun validateTime(value: String): String? {
-        val normalized = value.trim()
-        if (normalized.isBlank()) return null
-        val parsed = runCatching { LocalTime.parse(normalized) }.getOrElse {
-            throw IllegalArgumentException("Use a valid 24-hour time, such as 09:30.")
-        }
-        return parsed.toString().let { if (it.length == 5) "$it:00" else it }
-    }
 }
