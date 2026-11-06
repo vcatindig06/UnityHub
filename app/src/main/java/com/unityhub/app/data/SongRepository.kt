@@ -30,6 +30,12 @@ private data class SongFavoriteDto(
 )
 
 @Serializable
+private data class NewSongFavoriteDto(
+    @SerialName("user_id") val userId: String,
+    @SerialName("song_id") val songId: String
+)
+
+@Serializable
 private data class NewSong(
     @SerialName("organization_id") val organizationId: String,
     val title: String,
@@ -61,7 +67,7 @@ class SongRepository(private val client: SupabaseClient) {
             "A signed-in user and song are required to save a favorite."
         }
         client.from("song_favorites").insert(
-            SongFavoriteDto(userId = userId, songId = songId)
+            NewSongFavoriteDto(userId = userId, songId = songId)
         )
     }
 
