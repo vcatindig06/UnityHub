@@ -110,7 +110,8 @@ Implemented workflows include:
 - Song library search, editor-only song management, and personal per-member favorites with an All songs / Favorites filter
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
-- Read-only offline service plans, ordered setlists (including saved ChordPro snapshots), and the last-synced service team assignments with their response statuses. Offline assignment data is scoped to the signed-in user, and assignment creation, removal, and response updates remain online-only.
+- Read-only offline service plans, ordered setlists (including saved ChordPro snapshots), and the last-synced service team assignments with their response statuses.
+- Copy a previous service's complete ordered setlist into another service, appending items while preserving item types, notes, durations, song references, and saved ChordPro snapshots. Offline assignment data is scoped to the signed-in user, and assignment creation, removal, and response updates remain online-only.
 - Automatic background refresh of the signed-in user's song library, service plans/setlists, and service assignment snapshots. WorkManager runs after a workspace is opened and periodically when a network connection is available; background sync is read-only and scoped to the saved user and active organization.
 - A Home dashboard offline-sync status card showing live WorkManager progress, the last successful sync time, retry/error state, and a manual Sync now action.
 - A personal Home dashboard section for the signed-in member's upcoming service assignments, with role, service date, response status, and quick Confirm / Can't serve actions.
