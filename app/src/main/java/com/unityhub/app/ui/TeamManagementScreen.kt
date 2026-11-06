@@ -3,6 +3,7 @@ package com.unityhub.app.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +28,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +57,7 @@ import com.unityhub.app.data.OrganizationWorkspace
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceMemberOption
 import com.unityhub.app.data.SupabaseClientProvider
+import com.unityhub.app.data.TeamAccessRules
 import com.unityhub.app.data.TeamDirectoryRules
 import com.unityhub.app.data.TeamManagementRepository
 import kotlinx.coroutines.launch
@@ -63,6 +68,7 @@ fun TeamManagementScreen(
     currentUserId: String,
     onReviewRequest: (String, Boolean) -> Unit,
     errorMessage: String,
+    onWorkspaceChanged: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val organizationId = workspace.organization?.id ?: return
@@ -79,6 +85,9 @@ fun TeamManagementScreen(
     var managementError by remember { mutableStateOf("") }
     var addPositionOpen by rememberSaveable { mutableStateOf(false) }
     var selectedMember by remember { mutableStateOf<ServiceMemberOption?>(null) }
+    var memberAccessTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
+    var memberRemovalTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
+    var ownershipTransferOpen by rememberSaveable { mutableStateOf(false) }
     var memberSearchQuery by rememberSaveable { mutableStateOf("") }
     var selectedPositionFilter by rememberSaveable { mutableStateOf("") }
 
@@ -104,6 +113,9 @@ fun TeamManagementScreen(
     }
 
     val canManagePositions = workspace.role == "admin" || workspace.role == "worship_leader"
+    val canManageMembers = workspace.role == "admin"
+    val organizationOwnerId = workspace.organization?.createdBy.orEmpty()
+    val administratorCount = members.count { it.teamRole == "admin" }
 
     suspend fun loadTeamData() {
         members = assignmentRepository.loadTeamMembers(organizationId)
@@ -132,12 +144,24 @@ fun TeamManagementScreen(
             try {
                 action()
                 loadTeamData()
+                onWorkspaceChanged()
             } catch (exception: Exception) {
+                val serverMessage = exception.message.orEmpty().lowercase()
                 managementError = when {
-                    "already exists" in exception.message.orEmpty().lowercase() ->
+                    "already exists" in serverMessage ->
                         "That ministry position already exists. Choose a different name."
-                    "must contain 2" in exception.message.orEmpty().lowercase() ->
+                    "must contain 2" in serverMessage ->
                         "Use a ministry position name between 2 and 60 characters."
+                    "last administrator" in serverMessage ->
+                        "UnityHub must keep at least one administrator. Assign another administrator before changing or removing this member."
+                    "organization owner" in serverMessage ->
+                        "The organization owner must transfer ownership before their access can be changed or removed."
+                    "only an administrator" in serverMessage ->
+                        "Only a team administrator can manage member access."
+                    "current organization owner" in serverMessage ->
+                        "Only the current organization owner can transfer ownership."
+                    "must already be a member" in serverMessage ->
+                        "Choose someone who is already a member of this team."
                     else -> "The team update could not be saved. Check your connection and permissions, then try again."
                 }
             } finally {
@@ -199,6 +223,74 @@ fun TeamManagementScreen(
                             positionId = positionId
                         )
                     }
+                }
+            }
+        )
+    }
+
+    memberAccessTarget?.let { member ->
+        val isLastAdministrator = member.teamRole == "admin" && administratorCount <= 1
+        ManageMemberAccessDialog(
+            member = member,
+            allowedRoles = if (isLastAdministrator) listOf("admin") else TeamAccessRules.availableRoles,
+            canRemove = !isLastAdministrator,
+            saving = saving,
+            onDismiss = { if (!saving) memberAccessTarget = null },
+            onSaveRole = { newRole ->
+                memberAccessTarget = null
+                runAction { repository.changeMemberRole(member.memberId, newRole) }
+            },
+            onRemove = {
+                memberAccessTarget = null
+                memberRemovalTarget = member
+            }
+        )
+    }
+
+    memberRemovalTarget?.let { member ->
+        AlertDialog(
+            onDismissRequest = { if (!saving) memberRemovalTarget = null },
+            title = { Text("Remove team member?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Remove ${member.displayName} from ${workspace.organization?.name ?: "this team"}?")
+                    Text(
+                        "Their UnityHub account will remain active, but they will lose access to this team's workspace and resources.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        memberRemovalTarget = null
+                        runAction { repository.removeMember(member.memberId) }
+                    },
+                    enabled = !saving
+                ) {
+                    if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text("Remove member")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { memberRemovalTarget = null }, enabled = !saving) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (ownershipTransferOpen) {
+        TransferOrganizationOwnershipDialog(
+            currentUserId = currentUserId,
+            members = members,
+            saving = saving,
+            onDismiss = { if (!saving) ownershipTransferOpen = false },
+            onTransfer = { newOwner ->
+                ownershipTransferOpen = false
+                runAction {
+                    repository.transferOrganizationOwnership(organizationId, newOwner.userId)
                 }
             }
         )
@@ -363,9 +455,46 @@ fun TeamManagementScreen(
                     isCurrentUser = member.userId == currentUserId,
                     assignedPositions = assignedPositionsByMember[member.memberId].orEmpty(),
                     canManagePositions = canManagePositions,
+                    canManageMembers = TeamAccessRules.canManageMember(
+                        isAdmin = canManageMembers,
+                        currentUserId = currentUserId,
+                        organizationOwnerId = organizationOwnerId,
+                        targetUserId = member.userId
+                    ),
+                    isOrganizationOwner = member.userId == organizationOwnerId,
                     saving = saving,
-                    onManagePositions = { selectedMember = member }
+                    onManagePositions = { selectedMember = member },
+                    onManageAccess = { memberAccessTarget = member }
                 )
+            }
+        }
+
+        if (TeamAccessRules.canTransferOwnership(
+                currentUserId = currentUserId,
+                organizationOwnerId = organizationOwnerId,
+                targetUserId = members.firstOrNull { it.userId != currentUserId }?.userId.orEmpty()
+            )) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("Organization ownership", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Transfer the organization to another existing team member. The new owner becomes an administrator, and your account remains in the team as a Team Member.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(onClick = { ownershipTransferOpen = true }, enabled = !saving) {
+                            Text("Transfer ownership")
+                        }
+                    }
+                }
             }
         }
 
@@ -482,8 +611,11 @@ private fun TeamMemberProfileCard(
     isCurrentUser: Boolean,
     assignedPositions: List<String>,
     canManagePositions: Boolean,
+    canManageMembers: Boolean,
+    isOrganizationOwner: Boolean,
     saving: Boolean,
-    onManagePositions: () -> Unit
+    onManagePositions: () -> Unit,
+    onManageAccess: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -512,6 +644,14 @@ private fun TeamMemberProfileCard(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (isOrganizationOwner) {
+                    Text(
+                        "Organization owner",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
                 Text(
                     if (assignedPositions.isEmpty()) "No ministry position assigned"
                     else assignedPositions.joinToString(" · "),
@@ -523,9 +663,130 @@ private fun TeamMemberProfileCard(
                         Text("Manage ministry positions")
                     }
                 }
+                if (canManageMembers && !isOrganizationOwner && !isCurrentUser) {
+                    TextButton(onClick = onManageAccess, enabled = !saving) {
+                        Text("Manage access")
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun ManageMemberAccessDialog(
+    member: ServiceMemberOption,
+    allowedRoles: List<String>,
+    canRemove: Boolean,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onSaveRole: (String) -> Unit,
+    onRemove: () -> Unit
+) {
+    var selectedRole by rememberSaveable(member.memberId) { mutableStateOf(member.teamRole) }
+    var roleMenuExpanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Manage team access") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(member.displayName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Choose the member's access role.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box {
+                    OutlinedButton(onClick = { roleMenuExpanded = true }, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
+                        Text(TeamAccessRules.roleLabel(selectedRole))
+                    }
+                    DropdownMenu(expanded = roleMenuExpanded, onDismissRequest = { roleMenuExpanded = false }) {
+                        allowedRoles.forEach { role ->
+                            DropdownMenuItem(
+                                text = { Text(TeamAccessRules.roleLabel(role)) },
+                                onClick = { selectedRole = role; roleMenuExpanded = false },
+                                enabled = !saving
+                            )
+                        }
+                    }
+                }
+                if (selectedRole == "admin" && member.teamRole != "admin") {
+                    Text("Administrator access includes team-wide member management and approval controls.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
+                if (!canRemove) {
+                    Text(
+                        "This is the organization's last administrator. Assign another administrator before changing or removing this access.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                TextButton(onClick = onRemove, enabled = !saving && canRemove) { Text("Remove member from team") }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSaveRole(selectedRole) }, enabled = !saving && selectedRole != member.teamRole) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Save role")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun TransferOrganizationOwnershipDialog(
+    currentUserId: String,
+    members: List<ServiceMemberOption>,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onTransfer: (ServiceMemberOption) -> Unit
+) {
+    val candidates = remember(members, currentUserId) { members.filter { it.userId != currentUserId } }
+    var selectedUserId by rememberSaveable { mutableStateOf("") }
+    var menuExpanded by remember { mutableStateOf(false) }
+    val selectedMember = candidates.firstOrNull { it.userId == selectedUserId }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Transfer organization ownership") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Choose an existing member to become the new organization owner.", style = MaterialTheme.typography.bodyMedium)
+                Box {
+                    OutlinedButton(
+                        onClick = { menuExpanded = true },
+                        enabled = !saving && candidates.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(selectedMember?.let {
+                            "${it.displayName} · ${TeamAccessRules.roleLabel(it.teamRole)}"
+                        } ?: "Choose a team member")
+                    }
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        candidates.forEach { member ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(member.displayName)
+                                        Text(TeamAccessRules.roleLabel(member.teamRole), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                },
+                                onClick = { selectedUserId = member.userId; menuExpanded = false },
+                                enabled = !saving
+                            )
+                        }
+                    }
+                }
+                Text(
+                    "The selected member becomes an Administrator and the new owner. Your account remains in the team as a Team Member. Only the new owner can transfer ownership again.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { selectedMember?.let(onTransfer) }, enabled = !saving && selectedMember != null) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Transfer ownership")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") } }
+    )
 }
 
 @Composable
@@ -705,10 +966,4 @@ private fun TeamSummaryCard(
     }
 }
 
-private fun teamAccessLabel(role: String): String = when (role) {
-    "admin" -> "Administrator"
-    "worship_leader" -> "Worship Leader"
-    "song_editor" -> "Song Editor"
-    "viewer" -> "Viewer"
-    else -> "Team Member"
-}
+private fun teamAccessLabel(role: String): String = TeamAccessRules.roleLabel(role)
