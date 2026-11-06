@@ -81,7 +81,7 @@ private val UnityHubDarkColors = darkColorScheme(
     surfaceTint = ColorTokens.PrimaryDark
 )
 
-private object ColorTokens {
+internal object ColorTokens {
     val PrimaryContainerLight = androidx.compose.ui.graphics.Color(0xFFDCEAF2)
     val OnPrimaryContainerLight = androidx.compose.ui.graphics.Color(0xFF18394D)
     val SecondaryContainerLight = androidx.compose.ui.graphics.Color(0xFFD9EEE6)
