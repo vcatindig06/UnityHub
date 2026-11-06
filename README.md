@@ -50,6 +50,12 @@ Use only the Supabase publishable key in this Android app. Never use a service-r
 
 Add `unityhub://auth` and `unityhub://auth?mode=recovery` to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs. The first handles email confirmation and OAuth callbacks; the second returns password-reset links to the in-app password update screen.
 
+### Team member administration
+
+The migration `supabase/migrations/20261106090000_secure_member_administration.sql` protects the organization creator from being demoted or removed outside an ownership transfer. It adds an owner-only `transfer_organization_ownership` RPC that promotes the selected existing member to Administrator, updates `organizations.created_by`, and changes the previous owner's role to Team Member in one transaction. The role-change and removal RPCs also lock the organization first and retain the last-administrator safeguard.
+
+Only the authenticated organization owner can transfer ownership. Only authenticated administrators can change member roles or remove non-owner members. The Android UI mirrors these restrictions, while the database functions remain the authorization boundary.
+
 ### GitHub Actions configuration
 
 For builds on GitHub-hosted runners, configure these repository secrets under **Settings → Secrets and variables → Actions**:
@@ -86,6 +92,7 @@ Implemented workflows include:
 - Requests to join an organization
 - Administrator approval or decline of join requests
 - Team directory with member display names, team access roles, and assigned ministry positions, including member search and ministry-position filters
+- Administrator-only member access controls for changing access roles and removing members, plus an atomic owner transfer that promotes the new owner and retains the previous owner as a Team Member
 - Song library search and editor-only song management
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
