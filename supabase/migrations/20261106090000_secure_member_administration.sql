@@ -211,7 +211,7 @@ begin
   update public.organizations
   set created_by = p_new_owner_user_id,
       updated_at = now()
-  where id = p_new_owner.id;
+  where id = p_organization_id;
 
   update public.organization_members
   set role = 'team_member'
