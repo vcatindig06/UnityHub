@@ -18,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
@@ -29,6 +31,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.NavigationBar
@@ -686,12 +689,14 @@ private fun WorkspaceDashboard(
     onPushNavigationHandled: () -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
+    var showAccountScreen by rememberSaveable { mutableStateOf(false) }
     var requestedServicePlanId by remember { mutableStateOf<String?>(null) }
     var serviceNavigationRequestId by remember { mutableStateOf<String?>(null) }
     val organization = workspace.organization ?: return
 
     LaunchedEffect(pushNavigation?.notificationId, pushNavigation?.servicePlanId) {
         val navigation = pushNavigation ?: return@LaunchedEffect
+        showAccountScreen = false
         if (!navigation.servicePlanId.isNullOrBlank()) {
             requestedServicePlanId = navigation.servicePlanId
             serviceNavigationRequestId = navigation.notificationId ?: navigation.servicePlanId
@@ -705,37 +710,65 @@ private fun WorkspaceDashboard(
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    if (showAccountScreen) {
+                        IconButton(onClick = { showAccountScreen = false }) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back to workspace")
+                        }
+                    }
+                },
                 title = {
                     Column {
-                        Text(organization.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(
-                            "${roleLabel(workspace.role)} · UnityHub workspace",
+                            if (showAccountScreen) "Account settings" else organization.name,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            if (showAccountScreen) "Your profile and app preferences"
+                            else "${roleLabel(workspace.role)} · UnityHub workspace",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
                 actions = {
-                    TextButton(onClick = onRefresh, enabled = !loading) { Text("Refresh") }
-                    TextButton(onClick = onSignOut) { Text("Sign out") }
+                    if (showAccountScreen) {
+                        Spacer(Modifier.size(8.dp))
+                    } else {
+                        TextButton(onClick = onRefresh, enabled = !loading) { Text("Refresh") }
+                        IconButton(onClick = { showAccountScreen = true }) {
+                            Icon(Icons.Default.AccountCircle, contentDescription = "Account settings")
+                        }
+                    }
                 }
             )
         },
         bottomBar = {
-            NavigationBar {
-                destinations.forEachIndexed { index, destination ->
-                    NavigationBarItem(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = { Text(destination.label) }
-                    )
+            if (!showAccountScreen) {
+                NavigationBar {
+                    destinations.forEachIndexed { index, destination ->
+                        NavigationBarItem(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            icon = { Icon(destination.icon, contentDescription = destination.label) },
+                            label = { Text(destination.label) }
+                        )
+                    }
                 }
             }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        when (selectedTab) {
+        if (showAccountScreen) {
+            AccountSettingsScreen(
+                organizationName = organization.name,
+                role = roleLabel(workspace.role),
+                onSignOut = onSignOut,
+                modifier = Modifier.padding(innerPadding)
+            )
+        } else {
+            when (selectedTab) {
             0 -> HomeDashboardScreen(
                 organizationId = organization.id,
                 organizationName = organization.name,
@@ -794,6 +827,7 @@ private fun WorkspaceDashboard(
                 errorMessage = errorMessage,
                 modifier = Modifier.padding(innerPadding)
             )
+            }
         }
     }
 }
