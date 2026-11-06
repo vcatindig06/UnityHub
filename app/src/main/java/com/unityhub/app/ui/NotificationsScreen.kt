@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +55,8 @@ fun NotificationsScreen(
     var loading by remember(userId) { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf("") }
     var savingIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var savingAll by remember { mutableStateOf(false) }
+    var unreadOnly by remember(userId) { mutableStateOf(false) }
 
     fun reload() {
         scope.launch {
@@ -86,9 +89,42 @@ fun NotificationsScreen(
         }
     }
 
+    fun markAllRead() {
+        if (savingAll || savingIds.isNotEmpty()) return
+        val unreadIds = notifications
+            .filter(NotificationRules::isUnread)
+            .map { it.id }
+        if (unreadIds.isEmpty()) return
+
+        scope.launch {
+            savingAll = true
+            errorMessage = ""
+            try {
+                repository.markAllAsRead(unreadIds, userId)
+                val readAt = Instant.now().toString()
+                val markedIds = unreadIds.toSet()
+                notifications = notifications.map { notification ->
+                    if (notification.id in markedIds) notification.copy(readAt = readAt)
+                    else notification
+                }
+            } catch (_: Exception) {
+                errorMessage = "Some notifications could not be marked as read. Refresh to check their latest status."
+                runCatching {
+                    notifications = repository.loadNotifications(userId)
+                }
+            } finally {
+                savingAll = false
+            }
+        }
+    }
+
     LaunchedEffect(userId) { reload() }
 
     val unreadCount = notifications.count(NotificationRules::isUnread)
+    val visibleNotifications = NotificationRules.filterNotifications(
+        notifications = notifications,
+        unreadOnly = unreadOnly
+    )
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -116,6 +152,41 @@ fun NotificationsScreen(
             }
         }
 
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = !unreadOnly,
+                        onClick = { unreadOnly = false },
+                        enabled = !savingAll,
+                        label = { Text("All (" + notifications.size + ")") }
+                    )
+                    FilterChip(
+                        selected = unreadOnly,
+                        onClick = { unreadOnly = true },
+                        enabled = !savingAll,
+                        label = { Text("Unread (" + unreadCount + ")") }
+                    )
+                }
+                if (unreadCount > 0) {
+                    TextButton(
+                        onClick = { markAllRead() },
+                        enabled = !loading && !savingAll && savingIds.isEmpty()
+                    ) {
+                        if (savingAll) {
+                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Mark all read")
+                        }
+                    }
+                }
+            }
+        }
+
         if (errorMessage.isNotBlank()) {
             item {
                 Text(errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -133,7 +204,7 @@ fun NotificationsScreen(
                     Text("Loading notifications", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        } else if (notifications.isEmpty()) {
+        } else if (visibleNotifications.isEmpty()) {
             item {
                 Card(shape = RoundedCornerShape(18.dp)) {
                     Column(
@@ -147,9 +218,14 @@ fun NotificationsScreen(
                             modifier = Modifier.size(32.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
-                        Text("No notifications yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(
-                            "You'll see service assignments, response reminders, and team responses here.",
+                            if (unreadOnly) "No unread notifications" else "No notifications yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            if (unreadOnly) "You're all caught up. Switch to All to review older notifications."
+                            else "You'll see service assignments, response reminders, and team responses here.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -157,10 +233,11 @@ fun NotificationsScreen(
                 }
             }
         } else {
-            items(notifications, key = { it.id }) { notification ->
+            items(visibleNotifications, key = { it.id }) { notification ->
                 NotificationCard(
                     notification = notification,
                     saving = notification.id in savingIds,
+                    bulkSaving = savingAll,
                     onMarkRead = { markRead(notification) },
                     onOpenServicePlan = { onOpenServicePlan(notification) }
                 )
@@ -182,6 +259,7 @@ fun NotificationsScreen(
 private fun NotificationCard(
     notification: NotificationDto,
     saving: Boolean,
+    bulkSaving: Boolean,
     onMarkRead: () -> Unit,
     onOpenServicePlan: () -> Unit
 ) {
@@ -242,7 +320,7 @@ private fun NotificationCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (unread) {
-                    TextButton(onClick = onMarkRead, enabled = !saving) {
+                    TextButton(onClick = onMarkRead, enabled = !saving && !bulkSaving) {
                         if (saving) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
                         else {
                             Icon(Icons.Default.Done, contentDescription = null, modifier = Modifier.size(16.dp))

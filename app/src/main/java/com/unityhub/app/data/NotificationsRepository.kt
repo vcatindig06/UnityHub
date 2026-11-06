@@ -26,6 +26,12 @@ internal object NotificationRules {
     fun hasServicePlan(notification: NotificationDto): Boolean =
         !notification.servicePlanId.isNullOrBlank()
 
+    fun filterNotifications(
+        notifications: List<NotificationDto>,
+        unreadOnly: Boolean
+    ): List<NotificationDto> =
+        if (unreadOnly) notifications.filter(::isUnread) else notifications
+
     fun typeLabel(type: String): String = when (type) {
         "assignment_created" -> "New assignment"
         "assignment_reminder" -> "Response reminder"
@@ -60,6 +66,27 @@ class NotificationsRepository(private val client: SupabaseClient) {
             filter {
                 eq("id", notificationId)
                 eq("recipient_user_id", userId)
+            }
+        }
+    }
+
+    suspend fun markAllAsRead(notificationIds: List<String>, userId: String) {
+        require(userId.isNotBlank()) { "No signed-in user was found." }
+        val ids = notificationIds.asSequence()
+            .filter(String::isNotBlank)
+            .distinct()
+            .toList()
+        if (ids.isEmpty()) return
+
+        val readAt = Instant.now().toString()
+        for (notificationId in ids) {
+            client.from("notifications").update({
+                set("read_at", readAt)
+            }) {
+                filter {
+                    eq("id", notificationId)
+                    eq("recipient_user_id", userId)
+                }
             }
         }
     }
