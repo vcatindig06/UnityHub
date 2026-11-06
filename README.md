@@ -94,6 +94,7 @@ Implemented workflows include:
 - A Home dashboard offline-sync status card showing live WorkManager progress, the last successful sync time, retry/error state, and a manual Sync now action.
 - A personal Home dashboard section for the signed-in member's upcoming service assignments, with role, service date, response status, and quick Confirm / Can't serve actions.
 - An administrator and worship-leader assignment overview for upcoming services, with response totals, member/role/service search, and filters for awaiting, confirmed, and unable-to-serve replies.
+- A dedicated Account screen for updating the signed-in display name, reviewing workspace role and app version, and managing Android notification settings. Signing out requires confirmation before user-scoped offline copies are cleared.
 
 The app uses Supabase Row Level Security for authorization. Authorization decisions must remain enforced by database policies and trusted server-side functions; hiding controls in the Android UI is not a security boundary.
 
