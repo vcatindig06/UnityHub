@@ -825,7 +825,7 @@ private fun WorkspaceDashboard(
                 currentUserId = userId,
                 onReviewRequest = onReviewRequest,
                 errorMessage = errorMessage,
-                onWorkspaceChanged = { reload() },
+                onWorkspaceChanged = onRefresh,
                 modifier = Modifier.padding(innerPadding)
             )
             }
