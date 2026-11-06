@@ -58,4 +58,5 @@ create policy song_favorites_delete_own_team_songs
 -- Public-schema Data API grants are opt-in for newly created tables.
 revoke all on table public.song_favorites from anon;
 revoke all on table public.song_favorites from public;
+revoke all on table public.song_favorites from authenticated;
 grant select, insert, delete on table public.song_favorites to authenticated;
