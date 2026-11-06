@@ -58,6 +58,10 @@ Members can switch between all notifications and unread notifications, mark indi
 
 Administrators and worship leaders can edit an existing service's title, date, start time, and notes from the service details screen. The edit action is hidden in read-only and offline views. Dates and times are validated before a write is sent to Supabase.
 
+### Live Stage
+
+Service details include **Start Live Stage** when a setlist is available. Live Stage provides an immersive, high-contrast display for worship teams, with large lyrics, optional chord rows, per-item semitone transposition, adjustable text size, and previous/next navigation through the ordered service setlist. It keeps the phone awake and temporarily hides system bars while active, restoring them when Live Stage closes. The view also works with locally cached service setlists in offline read-only mode.
+
 ### Service templates
 
 Administrators and worship leaders can save a service's setlist as a named template, browse the team's reusable templates, rename or delete them, and append a saved template to another draft or published service. Applying a template appends items after the existing setlist; it does not replace existing items. Song references, custom items, durations, notes, item order, and ChordPro snapshots are retained.
