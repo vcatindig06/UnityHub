@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -191,6 +192,12 @@ fun ServicePlanningScreen(
             onBack = {
                 selectedPlan = null
                 reload()
+            },
+            onEditPlan = {
+                editingPlan = plan
+                error = ""
+                selectedPlan = null
+                editorOpen = true
             },
             modifier = modifier
         )
@@ -522,6 +529,7 @@ private fun ServicePlanDetailScreen(
     canManage: Boolean,
     offlineOnly: Boolean,
     onBack: () -> Unit,
+    onEditPlan: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
@@ -679,6 +687,11 @@ private fun ServicePlanDetailScreen(
                     Text(serviceDateTimeLabel(plan.serviceDate, plan.startTime), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 ServiceStatusLabel(currentStatus)
+                if (effectiveCanManage) {
+                    IconButton(onClick = onEditPlan, enabled = !saving) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit service details")
+                    }
+                }
             }
         }
 
