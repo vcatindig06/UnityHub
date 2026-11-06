@@ -50,6 +50,12 @@ Use only the Supabase publishable key in this Android app. Never use a service-r
 
 Add `unityhub://auth` and `unityhub://auth?mode=recovery` to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs. The first handles email confirmation and OAuth callbacks; the second returns password-reset links to the in-app password update screen.
 
+### Personal song favorites
+
+Members can save a private favorites list without changing the shared song library. The migration `supabase/migrations/20261106104500_add_personal_song_favorites.sql` creates the favorites table with authenticated-only Data API grants and row-level policies. A member can only list, add, or remove their own favorites for songs in organizations they currently belong to.
+
+Song editing remains limited to administrators, worship leaders, and song editors while online. The Add Song form keeps its Cancel and Save actions pinned above the system navigation area so they remain accessible while the chart is scrolled.
+
 ### Team member administration
 
 The migration `supabase/migrations/20261106090000_secure_member_administration.sql` protects the organization creator from being demoted or removed outside an ownership transfer. It adds an owner-only `transfer_organization_ownership` RPC that promotes the selected existing member to Administrator, updates `organizations.created_by`, and changes the previous owner's role to Team Member in one transaction. The role-change and removal RPCs also lock the organization first and retain the last-administrator safeguard.
@@ -93,7 +99,7 @@ Implemented workflows include:
 - Administrator approval or decline of join requests
 - Team directory with member display names, team access roles, and assigned ministry positions, including member search and ministry-position filters
 - Administrator-only member access controls for changing access roles and removing members, plus an atomic owner transfer that promotes the new owner and retains the previous owner as a Team Member
-- Song library search and editor-only song management
+- Song library search, editor-only song management, and personal per-member favorites with an All songs / Favorites filter
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
 - Read-only offline service plans, ordered setlists (including saved ChordPro snapshots), and the last-synced service team assignments with their response statuses. Offline assignment data is scoped to the signed-in user, and assignment creation, removal, and response updates remain online-only.

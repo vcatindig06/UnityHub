@@ -23,6 +23,19 @@ data class SongDto(
 )
 
 @Serializable
+private data class SongFavoriteDto(
+    @SerialName("user_id") val userId: String,
+    @SerialName("song_id") val songId: String,
+    @SerialName("created_at") val createdAt: String = ""
+)
+
+@Serializable
+private data class NewSongFavoriteDto(
+    @SerialName("user_id") val userId: String,
+    @SerialName("song_id") val songId: String
+)
+
+@Serializable
 private data class NewSong(
     @SerialName("organization_id") val organizationId: String,
     val title: String,
@@ -41,6 +54,34 @@ class SongRepository(private val client: SupabaseClient) {
         client.from("songs").select {
             filter { eq("organization_id", organizationId) }
         }.decodeList<SongDto>().sortedBy { it.title.lowercase() }
+
+    suspend fun loadFavoriteSongIds(userId: String): Set<String> {
+        require(userId.isNotBlank()) { "A signed-in user is required to load favorites." }
+        return client.from("song_favorites").select {
+            filter { eq("user_id", userId) }
+        }.decodeList<SongFavoriteDto>().mapTo(linkedSetOf()) { it.songId }
+    }
+
+    suspend fun addSongFavorite(userId: String, songId: String) {
+        require(userId.isNotBlank() && songId.isNotBlank()) {
+            "A signed-in user and song are required to save a favorite."
+        }
+        client.from("song_favorites").insert(
+            NewSongFavoriteDto(userId = userId, songId = songId)
+        )
+    }
+
+    suspend fun removeSongFavorite(userId: String, songId: String) {
+        require(userId.isNotBlank() && songId.isNotBlank()) {
+            "A signed-in user and song are required to remove a favorite."
+        }
+        client.from("song_favorites").delete {
+            filter {
+                eq("user_id", userId)
+                eq("song_id", songId)
+            }
+        }
+    }
 
     suspend fun saveSong(
         organizationId: String,
