@@ -49,7 +49,7 @@ class SongLibraryRulesTest {
             listOf("1", "3"),
             SongLibraryRules.filterSongs(
                 songs,
-                "A",
+                "4/4",
                 favoritesOnly = false,
                 favoriteSongIds = emptySet()
             ).map { it.id }
