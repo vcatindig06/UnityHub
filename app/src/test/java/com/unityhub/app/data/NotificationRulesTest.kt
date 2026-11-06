@@ -30,6 +30,28 @@ class NotificationRulesTest {
     }
 
     @Test
+    fun unreadFilterIncludesOnlyNotificationsWithoutReadTimestamps() {
+        val unread = notification()
+        val read = notification("2026-11-04T05:00:00Z").copy(id = "read-notification")
+
+        assertEquals(
+            listOf(unread.id),
+            NotificationRules.filterNotifications(listOf(unread, read), unreadOnly = true).map { it.id }
+        )
+    }
+
+    @Test
+    fun allFilterPreservesReadAndUnreadNotificationsInOriginalOrder() {
+        val unread = notification()
+        val read = notification("2026-11-04T05:00:00Z").copy(id = "read-notification")
+
+        assertEquals(
+            listOf(unread.id, read.id),
+            NotificationRules.filterNotifications(listOf(unread, read), unreadOnly = false).map { it.id }
+        )
+    }
+
+    @Test
     fun notificationsWithAServicePlanCanOpenThatService() {
         assertTrue(NotificationRules.hasServicePlan(notification()))
     }

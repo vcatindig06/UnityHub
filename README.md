@@ -50,6 +50,10 @@ Use only the Supabase publishable key in this Android app. Never use a service-r
 
 Add `unityhub://auth` and `unityhub://auth?mode=recovery` to Supabase Dashboard → Authentication → URL Configuration → Redirect URLs. The first handles email confirmation and OAuth callbacks; the second returns password-reset links to the in-app password update screen.
 
+### Notification center
+
+Members can switch between all notifications and unread notifications, mark individual items as read, or mark all of their unread notifications as read. Bulk updates still write each notification only for its own recipient and use the existing authenticated-only read/update row policies; no new table privileges or server-side credentials are introduced.
+
 ### Personal song favorites
 
 Members can save a private favorites list without changing the shared song library. The migration `supabase/migrations/20261106104500_add_personal_song_favorites.sql` creates the favorites table with authenticated-only Data API grants and row-level policies. A member can only list, add, or remove their own favorites for songs in organizations they currently belong to.
@@ -106,6 +110,7 @@ Implemented workflows include:
 - Automatic background refresh of the signed-in user's song library, service plans/setlists, and service assignment snapshots. WorkManager runs after a workspace is opened and periodically when a network connection is available; background sync is read-only and scoped to the saved user and active organization.
 - A Home dashboard offline-sync status card showing live WorkManager progress, the last successful sync time, retry/error state, and a manual Sync now action.
 - A personal Home dashboard section for the signed-in member's upcoming service assignments, with role, service date, response status, and quick Confirm / Can't serve actions.
+- A notification center with individual and bulk mark-as-read actions plus an All / Unread filter.
 - An administrator and worship-leader assignment overview for upcoming services, with response totals, member/role/service search, and filters for awaiting, confirmed, and unable-to-serve replies.
 - A dedicated Account screen for updating the signed-in display name, reviewing workspace role and app version, and managing Android notification settings. Signing out requires confirmation before user-scoped offline copies are cleared.
 
