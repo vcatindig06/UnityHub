@@ -43,6 +43,35 @@ internal object TeamManagementRules {
         current - selected
 }
 
+internal object TeamDirectoryRules {
+    fun filterMembers(
+        members: List<ServiceMemberOption>,
+        assignedPositionsByMember: Map<String, List<String>>,
+        searchQuery: String,
+        selectedPosition: String
+    ): List<ServiceMemberOption> {
+        val query = searchQuery.trim()
+
+        return members.filter { member ->
+            val assignedPositions = assignedPositionsByMember[member.memberId].orEmpty()
+            val searchableRole = member.teamRole.replace('_', ' ')
+
+            val matchesSearch = query.isBlank() ||
+                member.displayName.contains(query, ignoreCase = true) ||
+                searchableRole.contains(query, ignoreCase = true) ||
+                assignedPositions.any { it.contains(query, ignoreCase = true) }
+
+            val matchesPosition = selectedPosition.isBlank() ||
+                assignedPositions.any { it.equals(selectedPosition, ignoreCase = true) }
+
+            matchesSearch && matchesPosition
+        }.sortedWith(
+            compareBy<ServiceMemberOption> { it.displayName.lowercase() }
+                .thenBy { it.memberId }
+        )
+    }
+}
+
 class TeamManagementRepository(private val client: SupabaseClient) {
 
     suspend fun loadMinistryPositions(organizationId: String): List<MinistryPositionDto> =
