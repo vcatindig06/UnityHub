@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Logout
@@ -248,6 +249,30 @@ fun AccountSettingsScreen(
             }) {
                 SettingsValueRow(label = "Church or team", value = organizationName)
                 SettingsValueRow(label = "Your role", value = role)
+            }
+        }
+
+        item {
+            SettingsSection(title = "Appearance", icon = {
+                Icon(Icons.Default.DarkMode, contentDescription = null)
+            }) {
+                Text(
+                    "UnityHub automatically follows your device's light or dark appearance. Change your Android system theme to switch the app.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Appearance preference", fontWeight = FontWeight.Medium)
+                    Text(
+                        "System default",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         }
 
