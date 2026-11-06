@@ -54,6 +54,8 @@ import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.ServicePlanDto
 import com.unityhub.app.data.ServicePlanItemDto
 import com.unityhub.app.data.ServicePlanRepository
+import com.unityhub.app.data.ServiceTemplateDto
+import com.unityhub.app.data.ServiceTemplateRepository
 import com.unityhub.app.data.ServiceAssignmentRules
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.data.SupabaseClientProvider
@@ -78,6 +80,7 @@ fun ServicePlanningScreen(
     modifier: Modifier = Modifier
 ) {
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
+    val templateRepository = remember { ServiceTemplateRepository(SupabaseClientProvider.client) }
     val context = LocalContext.current
     val offlineCache = remember(context) { OfflineServiceCache(context) }
     val scope = rememberCoroutineScope()
@@ -98,6 +101,29 @@ fun ServicePlanningScreen(
     var calendarView by rememberSaveable { mutableStateOf("month") }
     var selectedCalendarDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var displayedCalendarMonth by rememberSaveable { mutableStateOf(java.time.YearMonth.now().toString()) }
+    var templates by remember { mutableStateOf<List<ServiceTemplateDto>>(emptyList()) }
+    var templateItemCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var templatesDialogOpen by rememberSaveable { mutableStateOf(false) }
+    var templatesLoading by remember { mutableStateOf(false) }
+    var templatesSaving by remember { mutableStateOf(false) }
+    var templatesError by remember { mutableStateOf("") }
+
+    suspend fun loadTemplateLibrary() {
+        templatesLoading = true
+        templatesError = ""
+        try {
+            templates = templateRepository.loadTemplates(organizationId)
+            templateItemCounts = templateRepository.loadItemCounts(organizationId)
+        } catch (_: Exception) {
+            templatesError = "The saved templates could not be loaded. Check your connection and try again."
+        } finally {
+            templatesLoading = false
+        }
+    }
+
+    fun reloadTemplateLibrary() {
+        scope.launch { loadTemplateLibrary() }
+    }
 
     fun reload() {
         scope.launch {
@@ -225,6 +251,47 @@ fun ServicePlanningScreen(
         return
     }
 
+    if (templatesDialogOpen) {
+        ServiceTemplateLibraryDialog(
+            templates = templates,
+            itemCounts = templateItemCounts,
+            canManage = canManage,
+            loading = templatesLoading,
+            saving = templatesSaving,
+            errorMessage = templatesError,
+            onDismiss = { if (!templatesSaving) templatesDialogOpen = false },
+            onRefresh = { reloadTemplateLibrary() },
+            onRename = { templateId, name, description ->
+                scope.launch {
+                    templatesSaving = true
+                    templatesError = ""
+                    try {
+                        templateRepository.renameTemplate(templateId, organizationId, name, description)
+                        loadTemplateLibrary()
+                    } catch (exception: Exception) {
+                        templatesError = exception.message ?: "The template could not be renamed."
+                    } finally {
+                        templatesSaving = false
+                    }
+                }
+            },
+            onDelete = { templateId ->
+                scope.launch {
+                    templatesSaving = true
+                    templatesError = ""
+                    try {
+                        templateRepository.deleteTemplate(templateId, organizationId)
+                        loadTemplateLibrary()
+                    } catch (exception: Exception) {
+                        templatesError = exception.message ?: "The template could not be deleted."
+                    } finally {
+                        templatesSaving = false
+                    }
+                }
+            }
+        )
+    }
+
     if (editorOpen) {
         ServicePlanEditorDialog(
             plan = editingPlan,
@@ -274,17 +341,28 @@ fun ServicePlanningScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    if (canManage) {
-                        Button(
-                            onClick = {
-                                editingPlan = null
-                                error = ""
-                                editorOpen = true
-                            },
-                            enabled = !saving
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Text("New")
+                    if (!usingOfflineCopy && !offlineOnly) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(
+                                onClick = {
+                                    templatesDialogOpen = true
+                                    reloadTemplateLibrary()
+                                },
+                                enabled = !saving
+                            ) { Text("Templates") }
+                            if (canManage) {
+                                Button(
+                                    onClick = {
+                                        editingPlan = null
+                                        error = ""
+                                        editorOpen = true
+                                    },
+                                    enabled = !saving
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Text("New")
+                                }
+                            }
                         }
                     }
                 }
@@ -535,6 +613,7 @@ private fun ServicePlanDetailScreen(
     modifier: Modifier = Modifier
 ) {
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
+    val templateRepository = remember { ServiceTemplateRepository(SupabaseClientProvider.client) }
     val context = LocalContext.current
     val offlineCache = remember(context) { OfflineServiceCache(context) }
     val scope = rememberCoroutineScope()
@@ -551,11 +630,40 @@ private fun ServicePlanDetailScreen(
     var copySourceDialogOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
     var copySourceCandidate by remember(plan.id) { mutableStateOf<ServicePlanDto?>(null) }
     var copySuccessMessage by remember(plan.id) { mutableStateOf("") }
+    var templates by remember(plan.id) { mutableStateOf<List<ServiceTemplateDto>>(emptyList()) }
+    var templateItemCounts by remember(plan.id) { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var templatesLoading by remember(plan.id) { mutableStateOf(false) }
+    var templatePickerOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var saveTemplateDialogOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var templateCandidate by remember(plan.id) { mutableStateOf<ServiceTemplateDto?>(null) }
+    var templateActionSaving by remember { mutableStateOf(false) }
+    var templateDialogError by remember { mutableStateOf("") }
+    var templateSuccessMessage by remember(plan.id) { mutableStateOf("") }
     val copySourcePlans = availablePlans
         .filter { it.id != plan.id && it.organizationId == organizationId }
         .sortedWith(compareByDescending<ServicePlanDto> { it.serviceDate.orEmpty() }
             .thenByDescending { it.startTime.orEmpty() }
             .thenBy { it.title.lowercase() })
+
+    suspend fun refreshTemplates() {
+        if (!canManage || offlineOnly || usingOfflineCopy) {
+            templates = emptyList()
+            templateItemCounts = emptyMap()
+            return
+        }
+        templatesLoading = true
+        templateDialogError = ""
+        try {
+            templates = templateRepository.loadTemplates(organizationId)
+            templateItemCounts = templateRepository.loadItemCounts(organizationId)
+        } catch (_: Exception) {
+            templates = emptyList()
+            templateItemCounts = emptyMap()
+            templateDialogError = "Saved templates could not be loaded. Check your connection and try again."
+        } finally {
+            templatesLoading = false
+        }
+    }
 
     fun reload() {
         scope.launch {
@@ -579,9 +687,12 @@ private fun ServicePlanDetailScreen(
                             )
                         }
                         usingOfflineCopy = false
+                        refreshTemplates()
                     } catch (_: Exception) {
                         items = offlineCache.loadPlanItems(currentUserId, organizationId, plan.id)
                         songs = emptyList()
+                        templates = emptyList()
+                        templateItemCounts = emptyMap()
                         usingOfflineCopy = true
                         if (items.isEmpty()) {
                             error = "Could not load this setlist and no offline copy is saved."
@@ -661,6 +772,73 @@ private fun ServicePlanDetailScreen(
                         plan.id, organizationId, title, type, duration,
                         (items.maxOfOrNull { it.itemOrder } ?: -1) + 1
                     )
+                }
+            }
+        )
+    }
+
+    if (saveTemplateDialogOpen) {
+        SaveServiceTemplateDialog(
+            saving = templateActionSaving,
+            errorMessage = templateDialogError,
+            onDismiss = { if (!templateActionSaving) saveTemplateDialogOpen = false },
+            onSave = { name, description ->
+                scope.launch {
+                    templateActionSaving = true
+                    templateDialogError = ""
+                    try {
+                        val created = templateRepository.saveFromService(
+                            servicePlanId = plan.id,
+                            organizationId = organizationId,
+                            userId = currentUserId,
+                            name = name,
+                            description = description
+                        )
+                        saveTemplateDialogOpen = false
+                        templateSuccessMessage = "Saved “${created.name}” as a reusable setlist template."
+                        refreshTemplates()
+                    } catch (exception: Exception) {
+                        templateDialogError = exception.message ?: "The setlist template could not be saved."
+                    } finally {
+                        templateActionSaving = false
+                    }
+                }
+            }
+        )
+    }
+
+    if (templatePickerOpen) {
+        ServiceTemplatePickerDialog(
+            templates = templates,
+            itemCounts = templateItemCounts,
+            loading = templatesLoading,
+            saving = saving,
+            errorMessage = templateDialogError,
+            onDismiss = { templatePickerOpen = false },
+            onSelect = { selectedTemplate ->
+                templateCandidate = selectedTemplate
+                templatePickerOpen = false
+            }
+        )
+    }
+
+    templateCandidate?.let { selectedTemplate ->
+        ConfirmApplyTemplateDialog(
+            template = selectedTemplate,
+            targetServiceTitle = plan.title,
+            itemCount = templateItemCounts[selectedTemplate.id] ?: 0,
+            saving = saving,
+            onDismiss = { if (!saving) templateCandidate = null },
+            onConfirm = {
+                templateCandidate = null
+                templateSuccessMessage = ""
+                runAction {
+                    val count = templateRepository.applyToService(
+                        templateId = selectedTemplate.id,
+                        targetPlanId = plan.id,
+                        organizationId = organizationId
+                    )
+                    templateSuccessMessage = "Added $count items from “${selectedTemplate.name}”."
                 }
             }
         )
@@ -791,6 +969,29 @@ private fun ServicePlanDetailScreen(
             }
         }
 
+        if (effectiveCanManage && currentStatus != "completed" && currentStatus != "cancelled" && templates.isNotEmpty()) {
+            item {
+                OutlinedActionButton(
+                    label = "Apply a saved setlist template",
+                    onClick = { templatePickerOpen = true },
+                    enabled = !saving && !loading && !templatesLoading
+                )
+            }
+        }
+
+        if (effectiveCanManage && items.isNotEmpty()) {
+            item {
+                OutlinedActionButton(
+                    label = "Save current setlist as a template",
+                    onClick = {
+                        templateDialogError = ""
+                        saveTemplateDialogOpen = true
+                    },
+                    enabled = !saving && !loading
+                )
+            }
+        }
+
         if (loading) {
             item { CircularProgressIndicator(Modifier.size(26.dp)) }
         } else if (items.isEmpty()) {
@@ -875,6 +1076,26 @@ private fun ServicePlanDetailScreen(
                 Text(
                     copySuccessMessage,
                     color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        if (templateSuccessMessage.isNotBlank()) {
+            item {
+                Text(
+                    templateSuccessMessage,
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        if (templateDialogError.isNotBlank() && !saveTemplateDialogOpen) {
+            item {
+                Text(
+                    templateDialogError,
+                    color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
