@@ -255,6 +255,7 @@ fun ServicePlanningScreen(
         ServiceTemplateLibraryDialog(
             templates = templates,
             itemCounts = templateItemCounts,
+            canManage = canManage,
             loading = templatesLoading,
             saving = templatesSaving,
             errorMessage = templatesError,
@@ -340,7 +341,7 @@ fun ServicePlanningScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    if (canManage) {
+                    if (!usingOfflineCopy && !offlineOnly) {
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(
                                 onClick = {
@@ -349,16 +350,18 @@ fun ServicePlanningScreen(
                                 },
                                 enabled = !saving
                             ) { Text("Templates") }
-                            Button(
-                                onClick = {
-                                    editingPlan = null
-                                    error = ""
-                                    editorOpen = true
-                                },
-                                enabled = !saving
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null)
-                                Text("New")
+                            if (canManage) {
+                                Button(
+                                    onClick = {
+                                        editingPlan = null
+                                        error = ""
+                                        editorOpen = true
+                                    },
+                                    enabled = !saving
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Text("New")
+                                }
                             }
                         }
                     }
