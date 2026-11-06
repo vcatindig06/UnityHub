@@ -28,6 +28,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -93,6 +94,9 @@ fun ServicePlanningScreen(
     var editingPlan by remember { mutableStateOf<ServicePlanDto?>(null) }
     var hasLoadedPlans by remember { mutableStateOf(false) }
     var consumedNavigationRequestId by remember { mutableStateOf<String?>(null) }
+    var calendarView by rememberSaveable { mutableStateOf("month") }
+    var selectedCalendarDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var displayedCalendarMonth by rememberSaveable { mutableStateOf(java.time.YearMonth.now().toString()) }
 
     fun reload() {
         scope.launch {
@@ -350,8 +354,29 @@ fun ServicePlanningScreen(
                 }
             }
         } else {
-            items(plans, key = { it.id }) { plan ->
-                ServicePlanCard(plan = plan, onClick = { selectedPlan = plan })
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = calendarView == "month", onClick = { calendarView = "month" }, label = { Text("Month") })
+                    FilterChip(selected = calendarView == "week", onClick = { calendarView = "week" }, label = { Text("Week") })
+                    FilterChip(selected = calendarView == "list", onClick = { calendarView = "list" }, label = { Text("List") })
+                }
+            }
+            if (calendarView == "list") {
+                items(plans, key = { it.id }) { plan ->
+                    ServicePlanCard(plan = plan, onClick = { selectedPlan = plan })
+                }
+            } else {
+                item(key = "service-calendar-content") {
+                    ServiceCalendarContent(
+                        plans = plans,
+                        mode = calendarView,
+                        selectedDateText = selectedCalendarDate,
+                        displayedMonthText = displayedCalendarMonth,
+                        onSelectedDateChange = { selectedCalendarDate = it },
+                        onDisplayedMonthChange = { displayedCalendarMonth = it },
+                        onOpenServicePlan = { selectedPlan = it }
+                    )
+                }
             }
         }
 
