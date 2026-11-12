@@ -62,6 +62,8 @@ data class MinistryPositionDto(
 )
 
 internal object ServiceAssignmentRules {
+    const val MAX_RESPONSE_NOTE_LENGTH = 300
+
     fun normalizeRoleLabel(value: String): String {
         val normalized = value.trim()
         require(normalized.length in 2..80) {
@@ -69,6 +71,17 @@ internal object ServiceAssignmentRules {
         }
         return normalized
     }
+
+    fun normalizeResponseNote(value: String): String {
+        val normalized = value.trim()
+        require(normalized.length <= MAX_RESPONSE_NOTE_LENGTH) {
+            "Your response note must be $MAX_RESPONSE_NOTE_LENGTH characters or fewer."
+        }
+        return normalized
+    }
+
+    fun isValidResponseNote(value: String): Boolean =
+        value.length <= MAX_RESPONSE_NOTE_LENGTH
 
     fun isValidResponse(value: String): Boolean =
         value == "confirmed" || value == "declined"
@@ -228,12 +241,19 @@ class ServiceAssignmentRepository(private val client: SupabaseClient) {
         assignmentId: String,
         organizationId: String,
         memberId: String,
-        response: String
+        response: String,
+        responseNote: String = ""
     ): Boolean {
         require(assignmentId.isNotBlank() && organizationId.isNotBlank() && memberId.isNotBlank())
         require(ServiceAssignmentRules.isValidResponse(response))
+        val normalizedNote = if (response == "declined") {
+            ServiceAssignmentRules.normalizeResponseNote(responseNote)
+        } else {
+            ""
+        }
         val updated = client.from("service_plan_assignments").update({
             set("response_status", response)
+            set("response_note", normalizedNote)
             set("responded_at", Instant.now().toString())
         }) {
             select()
@@ -243,7 +263,9 @@ class ServiceAssignmentRepository(private val client: SupabaseClient) {
                 eq("member_id", memberId)
             }
         }.decodeList<ServiceAssignmentDto>()
-        return updated.any { it.responseStatus == response }
+        return updated.any {
+            it.responseStatus == response && it.responseNote == normalizedNote
+        }
     }
 
     suspend fun removeAssignment(assignmentId: String, organizationId: String) {
