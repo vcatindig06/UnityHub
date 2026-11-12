@@ -195,6 +195,44 @@ fun TeamManagementScreen(
         )
     }
 
+    editingPosition?.let { position ->
+        EditMinistryPositionDialog(
+            position = position,
+            positions = positions,
+            saving = saving,
+            onDismiss = { if (!saving) editingPosition = null },
+            onSave = { name ->
+                editingPosition = null
+                runAction {
+                    repository.updateMinistryPosition(
+                        organizationId = organizationId,
+                        positionId = position.id,
+                        name = name
+                    )
+                }
+            }
+        )
+    }
+
+    deletingPosition?.let { position ->
+        val assignedCount = memberPositions.count { it.positionId == position.id }
+        DeleteMinistryPositionDialog(
+            position = position,
+            assignedCount = assignedCount,
+            saving = saving,
+            onDismiss = { if (!saving) deletingPosition = null },
+            onDelete = {
+                deletingPosition = null
+                runAction {
+                    repository.deleteMinistryPosition(organizationId, position.id)
+                    if (selectedPositionFilter == position.name) {
+                        selectedPositionFilter = ""
+                    }
+                }
+            }
+        )
+    }
+
     selectedMember?.let { member ->
         ManageMemberPositionsDialog(
             member = member,
@@ -561,7 +599,29 @@ fun TeamManagementScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Icon(Icons.Default.Groups, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                IconButton(
+                                    onClick = { editingPosition = position },
+                                    enabled = !saving,
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Edit ${position.name}"
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { deletingPosition = position },
+                                    enabled = !saving,
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.DeleteOutline,
+                                        contentDescription = "Delete ${position.name}",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
                         }
                     }
                 }
