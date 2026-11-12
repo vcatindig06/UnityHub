@@ -209,6 +209,9 @@ fun TeamManagementScreen(
                         positionId = position.id,
                         name = name
                     )
+                    if (selectedPositionFilter == position.name) {
+                        selectedPositionFilter = name.trim()
+                    }
                 }
             }
         )
@@ -554,7 +557,7 @@ fun TeamManagementScreen(
                     Column(Modifier.weight(1f)) {
                         Text("Ministry positions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(
-                            "Create reusable roles for service assignments.",
+                            "Create, rename, and remove reusable roles for service assignments.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -603,7 +606,7 @@ fun TeamManagementScreen(
                                 IconButton(
                                     onClick = { editingPosition = position },
                                     enabled = !saving,
-                                    modifier = Modifier.size(44.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.Edit,
