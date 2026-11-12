@@ -39,6 +39,7 @@ import com.unityhub.app.push.UnityHubFirebaseMessagingService
 import com.unityhub.app.push.UnityHubNotificationManager
 import com.unityhub.app.push.UnityHubPushNavigation
 import com.unityhub.app.ui.UnityHubApp
+import com.unityhub.app.ui.components.UnityHubLoadingScreen
 import com.unityhub.app.ui.auth.AuthScreen
 import com.unityhub.app.ui.auth.PasswordRecoveryScreen
 import com.unityhub.app.ui.theme.UnityHubTheme
@@ -112,12 +113,7 @@ class MainActivity : ComponentActivity() {
 
                 Surface(modifier = Modifier.fillMaxSize()) {
                     if (!authenticationReady) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
+                        UnityHubLoadingScreen()
                     } else if (passwordRecoveryMode) {
                         PasswordRecoveryScreen(
                             isLoading = !passwordRecoveryFailed &&

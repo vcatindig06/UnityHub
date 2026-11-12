@@ -4,7 +4,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 
 ## Implemented in 0.21.0
 
-- [x] **Brand consistency:** retain UnityHub's blue, emerald, and crimson identity with coordinated light and dark palettes.
+- [x] **Brand consistency:** use the UnityHub crimson-to-coral-to-amber gradient, near-black aurora surfaces, scalable logo mark, and coordinated light/dark palettes.
 - [x] **Light and dark appearance:** follow the Android system appearance automatically; the Account settings screen explains this behavior.
 - [x] **System chrome:** status-bar and navigation-bar colors and icon contrast follow the active app theme.
 - [x] **Readable type hierarchy:** apply consistent headline, title, body, and label weights; use scalable typography and comfortable body line heights.

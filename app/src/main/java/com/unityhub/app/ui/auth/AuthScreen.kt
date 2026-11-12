@@ -83,6 +83,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.unityhub.app.data.SupabaseClientProvider
+import com.unityhub.app.ui.components.UnityHubLogoMark
+import com.unityhub.app.ui.components.UnityHubWordmark
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Github
 import io.github.jan.supabase.auth.providers.OAuthProvider
@@ -106,12 +108,12 @@ private val Slate300 = Color(0xFFCBD5E1)
 private val Slate200 = Color(0xFFE2E8F0)
 private val Slate100 = Color(0xFFF1F5F9)
 private val Slate50 = Color(0xFFF8FAFC)
-private val Emerald800 = Color(0xFF065F46)
-private val Emerald700 = Color(0xFF047857)
-private val Emerald600 = Color(0xFF059669)
-private val Emerald500 = Color(0xFF10B981)
-private val Emerald400 = Color(0xFF34D399)
-private val Emerald300 = Color(0xFF6EE7B7)
+private val WarmCrimsonDark = Color(0xFF97152F)
+private val WarmCrimson = Color(0xFFBC1F39)
+private val WarmCoral = Color(0xFFE34B3F)
+private val WarmCoralBright = Color(0xFFFF603E)
+private val WarmOrange = Color(0xFFFF9945)
+private val WarmAmber = Color(0xFFFFC36A)
 
 private val GoogleOAuthProvider = object : OAuthProvider() {
     override val name: String = "google"
@@ -183,8 +185,8 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.White,
-                                Color(0xFFF7FCFA),
-                                Color(0xFFF1F8F5),
+                                Color(0xFFFFFBF8),
+                                Color(0xFFFFF3EC),
                                 Color.White
                             )
                         )
@@ -200,13 +202,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         UnityHubMark(Modifier.size(40.dp))
                         Spacer(Modifier.width(11.dp))
-                        Text(
-                            "UnityHub",
-                            color = Slate900,
-                            fontSize = 21.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = (-0.6).sp
-                        )
+                        UnityHubWordmark(baseColor = Slate900, fontSize = 21.sp)
                     }
                     Text(
                         "WORSHIP TEAM WORKSPACE",
@@ -297,7 +293,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                     Icon(
                                         Icons.Filled.Groups,
                                         contentDescription = null,
-                                        tint = if (focused) Emerald600 else Slate400,
+                                        tint = if (focused) WarmCoral else Slate400,
                                         modifier = Modifier.size(19.dp)
                                     )
                                 },
@@ -319,7 +315,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                 Icon(
                                     Icons.Filled.MailOutline,
                                     contentDescription = null,
-                                    tint = if (focused) Emerald600 else Slate400,
+                                    tint = if (focused) WarmCoral else Slate400,
                                     modifier = Modifier.size(19.dp)
                                 )
                             },
@@ -340,7 +336,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                 Icon(
                                     Icons.Filled.Lock,
                                     contentDescription = null,
-                                    tint = if (focused) Emerald600 else Slate400,
+                                    tint = if (focused) WarmCoral else Slate400,
                                     modifier = Modifier.size(19.dp)
                                 )
                             },
@@ -381,7 +377,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                     Icon(
                                         Icons.Filled.Lock,
                                         contentDescription = null,
-                                        tint = if (focused) Emerald600 else Slate400,
+                                        tint = if (focused) WarmCoral else Slate400,
                                         modifier = Modifier.size(19.dp)
                                     )
                                 },
@@ -476,7 +472,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                 ) {
                                     Text(
                                         "Forgot password?",
-                                        color = Emerald700,
+                                        color = WarmCrimson,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -487,13 +483,13 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                         if (notice.isNotBlank()) {
                             Spacer(Modifier.height(10.dp))
                             Surface(
-                                color = if (noticeIsError) Color(0xFFFFF1F2) else Color(0xFFECFDF5),
+                                color = if (noticeIsError) Color(0xFFFFF1F2) else Color(0xFFFFF1E4),
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
                                     notice,
-                                    color = if (noticeIsError) Color(0xFF9F1239) else Emerald800,
+                                    color = if (noticeIsError) Color(0xFF9F1239) else WarmCrimsonDark,
                                     fontSize = 12.sp,
                                     lineHeight = 18.sp,
                                     modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp)
@@ -596,7 +592,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                             ) {
                                 Text(
                                     if (creating) "Sign in" else "Sign up free",
-                                    color = Emerald700,
+                                    color = WarmCrimson,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp
                                 )
@@ -626,24 +622,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
 
 @Composable
 private fun UnityHubMark(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .shadow(8.dp, RoundedCornerShape(13.dp))
-            .clip(RoundedCornerShape(13.dp))
-            .background(
-                Brush.linearGradient(
-                    listOf(Emerald500, Emerald700, Emerald800)
-                )
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            Icons.Filled.Groups,
-            contentDescription = "UnityHub",
-            tint = Color.White,
-            modifier = Modifier.size(24.dp)
-        )
-    }
+    UnityHubLogoMark(modifier = modifier, contentDescription = "UnityHub")
 }
 
 @Composable
@@ -724,7 +703,7 @@ private fun AuthField(
                 .then(
                     if (focused && !isError) Modifier.border(
                         4.dp,
-                        Emerald500.copy(alpha = 0.12f),
+                        WarmCoralBright.copy(alpha = 0.12f),
                         shape
                     ) else Modifier
                 )
@@ -732,7 +711,7 @@ private fun AuthField(
                 .background(if (focused) Color.White else Slate50.copy(alpha = 0.78f))
                 .border(
                     width = 1.dp,
-                    color = if (isError) Color(0xFFDC2626) else if (focused) Emerald500 else Slate200,
+                    color = if (isError) Color(0xFFDC2626) else if (focused) WarmCoralBright else Slate200,
                     shape = shape
                 )
                 .padding(horizontal = 14.dp, vertical = 14.dp),
@@ -751,7 +730,7 @@ private fun AuthField(
                     fontSize = 14.sp,
                     fontFamily = FontFamily.SansSerif
                 ),
-                cursorBrush = SolidColor(Emerald600),
+                cursorBrush = SolidColor(WarmCoral),
                 keyboardOptions = keyboardOptions,
                 visualTransformation = visualTransformation,
                 interactionSource = interactionSource,
@@ -791,12 +770,12 @@ private fun GradientAuthButton(
             .shadow(
                 elevation = if (enabled) 12.dp else 0.dp,
                 shape = shape,
-                ambientColor = Emerald500.copy(alpha = 0.30f),
-                spotColor = Emerald500.copy(alpha = 0.38f)
+                ambientColor = WarmCoralBright.copy(alpha = 0.30f),
+                spotColor = WarmCoralBright.copy(alpha = 0.38f)
             )
             .clip(shape)
             .background(
-                Brush.verticalGradient(listOf(Emerald700, Emerald800))
+                Brush.verticalGradient(listOf(WarmCrimson, WarmCrimsonDark))
             )
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 18.dp),
@@ -831,7 +810,7 @@ private fun GradientAuthButton(
 private fun BrandPanel(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .background(Color(0xFF071B17))
+            .background(Color(0xFF07080A))
             .clip(RoundedCornerShape(0.dp))
     ) {
         WarmAuroraBackground(Modifier.fillMaxSize())
@@ -842,27 +821,39 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                 .padding(horizontal = 48.dp, vertical = 46.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Surface(
-                color = Color.White.copy(alpha = 0.07f),
-                shape = CircleShape,
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(11.dp)
                 ) {
-                    Box(
-                        Modifier
-                            .size(7.dp)
-                            .background(Emerald400, CircleShape)
-                    )
-                    Spacer(Modifier.width(9.dp))
+                    UnityHubLogoMark(Modifier.size(46.dp), contentDescription = null)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        UnityHubWordmark(baseColor = Color.White, fontSize = 20.sp)
+                        Text(
+                            "PLAN · LEAD · WORSHIP · TOGETHER",
+                            color = Slate300,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.75.sp
+                        )
+                    }
+                }
+                Surface(
+                    color = Color.White.copy(alpha = 0.07f),
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))
+                ) {
                     Text(
                         "MADE FOR WORSHIP TEAMS",
-                        color = Emerald300,
-                        fontSize = 10.sp,
+                        color = WarmAmber,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.0.sp
+                        letterSpacing = 0.75.sp,
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -903,7 +894,7 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                             .size(35.dp)
                             .clip(CircleShape)
                             .background(
-                                listOf(Emerald700, Emerald600, Emerald500)[index]
+                                listOf(WarmCrimson, WarmCoral, WarmCoralBright)[index]
                             )
                             .border(2.dp, Color(0xFF071B17), CircleShape),
                         contentAlignment = Alignment.Center
@@ -920,7 +911,7 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         repeat(5) {
-                            Text("★", color = Emerald400, fontSize = 12.sp)
+                            Text("★", color = WarmOrange, fontSize = 12.sp)
                         }
                     }
                     Text(
@@ -935,9 +926,9 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
 }
 
 /**
- * Native Compose aurora using UnityHub's emerald, teal, and blue-green brand palette.
+ * Native Compose aurora using UnityHub's crimson, coral, and amber brand gradient.
  * Each light blade drifts and breathes independently behind the brand-panel content.
- * The mobile form receives a subtle matching green gradient for a consistent experience.
+ * The mobile form uses the same warm brand accents for a consistent experience.
  */
 @Composable
 private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
@@ -986,9 +977,9 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
         val panelHeight = size.height
         val twoPi = (2.0 * PI).toFloat()
 
-        val emerald = Color(0xFF28745D)
-        val teal = Color(0xFF35A89A)
-        val blueGreen = Color(0xFF5B9EAE)
+        val crimson = Color(0xFFD51D3A)
+        val coral = Color(0xFFFF583D)
+        val amber = Color(0xFFFFB547)
 
         fun drawBlade(
             start: Offset,
@@ -999,10 +990,10 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
             val bladeBrush = Brush.linearGradient(
                 colorStops = arrayOf(
                     0.00f to Color.Transparent,
-                    0.13f to emerald.copy(alpha = 0.12f),
-                    0.36f to emerald.copy(alpha = 0.48f),
-                    0.58f to teal.copy(alpha = 0.43f),
-                    0.79f to blueGreen.copy(alpha = 0.25f),
+                    0.13f to crimson.copy(alpha = 0.12f),
+                    0.36f to crimson.copy(alpha = 0.48f),
+                    0.58f to coral.copy(alpha = 0.43f),
+                    0.79f to amber.copy(alpha = 0.25f),
                     1.00f to Color.Transparent
                 ),
                 start = start,
@@ -1119,7 +1110,7 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
             brush = Brush.radialGradient(
                 colors = listOf(
                     Color.Transparent,
-                    Color(0xB8071B17)
+                    Color(0xB807080A)
                 ),
                 center = Offset(panelWidth * 0.52f, panelHeight * 0.48f),
                 radius = maxOf(panelWidth, panelHeight) * 0.78f
@@ -1158,13 +1149,13 @@ private fun ShowcaseCard() {
                     modifier = Modifier
                         .size(39.dp)
                         .clip(RoundedCornerShape(11.dp))
-                        .background(Emerald500.copy(alpha = 0.18f)),
+                        .background(WarmCoralBright.copy(alpha = 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Filled.CalendarMonth,
                         contentDescription = null,
-                        tint = Emerald300,
+                        tint = WarmAmber,
                         modifier = Modifier.size(21.dp)
                     )
                 }
@@ -1173,12 +1164,12 @@ private fun ShowcaseCard() {
                     Text("SERVICE PLAN PREVIEW", color = Slate400, fontSize = 9.sp, letterSpacing = 1.sp)
                 }
                 Surface(
-                    color = Emerald500.copy(alpha = 0.16f),
+                    color = WarmCoralBright.copy(alpha = 0.16f),
                     shape = CircleShape
                 ) {
                     Text(
                         "READY",
-                        color = Emerald300,
+                        color = WarmAmber,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
@@ -1191,7 +1182,7 @@ private fun ShowcaseCard() {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.MusicNote, contentDescription = null, tint = Emerald300, modifier = Modifier.size(17.dp))
+                Icon(Icons.Filled.MusicNote, contentDescription = null, tint = WarmAmber, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Song set and team assignments", color = Slate200, fontSize = 11.sp)
             }
@@ -1210,8 +1201,8 @@ private fun ShowcaseCard() {
                                 if (index == 0) {
                                     Brush.linearGradient(
                                         listOf(
-                                            Emerald400.copy(alpha = 0.32f),
-                                            Emerald700.copy(alpha = 0.12f)
+                                            WarmOrange.copy(alpha = 0.32f),
+                                            WarmCrimson.copy(alpha = 0.12f)
                                         )
                                     )
                                 } else {
@@ -1227,7 +1218,7 @@ private fun ShowcaseCard() {
                         contentAlignment = Alignment.Center
                     ) {
                         if (index == 0) {
-                            Icon(Icons.Filled.Groups, contentDescription = null, tint = Emerald300, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Filled.Groups, contentDescription = null, tint = WarmAmber, modifier = Modifier.size(20.dp))
                         } else {
                             Box(Modifier.size(16.dp).border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape))
                         }
