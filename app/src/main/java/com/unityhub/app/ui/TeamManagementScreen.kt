@@ -906,6 +906,110 @@ private fun CreateMinistryPositionDialog(
 }
 
 @Composable
+private fun EditMinistryPositionDialog(
+    position: MinistryPositionDto,
+    positions: List<MinistryPositionDto>,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var name by rememberSaveable(position.id) { mutableStateOf(position.name) }
+    val normalizedName = name.trim()
+    val normalizedLength = normalizedName.length
+    val duplicate = positions.any { other ->
+        other.id != position.id &&
+            other.name.trim().equals(normalizedName, ignoreCase = true)
+    }
+    val canSave = !saving && normalizedLength in 2..60 && !duplicate && normalizedName != position.name
+
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Edit ministry position") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(60) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Position name") },
+                    singleLine = true,
+                    enabled = !saving,
+                    isError = normalizedLength !in 2..60 || duplicate,
+                    supportingText = {
+                        Text(
+                            when {
+                                duplicate -> "Another ministry position already uses this name."
+                                else -> "$normalizedLength/60 characters"
+                            }
+                        )
+                    },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words
+                    )
+                )
+                Text(
+                    "Renaming a position updates the label everywhere it appears in the team directory and service assignment lists.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(normalizedName) }, enabled = canSave) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Save changes")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun DeleteMinistryPositionDialog(
+    position: MinistryPositionDto,
+    assignedCount: Int,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val assignedMemberLabel = if (assignedCount == 1) "member" else "members"
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Delete ministry position?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Delete \"" + position.name + "\" from this team's ministry positions?")
+                Text(
+                    if (assignedCount == 0) {
+                        "This position is not currently assigned to any team member."
+                    } else {
+                        "This position is assigned to $assignedCount team $assignedMemberLabel. Deleting it will also remove it from those member profiles."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (assignedCount > 0) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "This action cannot be undone. Existing service assignments keep their saved role text.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDelete, enabled = !saving) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Delete position", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") }
+        }
+    )
+}
+@Composable
 private fun ManageMemberPositionsDialog(
     member: ServiceMemberOption,
     positions: List<MinistryPositionDto>,
