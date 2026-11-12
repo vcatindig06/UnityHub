@@ -57,6 +57,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.unityhub.app.data.SongDto
+import com.unityhub.app.data.SongEditorInputLimits
 import com.unityhub.app.data.SongLibraryRules
 import com.unityhub.app.data.SongRepository
 import com.unityhub.app.data.OfflineSongCache
