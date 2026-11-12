@@ -48,6 +48,21 @@ val firebaseConfigurationIsComplete = listOf(
     firebaseSenderId
 ).all(String::isNotBlank)
 
+val stableUpdateKeystorePath = providers.environmentVariable("UNITYHUB_KEYSTORE_PATH")
+    .orNull?.takeIf(String::isNotBlank)
+val stableUpdateKeystorePassword = providers.environmentVariable("UNITYHUB_KEYSTORE_PASSWORD")
+    .orNull?.takeIf(String::isNotBlank)
+val stableUpdateKeyAlias = providers.environmentVariable("UNITYHUB_KEY_ALIAS")
+    .orNull?.takeIf(String::isNotBlank)
+val stableUpdateKeyPassword = providers.environmentVariable("UNITYHUB_KEY_PASSWORD")
+    .orNull?.takeIf(String::isNotBlank)
+val stableUpdateSigningConfigured = listOf(
+    stableUpdateKeystorePath,
+    stableUpdateKeystorePassword,
+    stableUpdateKeyAlias,
+    stableUpdateKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.unityhub.app"
     compileSdk = 37
@@ -56,8 +71,8 @@ android {
         applicationId = "com.unityhub.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 30
-        versionName = "0.30.0"
+        versionCode = 31
+        versionName = "0.31.0"
 
         buildConfigField("String", "SUPABASE_URL", supabaseUrl.asBuildConfigString())
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", supabasePublishableKey.asBuildConfigString())
@@ -74,6 +89,28 @@ android {
             resValue("string", "google_api_key", firebaseApiKey)
             resValue("string", "project_id", firebaseProjectId)
             resValue("string", "gcm_defaultSenderId", firebaseSenderId)
+        }
+    }
+
+    if (stableUpdateSigningConfigured) {
+        signingConfigs {
+            create("stableUpdate") {
+                storeFile = file(stableUpdateKeystorePath!!)
+                storePassword = stableUpdateKeystorePassword!!
+                keyAlias = stableUpdateKeyAlias!!
+                keyPassword = stableUpdateKeyPassword!!
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            // CI uses the same private key for every published in-app update.
+            // Without the complete secret set, normal debug signing is retained
+            // and the publishing workflow deliberately skips release publication.
+            if (stableUpdateSigningConfigured) {
+                signingConfig = signingConfigs.getByName("stableUpdate")
+            }
         }
     }
 

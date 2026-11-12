@@ -40,6 +40,7 @@ import com.unityhub.app.push.UnityHubFirebaseMessagingService
 import com.unityhub.app.push.UnityHubNotificationManager
 import com.unityhub.app.push.UnityHubPushNavigation
 import com.unityhub.app.ui.UnityHubApp
+import com.unityhub.app.ui.AppUpdateController
 import com.unityhub.app.ui.components.UnityHubLoadingScreen
 import com.unityhub.app.ui.auth.AuthScreen
 import com.unityhub.app.ui.auth.PasswordRecoveryScreen
@@ -65,6 +66,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             UnityHubTheme {
+                AppUpdateController()
                 var authenticated by rememberSaveable { mutableStateOf(false) }
                 var authenticationReady by rememberSaveable { mutableStateOf(false) }
                 var showNotificationPermissionPrompt by rememberSaveable { mutableStateOf(false) }

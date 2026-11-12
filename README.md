@@ -98,6 +98,10 @@ The migration `supabase/migrations/20261106090000_secure_member_administration.s
 
 Only the authenticated organization owner can transfer ownership. Only authenticated administrators can change member roles or remove non-owner members. The Android UI mirrors these restrictions, while the database functions remain the authorization boundary.
 
+### In-app updates
+
+UnityHub checks a version manifest and downloads verified APK updates from its own Supabase Storage bucket. The Account screen tracks the installed/latest version, offers automatic background downloading, and lists all published release notes. After an update, a What's New prompt lists every release since the user last viewed the notes. Downloads are checked against their SHA-256, file size, package identity, version, and installed signing certificate before Android's installer is launched. Android always retains the final installation approval; the app does not silently install APKs or redirect users to GitHub. See [In-app Updates](docs/APP_UPDATES.md) for setup, signing, and publishing requirements.
+
 ### GitHub Actions configuration
 
 For builds on GitHub-hosted runners, configure these repository secrets under **Settings → Secrets and variables → Actions**:
@@ -121,7 +125,7 @@ The debug APK is generated at:
 
     app/build/outputs/apk/debug/app-debug.apk
 
-GitHub Actions runs the same test and build tasks and publishes the APK as a workflow artifact.
+GitHub Actions runs the same test and build tasks and publishes the APK as a workflow artifact. When the stable UnityHub signing key and Supabase update-publisher secret are configured, pushes to `main` also publish the signed APK and update manifest to the private-write/public-download `unityhub-updates` Supabase Storage bucket. See [In-app Updates](docs/APP_UPDATES.md) for the one-time signing and publishing setup.
 
 ## Current application foundation
 
@@ -148,7 +152,7 @@ Implemented workflows include:
 - A notification center with individual and bulk mark-as-read actions plus an All / Unread filter; rehearsal invitations and availability responses are deep-linked to rehearsal details.
 - Organization-scoped rehearsal scheduling, team invitations, member availability responses, linked service plans, and leader-recorded attendance.
 - An administrator and worship-leader assignment overview for upcoming services, with response totals, member/role/service search, and filters for awaiting, confirmed, and unable-to-serve replies.
-- A dedicated Account screen for updating the signed-in display name, reviewing workspace role and app version, and managing Android notification settings. Signing out requires confirmation before user-scoped offline copies are cleared.
+- A dedicated Account screen for updating the signed-in display name, reviewing workspace role and app version, managing Android notification settings, and checking UnityHub updates with an automatic-download preference and complete release history. New releases download directly from UnityHub-managed Supabase Storage; Android still requires the user to approve installation. Signing out requires confirmation before user-scoped offline copies are cleared.
 
 The app uses Supabase Row Level Security for authorization. Authorization decisions must remain enforced by database policies and trusted server-side functions; hiding controls in the Android UI is not a security boundary.
 

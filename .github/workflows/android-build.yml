@@ -65,6 +65,34 @@ jobs:
             fi
           fi
 
+      - name: Prepare stable UnityHub update signing key
+        id: prepare-update-signing
+        shell: bash
+        env:
+          UNITYHUB_KEYSTORE_BASE64: ${{ secrets.UNITYHUB_KEYSTORE_BASE64 }}
+          UNITYHUB_KEYSTORE_PASSWORD: ${{ secrets.UNITYHUB_KEYSTORE_PASSWORD }}
+          UNITYHUB_KEY_ALIAS: ${{ secrets.UNITYHUB_KEY_ALIAS }}
+          UNITYHUB_KEY_PASSWORD: ${{ secrets.UNITYHUB_KEY_PASSWORD }}
+        run: |
+          if [[ -z "$UNITYHUB_KEYSTORE_BASE64" ||
+                -z "$UNITYHUB_KEYSTORE_PASSWORD" ||
+                -z "$UNITYHUB_KEY_ALIAS" ||
+                -z "$UNITYHUB_KEY_PASSWORD" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Stable update-signing secrets are not configured. This build will use a temporary debug key and will not be published to the in-app update service."
+            exit 0
+          fi
+
+          KEYSTORE_PATH="$RUNNER_TEMP/unityhub-update-signing.jks"
+          printf '%s' "$UNITYHUB_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          if [[ ! -s "$KEYSTORE_PATH" ]]; then
+            echo "::error::The UnityHub signing keystore could not be decoded."
+            exit 1
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+          echo "keystore_path=$KEYSTORE_PATH" >> "$GITHUB_OUTPUT"
+
       - name: Verify Gradle Wrapper
         run: ./gradlew --version
 
@@ -76,6 +104,10 @@ jobs:
           FIREBASE_APPLICATION_ID: ${{ secrets.FIREBASE_APPLICATION_ID }}
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           FIREBASE_SENDER_ID: ${{ secrets.FIREBASE_SENDER_ID }}
+          UNITYHUB_KEYSTORE_PATH: ${{ steps.prepare-update-signing.outputs.keystore_path }}
+          UNITYHUB_KEYSTORE_PASSWORD: ${{ secrets.UNITYHUB_KEYSTORE_PASSWORD }}
+          UNITYHUB_KEY_ALIAS: ${{ secrets.UNITYHUB_KEY_ALIAS }}
+          UNITYHUB_KEY_PASSWORD: ${{ secrets.UNITYHUB_KEY_PASSWORD }}
         run: ./gradlew --no-daemon clean testDebugUnitTest assembleDebug
 
       - name: Upload debug APK
@@ -95,3 +127,133 @@ jobs:
             gradle/wrapper/gradle-wrapper.jar
             gradle/wrapper/gradle-wrapper.properties
           if-no-files-found: error
+
+      - name: Publish signed update to UnityHub storage
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STABLE_SIGNING_ENABLED: ${{ steps.prepare-update-signing.outputs.enabled }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$STABLE_SIGNING_ENABLED" != "true" ]]; then
+            echo "::warning::In-app publication skipped. Configure the four UNITYHUB_KEYSTORE_* secrets first; the current debug APK uses a temporary signing key."
+            exit 0
+          fi
+          if [[ -z "$SUPABASE_URL" || -z "$SUPABASE_SERVICE_ROLE_KEY" ]]; then
+            echo "::warning::In-app publication skipped. Configure SUPABASE_SERVICE_ROLE_KEY as a GitHub Actions secret."
+            exit 0
+          fi
+
+          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          VERSION_CODE="$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*([0-9]+).*/\\1/p' app/build.gradle.kts | head -n1)"
+          VERSION_NAME="$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\\1/p' app/build.gradle.kts | head -n1)"
+          if [[ -z "$VERSION_CODE" || -z "$VERSION_NAME" || ! -f "$APK_PATH" ]]; then
+            echo "::error::Could not read the app version or locate the built APK."
+            exit 1
+          fi
+
+          BUCKET="unityhub-updates"
+          FILE_NAME="UnityHub-${VERSION_NAME}.apk"
+          DOWNLOAD_PATH="releases/${VERSION_CODE}/${FILE_NAME}"
+          APK_SHA256="$(sha256sum "$APK_PATH" | awk '{print $1}')"
+          APK_SIZE="$(stat -c '%s' "$APK_PATH")"
+          STORAGE_BASE="${SUPABASE_URL%/}/storage/v1"
+
+          # Create the public read-only download bucket. Only this CI job has the
+          # service-role credential required to write new releases.
+          BUCKET_BODY="$(jq -nc --arg id "$BUCKET" '{
+            id: $id,
+            name: $id,
+            public: true,
+            file_size_limit: 104857600,
+            allowed_mime_types: ["application/vnd.android.package-archive", "application/json"]
+          }')"
+          BUCKET_STATUS="$(curl -sS -o "$RUNNER_TEMP/create-bucket.json" -w '%{http_code}' \
+            -X POST "$STORAGE_BASE/bucket" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            --data "$BUCKET_BODY")"
+          if [[ "$BUCKET_STATUS" == "409" || "$BUCKET_STATUS" == "400" ]]; then
+            UPDATE_STATUS="$(curl -sS -o "$RUNNER_TEMP/update-bucket.json" -w '%{http_code}' \
+              -X PUT "$STORAGE_BASE/bucket/$BUCKET" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Content-Type: application/json" \
+              --data "$BUCKET_BODY")"
+            if [[ "$UPDATE_STATUS" != "200" ]]; then
+              cat "$RUNNER_TEMP/update-bucket.json"
+              echo "::error::Could not ensure the UnityHub update bucket is public."
+              exit 1
+            fi
+          elif [[ "$BUCKET_STATUS" != "200" && "$BUCKET_STATUS" != "201" ]]; then
+            cat "$RUNNER_TEMP/create-bucket.json"
+            echo "::error::Could not create the UnityHub update bucket."
+            exit 1
+          fi
+
+          APK_STATUS="$(curl -sS -o "$RUNNER_TEMP/upload-apk.json" -w '%{http_code}' \
+            -X POST "$STORAGE_BASE/object/$BUCKET/$DOWNLOAD_PATH" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            -H "Cache-Control: public, max-age=31536000, immutable" \
+            -H "x-upsert: true" \
+            --data-binary "@$APK_PATH")"
+          if [[ "$APK_STATUS" != "200" && "$APK_STATUS" != "201" ]]; then
+            cat "$RUNNER_TEMP/upload-apk.json"
+            echo "::error::The signed UnityHub APK could not be uploaded."
+            exit 1
+          fi
+
+          RELEASED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          jq -e --argjson versionCode "$VERSION_CODE" \
+            'any(.releases[]; .versionCode == $versionCode)' \
+            app-updates/release-notes.json > /dev/null
+
+          jq \
+            --argjson versionCode "$VERSION_CODE" \
+            --arg versionName "$VERSION_NAME" \
+            --arg downloadPath "$DOWNLOAD_PATH" \
+            --arg sha256 "$APK_SHA256" \
+            --argjson sizeBytes "$APK_SIZE" \
+            --arg releasedAt "$RELEASED_AT" \
+            '.latestVersionCode = $versionCode
+             | .latestVersionName = $versionName
+             | .releases |= map(
+                 if .versionCode == $versionCode then
+                   . + {
+                     releasedAt: $releasedAt,
+                     downloadPath: $downloadPath,
+                     sha256: $sha256,
+                     sizeBytes: $sizeBytes
+                   }
+                 else . end
+               )' \
+            app-updates/release-notes.json > "$RUNNER_TEMP/manifest.json"
+
+          # Upload the manifest last, so clients never see metadata for an APK
+          # that has not finished uploading.
+          MANIFEST_STATUS="$(curl -sS -o "$RUNNER_TEMP/upload-manifest.json" -w '%{http_code}' \
+            -X POST "$STORAGE_BASE/object/$BUCKET/manifest.json" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Cache-Control: public, max-age=300" \
+            -H "x-upsert: true" \
+            --data-binary "@$RUNNER_TEMP/manifest.json")"
+          if [[ "$MANIFEST_STATUS" != "200" && "$MANIFEST_STATUS" != "201" ]]; then
+            cat "$RUNNER_TEMP/upload-manifest.json"
+            echo "::error::The UnityHub update manifest could not be published."
+            exit 1
+          fi
+
+          curl -fsS "$STORAGE_BASE/object/public/$BUCKET/manifest.json" \
+            -o "$RUNNER_TEMP/published-manifest.json"
+          jq -e --argjson versionCode "$VERSION_CODE" \
+            '.latestVersionCode == $versionCode' \
+            "$RUNNER_TEMP/published-manifest.json" > /dev/null
+          echo "Published UnityHub ${VERSION_NAME} (${VERSION_CODE}) to the internal Supabase update service."

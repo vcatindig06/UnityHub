@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "latestVersionCode": 31,
+  "latestVersionName": "0.31.0",
+  "minimumSupportedVersionCode": 1,
+  "releases": [
+    {
+      "versionCode": 31,
+      "versionName": "0.31.0",
+      "releasedAt": "2026-11-12",
+      "summary": "Introducing the UnityHub in-app update center and a more stable Add Song editor.",
+      "changes": [
+        "UnityHub can check its update service and notify you when a newer version is available.",
+        "Download updates from UnityHub storage without opening GitHub or an external download page.",
+        "Choose automatic background downloading and review the version tracker and complete release history in Account settings.",
+        "Every downloaded package is checked for its expected size, SHA-256 checksum, app identity, version, and signing certificate before Android is asked to install it.",
+        "Android displays its own installation confirmation; UnityHub does not silently install or replace the app.",
+        "The Add Song ChordPro field now has a controlled height, stable form-item keys, and a live preview that parses in the background after typing pauses.",
+        "Large ChordPro drafts are no longer copied into Android's small saved-state bundle."
+      ]
+    },
+    {
+      "versionCode": 30,
+      "versionName": "0.30.0",
+      "releasedAt": "2026-11-12",
+      "summary": "Service assignment responses now support optional explanations.",
+      "changes": [
+        "Add an optional note of up to 300 characters when marking a service assignment as unable to serve.",
+        "Edit a decline note later from the assignment card.",
+        "Decline notes are queued with offline responses and synchronized when a connection returns.",
+        "Worship leaders can review submitted notes in service assignment lists and the assignment overview."
+      ]
+    },
+    {
+      "versionCode": 29,
+      "versionName": "0.29.0",
+      "releasedAt": "2026-11-12",
+      "summary": "Manage ministry positions from the Team workspace.",
+      "changes": [
+        "Administrators and worship leaders can add, rename, and delete reusable ministry positions.",
+        "Position names are validated for length and duplicate names are checked without regard to letter case.",
+        "UnityHub shows how many member profiles use a position before deletion."
+      ]
+    }
+  ]
+}

@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -43,6 +44,10 @@ import androidx.compose.runtime.LaunchedEffect
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.domain.chordpro.ChordProLine
 import com.unityhub.app.domain.chordpro.ChordProParser
+import com.unityhub.app.domain.chordpro.ChordProDocument
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import com.unityhub.app.domain.chordpro.ChordTransposer
 import java.nio.charset.StandardCharsets
 
@@ -194,16 +199,35 @@ private fun ChartMetadata(label: String, value: String) {
 
 @Composable
 internal fun ChordProPreview(source: String, maxLines: Int = 8) {
-    val document = remember(source) { ChordProParser.parse(source) }
-    if (document.lines.isEmpty()) {
+    var document by remember { mutableStateOf<ChordProDocument?>(null) }
+    var parsedAtLeastOnce by remember { mutableStateOf(false) }
+
+    LaunchedEffect(source) {
+        delay(250)
+        val parsed = withContext(Dispatchers.Default) {
+            runCatching { ChordProParser.parse(source) }.getOrNull()
+        }
+        document = parsed
+        parsedAtLeastOnce = true
+    }
+
+    val currentDocument = document
+    if (currentDocument == null) {
+        Text(
+            if (parsedAtLeastOnce) "The chart preview could not be generated."
+            else "Updating chart preview…",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+    } else if (currentDocument.lines.isEmpty()) {
         Text("No chart lines to preview yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
     } else {
-        document.lines.take(maxLines).forEach { line ->
+        currentDocument.lines.take(maxLines).forEach { line ->
             ChordProChartLine(line = line, transpose = 0, scale = 0.9f)
         }
-        if (document.lines.size > maxLines) {
+        if (currentDocument.lines.size > maxLines) {
             Text(
-                "Preview only · ${document.lines.size - maxLines} more lines in the full chart",
+                "Preview only · ${currentDocument.lines.size - maxLines} more lines in the full chart",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
