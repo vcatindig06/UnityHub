@@ -1,5 +1,8 @@
 package com.unityhub.app.ui
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,7 +43,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import com.unityhub.app.data.MyServiceAssignment
+import com.unityhub.app.data.OfflineServiceCache
+import com.unityhub.app.data.PendingServiceAssignmentResponseQueue
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceAssignmentRules
 import com.unityhub.app.data.ServicePlanDto
@@ -49,7 +55,10 @@ import com.unityhub.app.data.RehearsalDto
 import com.unityhub.app.data.RehearsalRepository
 import com.unityhub.app.data.RehearsalRules
 import com.unityhub.app.data.SupabaseClientProvider
+import com.unityhub.app.sync.OfflineSyncScheduler
 import kotlinx.coroutines.launch
+import java.io.IOException
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -73,6 +82,9 @@ fun HomeDashboardScreen(
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
     val assignmentRepository = remember { ServiceAssignmentRepository(SupabaseClientProvider.client) }
     val rehearsalRepository = remember { RehearsalRepository(SupabaseClientProvider.client) }
+    val context = LocalContext.current
+    val offlineServiceCache = remember(context) { OfflineServiceCache(context) }
+    val responseQueue = remember(context) { PendingServiceAssignmentResponseQueue(context) }
     val scope = rememberCoroutineScope()
     var plans by remember { mutableStateOf<List<ServicePlanDto>>(emptyList()) }
     var rehearsals by remember { mutableStateOf<List<RehearsalDto>>(emptyList()) }
@@ -82,6 +94,8 @@ fun HomeDashboardScreen(
     var loading by remember { mutableStateOf(true) }
     var assignmentsLoading by remember { mutableStateOf(true) }
     var respondingAssignmentId by remember { mutableStateOf<String?>(null) }
+    var pendingResponseIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var offlineDataMessage by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     var assignmentErrorMessage by remember { mutableStateOf("") }
 
