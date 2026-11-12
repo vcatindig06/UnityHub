@@ -894,7 +894,12 @@ private fun hasValidatedNetwork(context: Context): Boolean {
 private fun isNetworkFailure(exception: Throwable): Boolean =
     generateSequence(exception) { it.cause }
         .take(8)
-        .any { it is IOException }
+        .any {
+        it is IOException || it.javaClass.simpleName in setOf(
+            "HttpRequestTimeoutException",
+            "ConnectTimeoutException"
+        )
+    }
 
 private fun dashboardRoleLabel(role: String?): String = when (role) {
     "admin" -> "Administrator"
