@@ -60,7 +60,7 @@ Administrators and worship leaders can edit an existing service's title, date, s
 
 ### Live Stage
 
-Service details include **Start Live Stage** when a setlist is available. Live Stage provides an immersive, high-contrast display for worship teams, with large lyrics, optional chord rows, per-item semitone transposition, adjustable text size, and previous/next navigation through the ordered service setlist. It keeps the phone awake and temporarily hides system bars while active, restoring them when Live Stage closes. The view also works with locally cached service setlists in offline read-only mode.
+Service details include **Start Live Stage** when a setlist is available. Live Stage provides an immersive, high-contrast display for worship teams, with large lyrics, optional chord rows, per-item semitone transposition, adjustable text size, optional lyric auto-scroll with Slow / Normal / Fast speed controls, and previous/next navigation through the ordered service setlist. It keeps the phone awake and temporarily hides system bars while active, restoring them when Live Stage closes. The view also works with locally cached service setlists in offline read-only mode.
 
 ### Service templates
 

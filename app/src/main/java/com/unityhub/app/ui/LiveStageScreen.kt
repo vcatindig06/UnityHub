@@ -3,6 +3,8 @@ package com.unityhub.app.ui
 import android.app.Activity
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +28,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -48,10 +52,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +69,12 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.unityhub.app.data.ServicePlanItemDto
 import com.unityhub.app.domain.chordpro.ChordProParser
 import com.unityhub.app.domain.chordpro.ChordTransposer
+
+private val autoScrollSpeeds = listOf(
+    "Slow" to 14,
+    "Normal" to 24,
+    "Fast" to 40
+)
 
 private val StageBackground = Color(0xFF080F15)
 private val StageSurface = Color(0xFF14232E)
@@ -83,12 +95,16 @@ fun LiveStageScreen(
     var transpose by rememberSaveable(serviceTitle) { mutableIntStateOf(0) }
     var textScale by rememberSaveable(serviceTitle) { mutableFloatStateOf(1f) }
     var showChords by rememberSaveable(serviceTitle) { mutableStateOf(true) }
+    var autoScrollEnabled by rememberSaveable(serviceTitle) { mutableStateOf(false) }
+    var autoScrollSpeedIndex by rememberSaveable(serviceTitle) { mutableIntStateOf(1) }
+    var lastAutoScrollIndex by remember { mutableIntStateOf(0) }
 
     val context = LocalContext.current
     val view = LocalView.current
     val activity = context as? Activity
     val window = activity?.window
     val scrollState = rememberScrollState()
+    val density = LocalDensity.current.density
     val currentItem = items.getOrNull(currentIndex)
     val document = remember(currentItem?.id, currentItem?.chordproSnapshot) {
         currentItem?.chordproSnapshot?.takeIf(String::isNotBlank)?.let(ChordProParser::parse)
@@ -115,9 +131,32 @@ fun LiveStageScreen(
 
     BackHandler(onBack = onBack)
 
-    LaunchedEffect(currentIndex) {
-        scrollState.scrollTo(0)
-        transpose = 0
+    LaunchedEffect(currentIndex, autoScrollEnabled, autoScrollSpeedIndex) {
+        if (lastAutoScrollIndex != currentIndex) {
+            scrollState.scrollTo(0)
+            transpose = 0
+            lastAutoScrollIndex = currentIndex
+        }
+
+        if (autoScrollEnabled) {
+            // Wait for the updated item to be laid out before reading the scroll range.
+            withFrameNanos { }
+            val remainingPx = (scrollState.maxValue - scrollState.value).coerceAtLeast(0)
+            val durationMillis = LiveStageRules.autoScrollDurationMillis(
+                distancePx = remainingPx,
+                density = density,
+                speedDpPerSecond = autoScrollSpeeds[autoScrollSpeedIndex].second
+            )
+            if (durationMillis > 0) {
+                scrollState.animateScrollTo(
+                    value = scrollState.maxValue,
+                    animationSpec = tween(
+                        durationMillis = durationMillis,
+                        easing = LinearEasing
+                    )
+                )
+            }
+        }
     }
 
     Surface(
@@ -346,8 +385,15 @@ fun LiveStageScreen(
                                 Icon(Icons.Default.Add, contentDescription = "Increase text size", tint = StagePrimaryText)
                             }
                             IconButton(
-                                onClick = { textScale = 1f; transpose = 0; showChords = true },
-                                enabled = textScale != 1f || transpose != 0 || !showChords
+                                onClick = {
+                                    textScale = 1f
+                                    transpose = 0
+                                    showChords = true
+                                    autoScrollEnabled = false
+                                    autoScrollSpeedIndex = 1
+                                },
+                                enabled = textScale != 1f || transpose != 0 || !showChords ||
+                                    autoScrollEnabled || autoScrollSpeedIndex != 1
                             ) {
                                 Icon(Icons.Default.RestartAlt, contentDescription = "Reset stage display", tint = StageSecondaryText)
                             }
@@ -361,6 +407,37 @@ fun LiveStageScreen(
                             )
                             Spacer(Modifier.width(5.dp))
                             Text(if (showChords) "Hide chords" else "Show chords", color = StageAccent)
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TextButton(
+                            onClick = { autoScrollEnabled = !autoScrollEnabled },
+                            enabled = scrollState.maxValue > 0 || autoScrollEnabled
+                        ) {
+                            Icon(
+                                if (autoScrollEnabled) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (autoScrollEnabled) "Pause auto-scroll" else "Start auto-scroll",
+                                tint = StageAccent,
+                                modifier = Modifier.size(17.dp)
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                if (autoScrollEnabled) "Pause scroll" else "Auto-scroll",
+                                color = StageAccent
+                            )
+                        }
+                        TextButton(
+                            onClick = { autoScrollSpeedIndex = (autoScrollSpeedIndex + 1) % autoScrollSpeeds.size }
+                        ) {
+                            Text(
+                                "Speed: ${autoScrollSpeeds[autoScrollSpeedIndex].first}",
+                                color = StageAccent
+                            )
                         }
                     }
 

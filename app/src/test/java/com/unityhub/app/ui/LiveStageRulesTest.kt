@@ -21,6 +21,20 @@ class LiveStageRulesTest {
     }
 
     @Test
+    fun autoScrollDurationReflectsDistanceDensityAndSpeed() {
+        assertEquals(10_000, LiveStageRules.autoScrollDurationMillis(480, 2f, 24))
+        assertEquals(20_000, LiveStageRules.autoScrollDurationMillis(960, 2f, 24))
+        assertEquals(20_000, LiveStageRules.autoScrollDurationMillis(480, 2f, 12))
+    }
+
+    @Test
+    fun autoScrollDurationHandlesInvalidInputs() {
+        assertEquals(0, LiveStageRules.autoScrollDurationMillis(0, 2f, 24))
+        assertEquals(0, LiveStageRules.autoScrollDurationMillis(480, 0f, 24))
+        assertEquals(0, LiveStageRules.autoScrollDurationMillis(480, 2f, 0))
+    }
+
+    @Test
     fun transposeIsLimitedToElevenSemitonesInEachDirection() {
         assertEquals(1, LiveStageRules.adjustTranspose(0, 1))
         assertEquals(-1, LiveStageRules.adjustTranspose(0, -1))

@@ -16,11 +16,13 @@ Live Stage is read-only. It never changes the saved service plan or song library
 - **Previous / Next item:** move through the ordered service setlist. Navigation stops at the first and last items; it does not wrap around.
 - **Finish / Exit:** close the stage view and return to service details.
 - **Text size:** decrease or increase lyric and chord sizes.
+- **Auto-scroll:** start or pause a smooth upward scroll through the current item. Auto-scroll stops at the end of the item and does not advance the setlist automatically.
+- **Scroll speed:** cycle through Slow, Normal, and Fast while preserving the current scroll position.
 - **Show chords / Hide chords:** toggle chord rows without hiding lyrics.
 - **Transpose:** shift displayed chord names and key by semitones for the current item.
-- **Reset:** restore original transpose, default text size, and visible chords.
+- **Reset:** restore original transpose, default text size, visible chords, and default scroll settings.
 
-Changing display settings does not edit saved ChordPro content.
+Changing display settings does not edit saved ChordPro content. Auto-scroll is off by default and can be paused at any time.
 
 ## Presentation behavior
 
