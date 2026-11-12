@@ -45,7 +45,9 @@ The in-app updater requires a persistent signing key. Android rejects an update 
 
    Keep the existing `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` Actions secrets too. `SUPABASE_SECRET_KEY` is injected only into the publisher step and is never compiled into the APK. Supabase recommends secret API keys for backend use; the legacy `service_role` JWT is being deprecated by the end of 2026.
 
-4. Push a version-bumped commit to `main`. The Android workflow runs unit tests and builds the APK. On a push to `main`, when both the persistent signing key and Supabase secret API key are configured, CI creates or updates the public `unityhub-updates` bucket, uploads the signed APK, then publishes `manifest.json` last. Pull-request builds never publish updates.
+4. After all five update secrets are saved, open **GitHub → Actions → Android build → Run workflow**, select the `main` branch, and start the workflow. A manual run from `main` publishes the current version (currently 0.31.0), so the initial update does not require an artificial version bump. A normal push to `main` also publishes. The Android workflow runs unit tests and builds the APK first; only after a successful build does it create or update the public `unityhub-updates` bucket, upload the signed APK, then publish `manifest.json` last. Pull-request builds and manual runs from other branches never publish updates.
+
+For future releases, increase both `versionCode` and `versionName` and add the matching release-notes entry before merging to `main`.
 
 If the signing or Supabase secret API key is absent, CI still runs the normal test/build and uploads its debug artifact, but it deliberately skips in-app publication. The app will not invent a GitHub fallback.
 
