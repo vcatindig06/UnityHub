@@ -200,6 +200,25 @@ class ServicePlanRepository(private val client: SupabaseClient) {
         )
     }
 
+    suspend fun updateItemDuration(
+        itemId: String,
+        planId: String,
+        organizationId: String,
+        durationMinutes: Int?
+    ) {
+        require(itemId.isNotBlank() && planId.isNotBlank() && organizationId.isNotBlank())
+        val normalizedDuration = ServicePlanRules.normalizeDuration(durationMinutes)
+        client.from("service_plan_items").update({
+            set("duration_minutes", normalizedDuration)
+        }) {
+            filter {
+                eq("id", itemId)
+                eq("service_plan_id", planId)
+                eq("organization_id", organizationId)
+            }
+        }
+    }
+
     suspend fun removeItem(itemId: String, planId: String, organizationId: String) {
         client.from("service_plan_items").delete {
             filter {
