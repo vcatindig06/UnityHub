@@ -1,7 +1,9 @@
 package com.unityhub.app.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TeamManagementRulesTest {
@@ -30,15 +32,13 @@ class TeamManagementRulesTest {
 
     @Test
     fun positionNamesAreComparedCaseInsensitivelyAndAfterTrimming() {
-        assertEquals(
-            true,
+        assertTrue(
             TeamManagementRules.nameAlreadyExists(
                 "  ELECTRIC GUITAR ",
                 listOf("Electric Guitar", "Keys")
             )
         )
-        assertEquals(
-            false,
+        assertFalse(
             TeamManagementRules.nameAlreadyExists(
                 "Electric Bass",
                 listOf("Electric Guitar", "Keys")
