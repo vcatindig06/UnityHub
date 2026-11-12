@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
         CachedServiceAssignmentEntity.class,
         PendingServiceAssignmentResponseEntity.class
     },
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 public abstract class UnityHubCacheDatabase extends RoomDatabase {
@@ -90,6 +90,20 @@ public abstract class UnityHubCacheDatabase extends RoomDatabase {
         }
     };
 
+    public static final Migration MIGRATION_4_5 = new Migration(4, 5) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(
+                "ALTER TABLE cached_service_assignments " +
+                "ADD COLUMN response_note TEXT NOT NULL DEFAULT ''"
+            );
+            database.execSQL(
+                "ALTER TABLE pending_service_assignment_responses " +
+                "ADD COLUMN response_note TEXT NOT NULL DEFAULT ''"
+            );
+        }
+    };
+
     public abstract CachedSongDao cachedSongDao();
     public abstract CachedServicePlanDao cachedServicePlanDao();
     public abstract CachedServiceAssignmentDao cachedServiceAssignmentDao();
@@ -103,7 +117,7 @@ public abstract class UnityHubCacheDatabase extends RoomDatabase {
                         context.getApplicationContext(),
                         UnityHubCacheDatabase.class,
                         "unityhub_offline_cache.db"
-                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build();
+                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build();
                 }
             }
         }
