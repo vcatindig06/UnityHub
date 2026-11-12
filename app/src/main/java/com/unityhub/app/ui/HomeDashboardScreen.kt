@@ -105,10 +105,19 @@ fun HomeDashboardScreen(
             assignmentsLoading = true
             errorMessage = ""
             assignmentErrorMessage = ""
+            offlineDataMessage = ""
             try {
                 plans = repository.loadPlans(organizationId)
             } catch (_: Exception) {
-                errorMessage = "Upcoming services could not be loaded. Check your connection and try again."
+                val cached = runCatching {
+                    offlineServiceCache.loadServicePlans(userId, organizationId)
+                }.getOrNull()
+                plans = cached?.plans.orEmpty()
+                if (plans.isEmpty()) {
+                    errorMessage = "Upcoming services could not be loaded and no saved copy is available."
+                } else {
+                    offlineDataMessage = "Showing saved service information. Updates will sync when your internet connection returns."
+                }
             } finally {
                 loading = false
             }
@@ -125,11 +134,67 @@ fun HomeDashboardScreen(
 
             try {
                 myAssignments = assignmentRepository.loadMyAssignments(organizationId, userId)
+                assignmentErrorMessage = ""
             } catch (_: Exception) {
-                assignmentErrorMessage = "Your assignments could not be loaded. Check your connection and try again."
+                val cached = runCatching {
+                    offlineServiceCache.loadServicePlans(userId, organizationId)
+                }.getOrNull()
+                val cachedAssignments = mutableListOf<MyServiceAssignment>()
+                cached?.plans.orEmpty().forEach { plan ->
+                    runCatching {
+                        offlineServiceCache.loadAssignments(userId, organizationId, plan.id)
+                    }.getOrNull()?.assignments.orEmpty()
+                        .filter { it.isCurrentUser }
+                        .forEach { entry ->
+                            cachedAssignments += MyServiceAssignment(
+                                assignment = entry.assignment,
+                                servicePlan = plan
+                            )
+                        }
+                }
+                myAssignments = cachedAssignments
+                if (cachedAssignments.isEmpty()) {
+                    assignmentErrorMessage = "Your assignments could not be loaded. Check your connection and sync your offline data."
+                } else if (offlineDataMessage.isBlank()) {
+                    offlineDataMessage = "Showing your last saved assignments. Responses can be saved here and sent when you're online."
+                }
             } finally {
                 assignmentsLoading = false
             }
+
+            val pending = runCatching {
+                responseQueue.loadPending(userId, organizationId)
+            }.getOrDefault(emptyList())
+            val pendingByAssignment = pending.associateBy { it.assignmentId }
+            pendingResponseIds = pendingByAssignment.keys
+            myAssignments = myAssignments.map { item ->
+                val savedResponse = pendingByAssignment[item.assignment.id] ?: return@map item
+                item.copy(
+                    assignment = item.assignment.copy(
+                        responseStatus = savedResponse.responseStatus,
+                        respondedAt = Instant.ofEpochMilli(savedResponse.queuedAt).toString()
+                    )
+                )
+            }
+        }
+    }
+
+    fun applyLocalResponse(item: MyServiceAssignment, response: String, queued: Boolean) {
+        val respondedAt = Instant.now().toString()
+        myAssignments = myAssignments.map { current ->
+            if (current.assignment.id == item.assignment.id) {
+                current.copy(
+                    assignment = current.assignment.copy(
+                        responseStatus = response,
+                        respondedAt = respondedAt
+                    )
+                )
+            } else current
+        }
+        pendingResponseIds = if (queued) {
+            pendingResponseIds + item.assignment.id
+        } else {
+            pendingResponseIds - item.assignment.id
         }
     }
 
@@ -138,14 +203,50 @@ fun HomeDashboardScreen(
             respondingAssignmentId = item.assignment.id
             assignmentErrorMessage = ""
             try {
-                assignmentRepository.respond(
+                if (!hasValidatedNetwork(context)) {
+                    responseQueue.enqueue(
+                        userId = userId,
+                        organizationId = organizationId,
+                        assignmentId = item.assignment.id,
+                        memberId = item.assignment.memberId,
+                        responseStatus = response
+                    )
+                    applyLocalResponse(item, response, queued = true)
+                    OfflineSyncScheduler.syncNow(context, userId, organizationId)
+                    return@launch
+                }
+
+                val applied = assignmentRepository.respond(
                     assignmentId = item.assignment.id,
+                    organizationId = organizationId,
                     memberId = item.assignment.memberId,
                     response = response
                 )
-                myAssignments = assignmentRepository.loadMyAssignments(organizationId, userId)
-            } catch (_: Exception) {
-                assignmentErrorMessage = "Your response could not be saved. Check your connection and try again."
+                if (!applied) {
+                    assignmentErrorMessage = "This assignment is no longer available to your team membership. Refresh the dashboard and try again."
+                } else {
+                    responseQueue.remove(userId, item.assignment.id)
+                    applyLocalResponse(item, response, queued = false)
+                }
+            } catch (exception: Exception) {
+                if (!hasValidatedNetwork(context) || isNetworkFailure(exception)) {
+                    runCatching {
+                        responseQueue.enqueue(
+                            userId = userId,
+                            organizationId = organizationId,
+                            assignmentId = item.assignment.id,
+                            memberId = item.assignment.memberId,
+                            responseStatus = response
+                        )
+                    }.onSuccess {
+                        applyLocalResponse(item, response, queued = true)
+                        OfflineSyncScheduler.syncNow(context, userId, organizationId)
+                    }.onFailure {
+                        assignmentErrorMessage = "Your response could not be saved on this device. Please try again."
+                    }
+                } else {
+                    assignmentErrorMessage = "Your response could not be saved. Check your team access and try again."
+                }
             } finally {
                 respondingAssignmentId = null
             }
