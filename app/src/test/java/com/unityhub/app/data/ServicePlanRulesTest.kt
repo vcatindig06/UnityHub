@@ -32,6 +32,15 @@ class ServicePlanRulesTest {
     }
 
     @Test
+    fun itemDurationIsOptionalAndLimitedToTenHours() {
+        assertNull(ServicePlanRules.normalizeDuration(null))
+        assertEquals(0, ServicePlanRules.normalizeDuration(0))
+        assertEquals(600, ServicePlanRules.normalizeDuration(600))
+        assertTrue(runCatching { ServicePlanRules.normalizeDuration(-1) }.isFailure)
+        assertTrue(runCatching { ServicePlanRules.normalizeDuration(601) }.isFailure)
+    }
+
+    @Test
     fun secondsArePreservedAndInvalidTimesAreRejected() {
         assertEquals("21:05:17", ServicePlanRules.normalizeTime("21:05:17"))
         assertTrue(runCatching { ServicePlanRules.normalizeTime("25:00") }.isFailure)
