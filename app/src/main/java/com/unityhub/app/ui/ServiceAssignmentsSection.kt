@@ -428,8 +428,8 @@ private fun ServiceAssignmentCard(
                     Button(onClick = onConfirm, enabled = !saving && assignment.responseStatus != "confirmed") {
                         Text(if (assignment.responseStatus == "confirmed") "Confirmed" else "Confirm")
                     }
-                    TextButton(onClick = onDecline, enabled = !saving && assignment.responseStatus != "declined") {
-                        Text(if (assignment.responseStatus == "declined") "Declined" else "Can't serve")
+                    TextButton(onClick = onDecline, enabled = !saving) {
+                        Text(if (assignment.responseStatus == "declined") "Edit note" else "Can't serve")
                     }
                 }
             }
