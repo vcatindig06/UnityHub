@@ -16,6 +16,8 @@ data class NotificationDto(
     val message: String,
     @SerialName("service_plan_id") val servicePlanId: String? = null,
     @SerialName("assignment_id") val assignmentId: String? = null,
+    @SerialName("rehearsal_id") val rehearsalId: String? = null,
+    @SerialName("rehearsal_assignment_id") val rehearsalAssignmentId: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("read_at") val readAt: String? = null
 )
@@ -25,6 +27,9 @@ internal object NotificationRules {
 
     fun hasServicePlan(notification: NotificationDto): Boolean =
         !notification.servicePlanId.isNullOrBlank()
+
+    fun hasRehearsal(notification: NotificationDto): Boolean =
+        !notification.rehearsalId.isNullOrBlank()
 
     fun filterNotifications(
         notifications: List<NotificationDto>,
@@ -36,6 +41,8 @@ internal object NotificationRules {
         "assignment_created" -> "New assignment"
         "assignment_reminder" -> "Response reminder"
         "assignment_response" -> "Team response"
+        "rehearsal_assigned" -> "Rehearsal invitation"
+        "rehearsal_response" -> "Rehearsal response"
         else -> "Notification"
     }
 

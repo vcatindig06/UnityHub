@@ -66,6 +66,12 @@ Administrators and worship leaders can set or edit a duration for each song, pra
 
 Service details include **Start Live Stage** when a setlist is available. Live Stage provides an immersive, high-contrast display for worship teams, with large lyrics, optional chord rows, per-item semitone transposition, adjustable text size, optional lyric auto-scroll with Slow / Normal / Fast speed controls, and previous/next navigation through the ordered service setlist. It keeps the phone awake and temporarily hides system bars while active, restoring them when Live Stage closes. The view also works with locally cached service setlists in offline read-only mode.
 
+### Rehearsal management
+
+Administrators and worship leaders can schedule rehearsals, optionally link them to an existing service plan, and invite team members. Invitees receive in-app and Android push notifications and can respond Available or Can't attend. Leaders can complete a rehearsal and record each invitee as Attended or Absent. The Home dashboard shows the next scheduled rehearsal. See [Rehearsal Management](docs/REHEARSALS.md) for the full workflow.
+
+The migration `supabase/migrations/20261112022019_create_rehearsal_management.sql` creates organization-scoped rehearsal and assignment tables, row-level security policies, explicit authenticated Data API grants, and notification triggers. A member can only update their own availability; leaders manage invitations and attendance. Rehearsal invitations use the existing signed server-side push delivery path.
+
 ### Service templates
 
 Administrators and worship leaders can save a service's setlist as a named template, browse the team's reusable templates, rename or delete them, and append a saved template to another draft or published service. Applying a template appends items after the existing setlist; it does not replace existing items. Song references, custom items, durations, notes, item order, and ChordPro snapshots are retained.
@@ -130,7 +136,9 @@ Implemented workflows include:
 - Automatic background refresh of the signed-in user's song library, service plans/setlists, and service assignment snapshots. WorkManager runs after a workspace is opened and periodically when a network connection is available; background sync is read-only and scoped to the saved user and active organization.
 - A Home dashboard offline-sync status card showing live WorkManager progress, the last successful sync time, retry/error state, and a manual Sync now action.
 - A personal Home dashboard section for the signed-in member's upcoming service assignments, with role, service date, response status, and quick Confirm / Can't serve actions.
-- A notification center with individual and bulk mark-as-read actions plus an All / Unread filter.
+- A Home dashboard card for the next scheduled rehearsal, linked directly to rehearsal details.
+- A notification center with individual and bulk mark-as-read actions plus an All / Unread filter; rehearsal invitations and availability responses are deep-linked to rehearsal details.
+- Organization-scoped rehearsal scheduling, team invitations, member availability responses, linked service plans, and leader-recorded attendance.
 - An administrator and worship-leader assignment overview for upcoming services, with response totals, member/role/service search, and filters for awaiting, confirmed, and unable-to-serve replies.
 - A dedicated Account screen for updating the signed-in display name, reviewing workspace role and app version, and managing Android notification settings. Signing out requires confirmation before user-scoped offline copies are cleared.
 

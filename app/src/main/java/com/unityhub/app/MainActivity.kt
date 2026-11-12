@@ -164,10 +164,10 @@ class MainActivity : ComponentActivity() {
                 if (showNotificationPermissionPrompt) {
                     AlertDialog(
                         onDismissRequest = { showNotificationPermissionPrompt = false },
-                        title = { Text("Enable service alerts") },
+                        title = { Text("Enable team alerts") },
                         text = {
                             Text(
-                                "Allow UnityHub to notify you about team assignments and service reminders, even when the app is closed."
+                                "Allow UnityHub to notify you about rehearsal invitations, availability updates, team assignments, and service reminders, even when the app is closed."
                             )
                         },
                         confirmButton = {
@@ -201,8 +201,10 @@ class MainActivity : ComponentActivity() {
             ?: source.getStringExtra("notification_id")
         val servicePlanId = source.getStringExtra(UnityHubNotificationManager.EXTRA_SERVICE_PLAN_ID)
             ?: source.getStringExtra("service_plan_id")
-        if (!notificationId.isNullOrBlank() || !servicePlanId.isNullOrBlank()) {
-            pendingPushNavigation = UnityHubPushNavigation(notificationId, servicePlanId)
+        val rehearsalId = source.getStringExtra(UnityHubNotificationManager.EXTRA_REHEARSAL_ID)
+            ?: source.getStringExtra("rehearsal_id")
+        if (!notificationId.isNullOrBlank() || !servicePlanId.isNullOrBlank() || !rehearsalId.isNullOrBlank()) {
+            pendingPushNavigation = UnityHubPushNavigation(notificationId, servicePlanId, rehearsalId)
         }
     }
 
