@@ -139,10 +139,24 @@ jobs:
           set -euo pipefail
 
           if [[ "$STABLE_SIGNING_ENABLED" != "true" ]]; then
+            {
+              echo "## In-app update publication"
+              echo ""
+              echo "**Status:** Not published."
+              echo ""
+              echo "The APK was built for testing with a temporary debug signing key. Configure all four UNITYHUB_KEYSTORE_* Actions secrets before expecting in-app updates to work."
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "::warning::In-app publication skipped. Configure the four UNITYHUB_KEYSTORE_* secrets first; the current debug APK uses a temporary signing key."
             exit 0
           fi
           if [[ -z "$SUPABASE_URL" || -z "$SUPABASE_SERVICE_ROLE_KEY" ]]; then
+            {
+              echo "## In-app update publication"
+              echo ""
+              echo "**Status:** Not published."
+              echo ""
+              echo "The persistent signing key is configured, but SUPABASE_SERVICE_ROLE_KEY is missing. Configure it as a GitHub Actions secret."
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "::warning::In-app publication skipped. Configure SUPABASE_SERVICE_ROLE_KEY as a GitHub Actions secret."
             exit 0
           fi
@@ -256,4 +270,14 @@ jobs:
           jq -e --argjson versionCode "$VERSION_CODE" \
             '.latestVersionCode == $versionCode' \
             "$RUNNER_TEMP/published-manifest.json" > /dev/null
+          {
+            echo "## In-app update publication"
+            echo ""
+            echo "**Status:** Published successfully."
+            echo ""
+            echo "- Version: ${VERSION_NAME} (${VERSION_CODE})"
+            echo "- APK size: ${APK_SIZE} bytes"
+            echo "- SHA-256: ${APK_SHA256}"
+            echo "- Storage: unityhub-updates Supabase bucket"
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "Published UnityHub ${VERSION_NAME} (${VERSION_CODE}) to the internal Supabase update service."
