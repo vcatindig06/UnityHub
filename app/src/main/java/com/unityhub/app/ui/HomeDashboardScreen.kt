@@ -474,7 +474,7 @@ fun HomeDashboardScreen(
         if (pendingResponseIds.isNotEmpty()) {
             item {
                 Text(
-                    "\${pendingResponseIds.size} service response(s) saved on this device and waiting to sync.",
+                    "${pendingResponseIds.size} service response(s) saved on this device and waiting to sync.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
