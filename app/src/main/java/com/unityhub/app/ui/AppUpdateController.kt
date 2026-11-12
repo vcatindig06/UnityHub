@@ -149,12 +149,12 @@ fun AppUpdateController() {
     }
 
     LaunchedEffect(manager) {
+        AppUpdateWorkScheduler.setEnabled(context, manager.isAutoDownloadEnabled())
         val loadedManifest = runCatching { manager.fetchManifest() }.getOrNull()
             ?: return@LaunchedEffect
         val latest = AppUpdateRules.latestRelease(loadedManifest)
             ?: return@LaunchedEffect
 
-        AppUpdateWorkScheduler.setEnabled(context, manager.isAutoDownloadEnabled())
         if (AppUpdateRules.hasUpdate(BuildConfig.VERSION_CODE, latest.versionCode)) {
             updateRelease = latest
             isRequired = AppUpdateRules.isRequiredUpdate(
