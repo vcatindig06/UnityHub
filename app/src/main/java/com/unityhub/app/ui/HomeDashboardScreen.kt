@@ -453,6 +453,34 @@ fun HomeDashboardScreen(
             }
         }
 
+        if (offlineDataMessage.isNotBlank()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Text(
+                        offlineDataMessage,
+                        modifier = Modifier.fillMaxWidth().padding(13.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+        }
+
+        if (pendingResponseIds.isNotEmpty()) {
+            item {
+                Text(
+                    "\${pendingResponseIds.size} service response(s) saved on this device and waiting to sync.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -505,6 +533,7 @@ fun HomeDashboardScreen(
                             item = assignment,
                             today = today,
                             responding = respondingAssignmentId == assignment.assignment.id,
+                            pendingSync = assignment.assignment.id in pendingResponseIds,
                             onOpen = { onOpenServicePlan(assignment.servicePlan.id) },
                             onConfirm = { respondToAssignment(assignment, "confirmed") },
                             onDecline = { respondToAssignment(assignment, "declined") }
@@ -626,6 +655,7 @@ private fun MyUpcomingAssignmentCard(
     item: MyServiceAssignment,
     today: LocalDate,
     responding: Boolean,
+    pendingSync: Boolean,
     onOpen: () -> Unit,
     onConfirm: () -> Unit,
     onDecline: () -> Unit
@@ -654,14 +684,14 @@ private fun MyUpcomingAssignmentCard(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    when (status) {
+                    if (pendingSync) "Saved · waiting to sync" else when (status) {
                         "confirmed" -> "Confirmed"
                         "declined" -> "Unable to serve"
                         else -> "Awaiting response"
                     },
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = when (status) {
+                    color = if (pendingSync) MaterialTheme.colorScheme.secondary else when (status) {
                         "confirmed" -> MaterialTheme.colorScheme.primary
                         "declined" -> MaterialTheme.colorScheme.error
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -833,6 +863,20 @@ private fun dashboardDateTimeLabel(dateValue: String?, timeValue: String?, today
     return if (timeLabel.isNullOrBlank()) dateLabel else "$dateLabel · $timeLabel"
 }
 
+
+private fun hasValidatedNetwork(context: Context): Boolean {
+    val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        ?: return false
+    val network = manager.activeNetwork ?: return false
+    val capabilities = manager.getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+}
+
+private fun isNetworkFailure(exception: Throwable): Boolean =
+    generateSequence(exception) { it.cause }
+        .take(8)
+        .any { it is IOException }
 
 private fun dashboardRoleLabel(role: String?): String = when (role) {
     "admin" -> "Administrator"
