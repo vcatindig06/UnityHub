@@ -88,6 +88,10 @@ Members can save a private favorites list without changing the shared song libra
 
 Song editing remains limited to administrators, worship leaders, and song editors while online. The Add Song form keeps its Cancel and Save actions pinned above the system navigation area so they remain accessible while the chart is scrolled.
 
+### Ministry position management
+
+Administrators and worship leaders can create, rename, and delete reusable ministry positions from the Team screen. Position names are validated for length and case-insensitive duplicates. Before deleting a position, UnityHub shows how many member profiles currently use it; confirming deletion removes that position from those profiles. Existing service assignment role labels are retained. See [Ministry Position Management](docs/MINISTRY_POSITIONS.md) for the workflow and data behavior.
+
 ### Team member administration
 
 The migration `supabase/migrations/20261106090000_secure_member_administration.sql` protects the organization creator from being demoted or removed outside an ownership transfer. It adds an owner-only `transfer_organization_ownership` RPC that promotes the selected existing member to Administrator, updates `organizations.created_by`, and changes the previous owner's role to Team Member in one transaction. The role-change and removal RPCs also lock the organization first and retain the last-administrator safeguard.
@@ -129,7 +133,7 @@ Implemented workflows include:
 - Authenticated organization directory search
 - Requests to join an organization
 - Administrator approval or decline of join requests
-- Team directory with member display names, team access roles, and assigned ministry positions, including member search and ministry-position filters
+- Team directory with member display names, team access roles, and assigned ministry positions, including member search and ministry-position filters; admins and worship leaders can manage the reusable ministry position catalogue
 - Administrator-only member access controls for changing access roles and removing members, plus an atomic owner transfer that promotes the new owner and retains the previous owner as a Team Member
 - Song library search, editor-only song management, and personal per-member favorites with an All songs / Favorites filter
 - Raw ChordPro song content editing and file import/export

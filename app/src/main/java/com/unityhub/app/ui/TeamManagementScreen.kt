@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
@@ -33,6 +35,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -84,6 +87,8 @@ fun TeamManagementScreen(
     var saving by remember { mutableStateOf(false) }
     var managementError by remember { mutableStateOf("") }
     var addPositionOpen by rememberSaveable { mutableStateOf(false) }
+    var editingPosition by remember { mutableStateOf<MinistryPositionDto?>(null) }
+    var deletingPosition by remember { mutableStateOf<MinistryPositionDto?>(null) }
     var selectedMember by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var memberAccessTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var memberRemovalTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
@@ -152,6 +157,8 @@ fun TeamManagementScreen(
                         "That ministry position already exists. Choose a different name."
                     "must contain 2" in serverMessage ->
                         "Use a ministry position name between 2 and 60 characters."
+                    "ministry position no longer exists" in serverMessage ->
+                        "That ministry position changed or was removed. Refresh the Team screen and try again."
                     "last administrator" in serverMessage ->
                         "UnityHub must keep at least one administrator. Assign another administrator before changing or removing this member."
                     "organization owner" in serverMessage ->
@@ -183,6 +190,47 @@ fun TeamManagementScreen(
                 addPositionOpen = false
                 runAction {
                     repository.createMinistryPosition(organizationId, name)
+                }
+            }
+        )
+    }
+
+    editingPosition?.let { position ->
+        EditMinistryPositionDialog(
+            position = position,
+            positions = positions,
+            saving = saving,
+            onDismiss = { if (!saving) editingPosition = null },
+            onSave = { name ->
+                editingPosition = null
+                runAction {
+                    repository.updateMinistryPosition(
+                        organizationId = organizationId,
+                        positionId = position.id,
+                        name = name
+                    )
+                    if (selectedPositionFilter == position.name) {
+                        selectedPositionFilter = name.trim()
+                    }
+                }
+            }
+        )
+    }
+
+    deletingPosition?.let { position ->
+        val assignedCount = memberPositions.count { it.positionId == position.id }
+        DeleteMinistryPositionDialog(
+            position = position,
+            assignedCount = assignedCount,
+            saving = saving,
+            onDismiss = { if (!saving) deletingPosition = null },
+            onDelete = {
+                deletingPosition = null
+                runAction {
+                    repository.deleteMinistryPosition(organizationId, position.id)
+                    if (selectedPositionFilter == position.name) {
+                        selectedPositionFilter = ""
+                    }
                 }
             }
         )
@@ -509,7 +557,7 @@ fun TeamManagementScreen(
                     Column(Modifier.weight(1f)) {
                         Text("Ministry positions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(
-                            "Create reusable roles for service assignments.",
+                            "Create, rename, and remove reusable roles for service assignments.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -554,7 +602,29 @@ fun TeamManagementScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Icon(Icons.Default.Groups, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                IconButton(
+                                    onClick = { editingPosition = position },
+                                    enabled = !saving,
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Edit ${position.name}"
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { deletingPosition = position },
+                                    enabled = !saving,
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.DeleteOutline,
+                                        contentDescription = "Delete ${position.name}",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -838,6 +908,110 @@ private fun CreateMinistryPositionDialog(
     )
 }
 
+@Composable
+private fun EditMinistryPositionDialog(
+    position: MinistryPositionDto,
+    positions: List<MinistryPositionDto>,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var name by rememberSaveable(position.id) { mutableStateOf(position.name) }
+    val normalizedName = name.trim()
+    val normalizedLength = normalizedName.length
+    val duplicate = positions.any { other ->
+        other.id != position.id &&
+            other.name.trim().equals(normalizedName, ignoreCase = true)
+    }
+    val canSave = !saving && normalizedLength in 2..60 && !duplicate && normalizedName != position.name
+
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Edit ministry position") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(60) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Position name") },
+                    singleLine = true,
+                    enabled = !saving,
+                    isError = normalizedLength !in 2..60 || duplicate,
+                    supportingText = {
+                        Text(
+                            when {
+                                duplicate -> "Another ministry position already uses this name."
+                                else -> "$normalizedLength/60 characters"
+                            }
+                        )
+                    },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words
+                    )
+                )
+                Text(
+                    "Renaming a position updates the label everywhere it appears in the team directory and service assignment lists.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(normalizedName) }, enabled = canSave) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Save changes")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun DeleteMinistryPositionDialog(
+    position: MinistryPositionDto,
+    assignedCount: Int,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val assignedMemberLabel = if (assignedCount == 1) "member" else "members"
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Delete ministry position?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Delete \"" + position.name + "\" from this team's ministry positions?")
+                Text(
+                    if (assignedCount == 0) {
+                        "This position is not currently assigned to any team member."
+                    } else {
+                        "This position is assigned to $assignedCount team $assignedMemberLabel. Deleting it will also remove it from those member profiles."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (assignedCount > 0) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "This action cannot be undone. Existing service assignments keep their saved role text.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDelete, enabled = !saving) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Delete position", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") }
+        }
+    )
+}
 @Composable
 private fun ManageMemberPositionsDialog(
     member: ServiceMemberOption,

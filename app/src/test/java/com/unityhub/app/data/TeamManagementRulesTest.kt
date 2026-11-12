@@ -1,7 +1,9 @@
 package com.unityhub.app.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TeamManagementRulesTest {
@@ -26,6 +28,22 @@ class TeamManagementRulesTest {
         assertThrows(IllegalArgumentException::class.java) {
             TeamManagementRules.normalizePositionName("A".repeat(61))
         }
+    }
+
+    @Test
+    fun positionNamesAreComparedCaseInsensitivelyAndAfterTrimming() {
+        assertTrue(
+            TeamManagementRules.nameAlreadyExists(
+                "  ELECTRIC GUITAR ",
+                listOf("Electric Guitar", "Keys")
+            )
+        )
+        assertFalse(
+            TeamManagementRules.nameAlreadyExists(
+                "Electric Bass",
+                listOf("Electric Guitar", "Keys")
+            )
+        )
     }
 
     @Test
