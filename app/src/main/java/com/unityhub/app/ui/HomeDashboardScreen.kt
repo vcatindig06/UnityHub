@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.work.WorkInfo
 import com.unityhub.app.data.MyServiceAssignment
 import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.PendingServiceAssignmentResponseQueue
@@ -253,8 +254,25 @@ fun HomeDashboardScreen(
         }
     }
 
-    LaunchedEffect(organizationId) {
+    LaunchedEffect(organizationId, userId) {
         refresh()
+    }
+
+    // A completed response-upload worker can update Supabase while the dashboard
+    // remains open. Refresh once for each completed immediate sync so the local
+    // "waiting to sync" label is replaced by the server-confirmed response.
+    LaunchedEffect(context, userId, organizationId) {
+        val handledWorkIds = mutableSetOf<String>()
+        OfflineSyncScheduler.observeWork(context, userId).collect { workInfos ->
+            workInfos
+                .filter { info ->
+                    info.state == WorkInfo.State.SUCCEEDED &&
+                        OfflineSyncScheduler.immediateTagFor(userId) in info.tags
+                }
+                .forEach { info ->
+                    if (handledWorkIds.add(info.id.toString())) refresh()
+                }
+        }
     }
 
     val today = LocalDate.now()
