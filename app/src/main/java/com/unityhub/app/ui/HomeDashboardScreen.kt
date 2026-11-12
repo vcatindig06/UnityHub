@@ -45,6 +45,9 @@ import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceAssignmentRules
 import com.unityhub.app.data.ServicePlanDto
 import com.unityhub.app.data.ServicePlanRepository
+import com.unityhub.app.data.RehearsalDto
+import com.unityhub.app.data.RehearsalRepository
+import com.unityhub.app.data.RehearsalRules
 import com.unityhub.app.data.SupabaseClientProvider
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -64,12 +67,17 @@ fun HomeDashboardScreen(
     onOpenServices: () -> Unit,
     onOpenServicePlan: (String) -> Unit,
     onOpenTeam: () -> Unit,
+    onOpenRehearsal: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
     val assignmentRepository = remember { ServiceAssignmentRepository(SupabaseClientProvider.client) }
+    val rehearsalRepository = remember { RehearsalRepository(SupabaseClientProvider.client) }
     val scope = rememberCoroutineScope()
     var plans by remember { mutableStateOf<List<ServicePlanDto>>(emptyList()) }
+    var rehearsals by remember { mutableStateOf<List<RehearsalDto>>(emptyList()) }
+    var rehearsalsLoading by remember { mutableStateOf(true) }
+    var rehearsalErrorMessage by remember { mutableStateOf("") }
     var myAssignments by remember { mutableStateOf<List<MyServiceAssignment>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var assignmentsLoading by remember { mutableStateOf(true) }
@@ -89,6 +97,16 @@ fun HomeDashboardScreen(
                 errorMessage = "Upcoming services could not be loaded. Check your connection and try again."
             } finally {
                 loading = false
+            }
+
+            try {
+                rehearsalsLoading = true
+                rehearsals = rehearsalRepository.loadRehearsals(organizationId)
+                rehearsalErrorMessage = ""
+            } catch (_: Exception) {
+                rehearsalErrorMessage = "Upcoming rehearsals could not be loaded."
+            } finally {
+                rehearsalsLoading = false
             }
 
             try {
@@ -129,6 +147,10 @@ fun HomeDashboardScreen(
         HomeDashboardRules.upcomingPlans(plans, today)
     }
     val upcomingPlans = allUpcomingPlans.take(4)
+    val nextRehearsal = remember(rehearsals, today) {
+        rehearsals.filter { it.status == "scheduled" && it.rehearsalDate >= today.toString() }
+            .minWithOrNull(compareBy<RehearsalDto> { it.rehearsalDate }.thenBy { it.startTime })
+    }
     val allUpcomingAssignments = remember(myAssignments, today) {
         HomeDashboardRules.upcomingAssignments(myAssignments, today)
     }
@@ -256,6 +278,64 @@ fun HomeDashboardScreen(
                 userId = userId,
                 organizationId = organizationId
             )
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Next rehearsal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Practice together and prepare for the next service",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    TextButton(onClick = { nextRehearsal?.let { onOpenRehearsal(it.id) } }, enabled = nextRehearsal != null) {
+                        Text("Open")
+                    }
+                }
+                when {
+                    rehearsalsLoading -> Row(
+                        horizontalArrangement = Arrangement.spacedBy(9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text("Loading your rehearsal schedule", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    nextRehearsal != null -> Card(
+                        modifier = Modifier.fillMaxWidth().clickable { onOpenRehearsal(nextRehearsal.id) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(nextRehearsal.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                RehearsalRules.formatDate(nextRehearsal.rehearsalDate) + " · " +
+                                    RehearsalRules.formatTime(nextRehearsal.startTime),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (nextRehearsal.location.isNotBlank()) {
+                                Text(nextRehearsal.location, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    rehearsalErrorMessage.isNotBlank() -> Text(rehearsalErrorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    else -> Card(shape = RoundedCornerShape(14.dp)) {
+                        Text(
+                            "No upcoming rehearsals. Your worship leader can schedule one from Services → Rehearsals.",
+                            modifier = Modifier.fillMaxWidth().padding(15.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
 
         item {
