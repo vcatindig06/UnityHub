@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
@@ -33,6 +35,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -84,6 +87,8 @@ fun TeamManagementScreen(
     var saving by remember { mutableStateOf(false) }
     var managementError by remember { mutableStateOf("") }
     var addPositionOpen by rememberSaveable { mutableStateOf(false) }
+    var editingPosition by remember { mutableStateOf<MinistryPositionDto?>(null) }
+    var deletingPosition by remember { mutableStateOf<MinistryPositionDto?>(null) }
     var selectedMember by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var memberAccessTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var memberRemovalTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
@@ -152,6 +157,8 @@ fun TeamManagementScreen(
                         "That ministry position already exists. Choose a different name."
                     "must contain 2" in serverMessage ->
                         "Use a ministry position name between 2 and 60 characters."
+                    "ministry position no longer exists" in serverMessage ->
+                        "That ministry position changed or was removed. Refresh the Team screen and try again."
                     "last administrator" in serverMessage ->
                         "UnityHub must keep at least one administrator. Assign another administrator before changing or removing this member."
                     "organization owner" in serverMessage ->
