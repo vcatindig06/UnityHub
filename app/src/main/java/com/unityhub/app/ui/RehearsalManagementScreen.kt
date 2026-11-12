@@ -282,7 +282,7 @@ fun RehearsalManagementScreen(
 
     LaunchedEffect(organizationId) { reload() }
 
-    LaunchedEffect(openRehearsalId, openRehearsalRequestId, rehearsals) {
+    LaunchedEffect(openRehearsalId, openRehearsalRequestId, rehearsals, loading) {
         if (openRehearsalRequestId.isNullOrBlank()) {
             consumedRequestId = null
         } else if (consumedRequestId != openRehearsalRequestId && !loading) {
