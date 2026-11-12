@@ -24,6 +24,7 @@ public class CachedServiceAssignmentEntity {
     @NonNull @ColumnInfo(name = "member_display_name") public String memberDisplayName = "Team member";
     @NonNull @ColumnInfo(name = "role_label") public String roleLabel = "";
     @NonNull @ColumnInfo(name = "response_status") public String responseStatus = "pending";
+    @NonNull @ColumnInfo(name = "response_note", defaultValue = "''") public String responseNote = "";
     @Nullable @ColumnInfo(name = "responded_at") public String respondedAt;
     @NonNull @ColumnInfo(name = "created_at") public String createdAt = "";
     @ColumnInfo(name = "cached_at") public long cachedAt;
