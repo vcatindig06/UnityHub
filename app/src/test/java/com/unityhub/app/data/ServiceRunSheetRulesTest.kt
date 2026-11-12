@@ -42,11 +42,11 @@ class ServiceRunSheetRulesTest {
     @Test
     fun finishEstimateCanCrossMoreThanOneDay() {
         val summary = ServiceRunSheetRules.summarize(
-            itemDurations = listOf(600, 600, 600),
+            itemDurations = listOf(600, 600, 600, 600, 600),
             serviceStartTime = "06:00:00"
         )
 
-        assertEquals("12:00 AM (+2 days)", summary.estimatedFinishTime)
+        assertEquals("8:00 AM (+2 days)", summary.estimatedFinishTime)
     }
 
     @Test
