@@ -198,14 +198,31 @@ private fun ChartMetadata(label: String, value: String) {
 }
 
 @Composable
+internal object ChordProPreviewRules {
+    // The editor preview only renders a few lines. Parsing an entire large
+    // paste creates thousands of temporary objects while the user is typing.
+    const val MAX_PREVIEW_SOURCE_CHARACTERS = 32_768
+
+    fun previewSource(source: String): String =
+        source.take(MAX_PREVIEW_SOURCE_CHARACTERS)
+
+    fun isTruncated(source: String): Boolean =
+        source.length > MAX_PREVIEW_SOURCE_CHARACTERS
+}
+
+@Composable
 internal fun ChordProPreview(source: String, maxLines: Int = 8) {
     var document by remember { mutableStateOf<ChordProDocument?>(null) }
     var parsedAtLeastOnce by remember { mutableStateOf(false) }
+    val previewSource = remember(source) { ChordProPreviewRules.previewSource(source) }
+    val previewIsTruncated = ChordProPreviewRules.isTruncated(source)
 
-    LaunchedEffect(source) {
+    LaunchedEffect(previewSource) {
+        document = null
+        parsedAtLeastOnce = false
         delay(250)
         val parsed = withContext(Dispatchers.Default) {
-            runCatching { ChordProParser.parse(source) }.getOrNull()
+            runCatching { ChordProParser.parse(previewSource) }.getOrNull()
         }
         document = parsed
         parsedAtLeastOnce = true
@@ -225,9 +242,12 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
         currentDocument.lines.take(maxLines).forEach { line ->
             ChordProChartLine(line = line, transpose = 0, scale = 0.9f)
         }
-        if (currentDocument.lines.size > maxLines) {
+        if (currentDocument.lines.size > maxLines || previewIsTruncated) {
             Text(
-                "Preview only · ${currentDocument.lines.size - maxLines} more lines in the full chart",
+                when {
+                    previewIsTruncated -> "Preview sample only · the complete chart text is retained"
+                    else -> "Preview only · ${currentDocument.lines.size - maxLines} more lines in the full chart"
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
