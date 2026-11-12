@@ -30,7 +30,7 @@ class PendingServiceAssignmentResponseRulesTest {
     }
 
     @Test
-    fun rejectsA differentSignedInUser() {
+    fun rejectsADifferentSignedInUser() {
         assertFalse(
             PendingServiceAssignmentResponseRules.maySync(
                 authenticatedUserId = "user-2",
