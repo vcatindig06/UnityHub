@@ -12,6 +12,7 @@ class PendingServiceAssignmentResponseRulesTest {
         organizationId = "org-1",
         memberId = "membership-1",
         responseStatus = "confirmed",
+        responseNote = "",
         queuedAt = 100L
     )
 
@@ -63,6 +64,46 @@ class PendingServiceAssignmentResponseRulesTest {
                 membershipOrganizationId = "org-1",
                 membershipId = "membership-2",
                 pending = pending
+            )
+        )
+    }
+
+    @Test
+    fun allowsAValidNoteOnlyForADeclinedResponse() {
+        assertTrue(
+            PendingServiceAssignmentResponseRules.maySync(
+                authenticatedUserId = "user-1",
+                requestedUserId = "user-1",
+                requestedOrganizationId = "org-1",
+                membershipOrganizationId = "org-1",
+                membershipId = "membership-1",
+                pending = pending.copy(
+                    responseStatus = "declined",
+                    responseNote = "I have a schedule conflict."
+                )
+            )
+        )
+        assertFalse(
+            PendingServiceAssignmentResponseRules.maySync(
+                authenticatedUserId = "user-1",
+                requestedUserId = "user-1",
+                requestedOrganizationId = "org-1",
+                membershipOrganizationId = "org-1",
+                membershipId = "membership-1",
+                pending = pending.copy(responseNote = "This note should not accompany a confirmation.")
+            )
+        )
+        assertFalse(
+            PendingServiceAssignmentResponseRules.maySync(
+                authenticatedUserId = "user-1",
+                requestedUserId = "user-1",
+                requestedOrganizationId = "org-1",
+                membershipOrganizationId = "org-1",
+                membershipId = "membership-1",
+                pending = pending.copy(
+                    responseStatus = "declined",
+                    responseNote = "N".repeat(301)
+                )
             )
         )
     }
