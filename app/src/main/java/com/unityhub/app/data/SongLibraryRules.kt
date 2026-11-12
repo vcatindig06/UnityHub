@@ -1,5 +1,23 @@
 package com.unityhub.app.data
 
+/**
+ * Keeps song-editor input bounded so large pastes cannot grow Compose state
+ * or ChordPro preview allocations without limit.
+ */
+internal object SongEditorInputLimits {
+    const val MAX_TITLE_CHARACTERS = 200
+    const val MAX_ARTIST_CHARACTERS = 120
+    const val MAX_KEY_SIGNATURE_CHARACTERS = 16
+    const val MAX_TEMPO_CHARACTERS = 3
+    const val MAX_TIME_SIGNATURE_CHARACTERS = 16
+    const val MAX_CHORDPRO_CHARACTERS = 1_048_576
+    const val MAX_CHORDPRO_BYTES = 1_048_576
+    const val MAX_NOTES_CHARACTERS = 2_000
+
+    fun limit(value: String, maximumCharacters: Int): String =
+        value.take(maximumCharacters.coerceAtLeast(0))
+}
+
 internal object SongLibraryRules {
     private val editorRoles = setOf("admin", "worship_leader", "song_editor")
 
