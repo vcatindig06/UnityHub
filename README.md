@@ -58,6 +58,10 @@ Members can switch between all notifications and unread notifications, mark indi
 
 Administrators and worship leaders can edit an existing service's title, date, start time, and notes from the service details screen. The edit action is hidden in read-only and offline views. Dates and times are validated before a write is sent to Supabase.
 
+### Service run sheet
+
+Administrators and worship leaders can set or edit a duration for each song, prayer, reading, announcement, or other service item. The Run of Show summary totals all entered durations and estimates the finish time only when every item has a duration and the service start time is set. Missing durations are counted explicitly rather than treated as zero. Duration edits use the existing service-item duration field and are retained by the existing offline cache and setlist-template copying.
+
 ### Live Stage
 
 Service details include **Start Live Stage** when a setlist is available. Live Stage provides an immersive, high-contrast display for worship teams, with large lyrics, optional chord rows, per-item semitone transposition, adjustable text size, optional lyric auto-scroll with Slow / Normal / Fast speed controls, and previous/next navigation through the ordered service setlist. It keeps the phone awake and temporarily hides system bars while active, restoring them when Live Stage closes. The view also works with locally cached service setlists in offline read-only mode.
@@ -121,7 +125,8 @@ Implemented workflows include:
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
 - Read-only offline service plans, ordered setlists (including saved ChordPro snapshots), and the last-synced service team assignments with their response statuses.
-- Copy a previous service's complete ordered setlist into another service, appending items while preserving item types, notes, durations, song references, and saved ChordPro snapshots. Offline assignment data is scoped to the signed-in user, and assignment creation, removal, and response updates remain online-only.
+- Copy a previous service's complete ordered setlist into another service, appending items while preserving item types, notes, durations, song references, and saved ChordPro snapshots.
+- A service Run of Show planner with per-item duration editing, total planned runtime, missing-duration counts, and an estimated finish time when the timing information is complete. Offline assignment data is scoped to the signed-in user, and assignment creation, removal, and response updates remain online-only.
 - Automatic background refresh of the signed-in user's song library, service plans/setlists, and service assignment snapshots. WorkManager runs after a workspace is opened and periodically when a network connection is available; background sync is read-only and scoped to the saved user and active organization.
 - A Home dashboard offline-sync status card showing live WorkManager progress, the last successful sync time, retry/error state, and a manual Sync now action.
 - A personal Home dashboard section for the signed-in member's upcoming service assignments, with role, service date, response status, and quick Confirm / Can't serve actions.
