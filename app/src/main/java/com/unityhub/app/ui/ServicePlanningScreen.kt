@@ -55,6 +55,7 @@ import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.ServicePlanDto
 import com.unityhub.app.data.ServicePlanItemDto
 import com.unityhub.app.data.ServicePlanRepository
+import com.unityhub.app.data.ServiceRunSheetRules
 import com.unityhub.app.data.ServiceTemplateDto
 import com.unityhub.app.data.ServiceTemplateRepository
 import com.unityhub.app.data.ServiceAssignmentRules
@@ -628,6 +629,7 @@ private fun ServicePlanDetailScreen(
     var error by remember { mutableStateOf("") }
     var songPickerOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
     var customItemOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var durationEditingItem by remember(plan.id) { mutableStateOf<ServicePlanItemDto?>(null) }
     var copySourceDialogOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
     var copySourceCandidate by remember(plan.id) { mutableStateOf<ServicePlanDto?>(null) }
     var copySuccessMessage by remember(plan.id) { mutableStateOf("") }
@@ -770,6 +772,27 @@ private fun ServicePlanDetailScreen(
                 }
             },
             confirmButton = { TextButton(onClick = { songPickerOpen = false }) { Text("Close") } }
+        )
+    }
+
+    if (durationEditingItem != null) {
+        val itemToEdit = durationEditingItem!!
+        EditServiceItemDurationDialog(
+            item = itemToEdit,
+            saving = saving,
+            errorMessage = error,
+            onDismiss = { if (!saving) durationEditingItem = null },
+            onSave = { duration ->
+                runAction {
+                    repository.updateItemDuration(
+                        itemId = itemToEdit.id,
+                        planId = plan.id,
+                        organizationId = organizationId,
+                        durationMinutes = duration
+                    )
+                    durationEditingItem = null
+                }
+            }
         )
     }
 
@@ -975,6 +998,17 @@ private fun ServicePlanDetailScreen(
             }
         }
 
+        if (items.isNotEmpty()) {
+            item {
+                ServiceRunSheetSummaryCard(
+                    summary = ServiceRunSheetRules.summarize(
+                        itemDurations = items.map { it.durationMinutes },
+                        serviceStartTime = plan.startTime
+                    )
+                )
+            }
+        }
+
         if (effectiveCanManage && currentStatus != "completed" && currentStatus != "cancelled") {
             item {
                 OutlinedActionButton(
@@ -1048,7 +1082,8 @@ private fun ServicePlanDetailScreen(
                     },
                     onRemove = {
                         runAction { repository.removeItem(serviceItem.id, plan.id, organizationId) }
-                    }
+                    },
+                    onEditDuration = { durationEditingItem = serviceItem }
                 )
             }
         }
@@ -1146,7 +1181,8 @@ private fun ServicePlanItemCard(
     canMoveDown: Boolean,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onEditDuration: () -> Unit
 ) {
     Card(shape = RoundedCornerShape(14.dp)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1162,6 +1198,11 @@ private fun ServicePlanItemCard(
                 )
                 if (item.notes.isNotBlank()) {
                     Text(item.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (canManage) {
+                    TextButton(onClick = onEditDuration, enabled = !saving) {
+                        Text(if (item.durationMinutes == null) "Set duration" else "Edit duration")
+                    }
                 }
             }
             if (canManage) {
@@ -1179,6 +1220,109 @@ private fun ServicePlanItemCard(
             }
         }
     }
+}
+
+@Composable
+private fun ServiceRunSheetSummaryCard(
+    summary: com.unityhub.app.data.ServiceRunSheetSummary
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "RUN OF SHOW",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Text(
+                ServiceRunSheetRules.formatDuration(summary.totalMinutes),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            when {
+                summary.itemsWithoutDuration > 0 -> Text(
+                    "${summary.itemsWithoutDuration} ${if (summary.itemsWithoutDuration == 1) "item needs" else "items need"} a duration before a finish time can be estimated.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                summary.estimatedFinishTime != null -> Text(
+                    "Estimated finish · ${summary.estimatedFinishTime}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                else -> Text(
+                    "Set the service start time to estimate the finish.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditServiceItemDurationDialog(
+    item: ServicePlanItemDto,
+    saving: Boolean,
+    errorMessage: String,
+    onDismiss: () -> Unit,
+    onSave: (Int?) -> Unit
+) {
+    var duration by rememberSaveable(item.id) {
+        mutableStateOf(item.durationMinutes?.toString().orEmpty())
+    }
+    val parsedDuration = duration.toIntOrNull()
+    val validDuration = duration.isBlank() || parsedDuration in 0..600
+
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Set item duration") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(item.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = duration,
+                    onValueChange = { duration = it.filter(Char::isDigit).take(3) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Duration in minutes") },
+                    supportingText = { Text("Enter 0–600 minutes. Leave blank to remove the duration.") },
+                    singleLine = true,
+                    enabled = !saving,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = !validDuration
+                )
+                if (!validDuration) {
+                    Text("Duration must be between 0 and 600 minutes.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                if (errorMessage.isNotBlank()) {
+                    Text(errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(if (duration.isBlank()) null else parsedDuration) },
+                enabled = !saving && validDuration
+            ) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Save duration")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
