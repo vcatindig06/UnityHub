@@ -1,6 +1,7 @@
 package com.unityhub.app.ui
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Groups
@@ -30,11 +32,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -57,8 +61,14 @@ import com.unityhub.app.BuildConfig
 import com.unityhub.app.data.AccountProfile
 import com.unityhub.app.data.AccountProfileRules
 import com.unityhub.app.data.AccountRepository
+import com.unityhub.app.data.AppUpdateManager
+import com.unityhub.app.data.AppUpdateRelease
+import com.unityhub.app.data.AppUpdateManifest
+import com.unityhub.app.data.AppUpdateRules
+import com.unityhub.app.sync.AppUpdateWorkScheduler
 import com.unityhub.app.data.SupabaseClientProvider
 import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 fun AccountSettingsScreen(
@@ -71,6 +81,87 @@ fun AccountSettingsScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val repository = remember { AccountRepository(SupabaseClientProvider.client) }
     val scope = rememberCoroutineScope()
+    val updateManager = remember(context) { AppUpdateManager(context) }
+    var updateManifest by remember { mutableStateOf<AppUpdateManifest?>(null) }
+    var checkingUpdates by remember { mutableStateOf(false) }
+    var downloadingUpdate by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableStateOf(0f) }
+    var downloadedUpdate by remember { mutableStateOf<File?>(null) }
+    var autoDownloadUpdates by remember(context) {
+        mutableStateOf(updateManager.isAutoDownloadEnabled())
+    }
+    var updateMessage by remember { mutableStateOf("") }
+
+    fun checkForUpdates() {
+        scope.launch {
+            checkingUpdates = true
+            updateMessage = ""
+            try {
+                val loadedManifest = updateManager.fetchManifest()
+                updateManifest = loadedManifest
+                val latest = AppUpdateRules.latestRelease(loadedManifest)
+                downloadedUpdate = latest?.let { updateManager.findVerifiedDownload(it) }
+                updateMessage = when {
+                    latest == null -> "No published UnityHub releases were found."
+                    latest.versionCode > BuildConfig.VERSION_CODE ->
+                        "Version ${latest.versionName} is available."
+                    else -> "UnityHub is up to date."
+                }
+            } catch (exception: Exception) {
+                updateMessage = exception.message
+                    ?: "UnityHub could not check for updates. Try again when you are online."
+            } finally {
+                checkingUpdates = false
+            }
+        }
+    }
+
+    fun downloadUpdate(release: AppUpdateRelease) {
+        if (downloadingUpdate) return
+        scope.launch {
+            downloadingUpdate = true
+            downloadProgress = 0f
+            updateMessage = ""
+            downloadedUpdate = null
+            try {
+                downloadedUpdate = updateManager.downloadRelease(release) { progress ->
+                    downloadProgress = progress
+                }
+                updateMessage = "The update is downloaded and verified. Android will ask you to approve installation."
+            } catch (exception: Exception) {
+                updateMessage = exception.message ?: "The UnityHub update could not be downloaded."
+            } finally {
+                downloadingUpdate = false
+            }
+        }
+    }
+
+    fun installDownloadedUpdate() {
+        val file = downloadedUpdate ?: return
+        if (!context.packageManager.canRequestPackageInstalls()) {
+            updateMessage = "Allow UnityHub to install updates in Android settings, then return and tap Install update."
+            runCatching {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${context.packageName}")
+                    )
+                )
+            }.onFailure {
+                updateMessage = "Open Android Settings and allow UnityHub to install unknown apps."
+            }
+            return
+        }
+        runCatching {
+            context.startActivity(updateManager.createInstallIntent(file))
+        }.onFailure {
+            updateMessage = it.message ?: "Android could not open the update installer."
+        }
+    }
+
+    LaunchedEffect(updateManager) {
+        checkForUpdates()
+    }
 
     var profile by remember { mutableStateOf<AccountProfile?>(null) }
     var profileLoading by remember { mutableStateOf(true) }
@@ -319,24 +410,136 @@ fun AccountSettingsScreen(
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+            SettingsSection(title = "App updates", icon = {
+                Icon(Icons.Default.CloudDownload, contentDescription = null)
+            }) {
+                SettingsValueRow(label = "Installed version", value = BuildConfig.VERSION_NAME)
+                val latestRelease = updateManifest?.let(AppUpdateRules::latestRelease)
+                SettingsValueRow(
+                    label = "Latest version",
+                    value = latestRelease?.versionName ?: "Not checked"
                 )
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                Text(
+                    "Check for new versions and review the complete release history.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("App information", fontWeight = FontWeight.SemiBold)
-                    Row(
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Automatically download updates", fontWeight = FontWeight.Medium)
+                        Text(
+                            "Downloads can happen in the background. Android will still ask you to confirm installation.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = autoDownloadUpdates,
+                        onCheckedChange = { enabled ->
+                            autoDownloadUpdates = enabled
+                            updateManager.setAutoDownloadEnabled(enabled)
+                            AppUpdateWorkScheduler.setEnabled(context, enabled)
+                            if (enabled && latestRelease != null &&
+                                latestRelease.versionCode > BuildConfig.VERSION_CODE &&
+                                AppUpdateRules.hasValidDownloadMetadata(latestRelease)
+                            ) {
+                                downloadUpdate(latestRelease)
+                            }
+                        }
+                    )
+                }
+                OutlinedButton(
+                    onClick = { checkForUpdates() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !checkingUpdates && !downloadingUpdate
+                ) {
+                    if (checkingUpdates) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.CloudDownload, contentDescription = null)
+                    }
+                    Text(
+                        if (checkingUpdates) "Checking…" else "Check for updates",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+                if (latestRelease != null &&
+                    latestRelease.versionCode > BuildConfig.VERSION_CODE
+                ) {
+                    Button(
+                        onClick = {
+                            val file = downloadedUpdate
+                            if (file != null) installDownloadedUpdate()
+                            else downloadUpdate(latestRelease)
+                        },
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        enabled = !downloadingUpdate &&
+                            (downloadedUpdate != null ||
+                                AppUpdateRules.hasValidDownloadMetadata(latestRelease))
                     ) {
-                        Text("UnityHub for Android", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(BuildConfig.VERSION_NAME, fontWeight = FontWeight.Medium)
+                        Text(if (downloadedUpdate != null) "Install update" else "Download update")
+                    }
+                }
+                if (downloadingUpdate) {
+                    LinearProgressIndicator(
+                        progress = { downloadProgress },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "Downloading update… ${(downloadProgress * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (updateMessage.isNotBlank()) {
+                    Text(
+                        updateMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (downloadedUpdate != null ||
+                            updateMessage == "UnityHub is up to date."
+                        ) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Text("Release history", fontWeight = FontWeight.SemiBold)
+                val history = updateManifest?.releases.orEmpty()
+                    .sortedByDescending(AppUpdateRelease::versionCode)
+                if (history.isEmpty()) {
+                    Text(
+                        "Release notes will appear here after UnityHub connects to its update service.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    history.forEach { release ->
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                "Version ${release.versionName}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (release.releasedAt.isNotBlank()) {
+                                Text(
+                                    release.releasedAt,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (release.summary.isNotBlank()) {
+                                Text(release.summary, style = MaterialTheme.typography.bodySmall)
+                            }
+                            release.changes.forEach { change ->
+                                Text("• $change", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
                     }
                 }
             }

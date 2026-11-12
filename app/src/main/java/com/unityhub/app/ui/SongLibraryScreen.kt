@@ -102,7 +102,7 @@ fun SongLibraryScreen(
     var keySignature by rememberSaveable { mutableStateOf("") }
     var tempo by rememberSaveable { mutableStateOf("") }
     var timeSignature by rememberSaveable { mutableStateOf("4/4") }
-    var chordpro by rememberSaveable { mutableStateOf("") }
+    var chordpro by remember { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var importMessage by remember { mutableStateOf("") }
@@ -635,7 +635,7 @@ private fun SongEditor(
         modifier = Modifier.fillMaxSize().padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        item {
+        item(key = "song-editor-item-0") {
             Column(Modifier.padding(20.dp)) {
                 Text(if (isEditing) "Edit song" else "Add a song", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(
@@ -645,7 +645,7 @@ private fun SongEditor(
                 )
             }
         }
-        item {
+        item(key = "song-editor-item-1") {
             OutlinedTextField(
                 value = title,
                 onValueChange = onTitleChange,
@@ -656,19 +656,19 @@ private fun SongEditor(
                 isError = title.trim().length > 200
             )
         }
-        item {
+        item(key = "song-editor-item-2") {
             OutlinedTextField(artist, onArtistChange, Modifier.fillMaxWidth().padding(horizontal = 20.dp), label = { Text("Artist") }, singleLine = true, enabled = !saving)
         }
-        item {
+        item(key = "song-editor-item-3") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(keySignature, onKeyChange, Modifier.weight(1f), label = { Text("Key") }, singleLine = true, enabled = !saving)
                 OutlinedTextField(tempo, onTempoChange, Modifier.weight(1f), label = { Text("Tempo (BPM)") }, singleLine = true, enabled = !saving, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
             }
         }
-        item {
+        item(key = "song-editor-item-4") {
             OutlinedTextField(timeSignature, onTimeSignatureChange, Modifier.fillMaxWidth().padding(horizontal = 20.dp), label = { Text("Time signature") }, singleLine = true, enabled = !saving)
         }
-        item {
+        item(key = "song-editor-item-5") {
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Text("ChordPro chart", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
@@ -682,13 +682,14 @@ private fun SongEditor(
                     onValueChange = onChordproChange,
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 10,
+                    maxLines = 18,
                     label = { Text("Paste or type ChordPro text") },
                     enabled = !saving
                 )
             }
         }
         if (chordpro.isNotBlank()) {
-            item {
+            item(key = "song-editor-item-6") {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     shape = RoundedCornerShape(14.dp),
@@ -701,11 +702,11 @@ private fun SongEditor(
                 }
             }
         }
-        item {
-            OutlinedTextField(notes, onNotesChange, Modifier.fillMaxWidth().padding(horizontal = 20.dp), label = { Text("Team notes (optional)") }, minLines = 2, enabled = !saving)
+        item(key = "song-editor-item-7") {
+            OutlinedTextField(notes, onNotesChange, Modifier.fillMaxWidth().padding(horizontal = 20.dp), label = { Text("Team notes (optional)") }, minLines = 2, maxLines = 6, enabled = !saving)
         }
         if (importMessage.isNotBlank()) {
-            item {
+            item(key = "song-editor-item-8") {
                 Text(
                     importMessage,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -714,7 +715,7 @@ private fun SongEditor(
                 )
             }
         }
-        item { Spacer(Modifier.height(16.dp)) }
+        item(key = "song-editor-item-9") { Spacer(Modifier.height(16.dp)) }
     }
     }
 }
