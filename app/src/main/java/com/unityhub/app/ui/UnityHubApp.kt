@@ -697,17 +697,29 @@ private fun WorkspaceDashboard(
     var showAccountScreen by rememberSaveable { mutableStateOf(false) }
     var requestedServicePlanId by remember { mutableStateOf<String?>(null) }
     var serviceNavigationRequestId by remember { mutableStateOf<String?>(null) }
+    var requestedRehearsalId by remember { mutableStateOf<String?>(null) }
+    var rehearsalNavigationRequestId by remember { mutableStateOf<String?>(null) }
     val organization = workspace.organization ?: return
 
-    LaunchedEffect(pushNavigation?.notificationId, pushNavigation?.servicePlanId) {
+    LaunchedEffect(
+        pushNavigation?.notificationId,
+        pushNavigation?.servicePlanId,
+        pushNavigation?.rehearsalId
+    ) {
         val navigation = pushNavigation ?: return@LaunchedEffect
         showAccountScreen = false
-        if (!navigation.servicePlanId.isNullOrBlank()) {
-            requestedServicePlanId = navigation.servicePlanId
-            serviceNavigationRequestId = navigation.notificationId ?: navigation.servicePlanId
-            selectedTab = 2
-        } else {
-            selectedTab = 3
+        when {
+            !navigation.rehearsalId.isNullOrBlank() -> {
+                requestedRehearsalId = navigation.rehearsalId
+                rehearsalNavigationRequestId = navigation.notificationId ?: navigation.rehearsalId
+                selectedTab = 2
+            }
+            !navigation.servicePlanId.isNullOrBlank() -> {
+                requestedServicePlanId = navigation.servicePlanId
+                serviceNavigationRequestId = navigation.notificationId ?: navigation.servicePlanId
+                selectedTab = 2
+            }
+            else -> selectedTab = 3
         }
         onPushNavigationHandled()
     }
@@ -830,6 +842,12 @@ private fun WorkspaceDashboard(
                     requestedServicePlanId = null
                     serviceNavigationRequestId = null
                 },
+                openRehearsalId = requestedRehearsalId,
+                openRehearsalRequestId = rehearsalNavigationRequestId,
+                onOpenRehearsalHandled = {
+                    requestedRehearsalId = null
+                    rehearsalNavigationRequestId = null
+                },
                 modifier = Modifier.padding(innerPadding)
             )
             3 -> NotificationsScreen(
@@ -839,6 +857,18 @@ private fun WorkspaceDashboard(
                     if (!servicePlanId.isNullOrBlank()) {
                         requestedServicePlanId = servicePlanId
                         serviceNavigationRequestId = notification.id
+                        requestedRehearsalId = null
+                        rehearsalNavigationRequestId = null
+                        selectedTab = 2
+                    }
+                },
+                onOpenRehearsal = { notification ->
+                    val rehearsalId = notification.rehearsalId
+                    if (!rehearsalId.isNullOrBlank()) {
+                        requestedRehearsalId = rehearsalId
+                        rehearsalNavigationRequestId = notification.id
+                        requestedServicePlanId = null
+                        serviceNavigationRequestId = null
                         selectedTab = 2
                     }
                 },
