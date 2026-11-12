@@ -1283,7 +1283,7 @@ private fun EditServiceItemDurationDialog(
         mutableStateOf(item.durationMinutes?.toString().orEmpty())
     }
     val parsedDuration = duration.toIntOrNull()
-    val validDuration = duration.isBlank() || parsedDuration in 0..600
+    val validDuration = duration.isBlank() || (parsedDuration != null && parsedDuration in 0..600)
 
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
