@@ -20,7 +20,7 @@ Live Stage is read-only. It never changes the saved service plan or song library
 - **Scroll speed:** cycle through Slow, Normal, and Fast while preserving the current scroll position.
 - **Show chords / Hide chords:** toggle chord rows without hiding lyrics.
 - **Transpose:** shift displayed chord names and key by semitones for the current item.
-- **Reset:** restore original transpose, default text size, and visible chords.
+- **Reset:** restore original transpose, default text size, visible chords, and default scroll settings.
 
 Changing display settings does not edit saved ChordPro content. Auto-scroll is off by default and can be paused at any time.
 
