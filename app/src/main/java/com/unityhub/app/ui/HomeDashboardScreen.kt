@@ -1,5 +1,8 @@
 package com.unityhub.app.ui
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,7 +43,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.work.WorkInfo
 import com.unityhub.app.data.MyServiceAssignment
+import com.unityhub.app.data.OfflineServiceCache
+import com.unityhub.app.data.PendingServiceAssignmentResponseQueue
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceAssignmentRules
 import com.unityhub.app.data.ServicePlanDto
@@ -49,7 +56,10 @@ import com.unityhub.app.data.RehearsalDto
 import com.unityhub.app.data.RehearsalRepository
 import com.unityhub.app.data.RehearsalRules
 import com.unityhub.app.data.SupabaseClientProvider
+import com.unityhub.app.sync.OfflineSyncScheduler
 import kotlinx.coroutines.launch
+import java.io.IOException
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -73,6 +83,9 @@ fun HomeDashboardScreen(
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
     val assignmentRepository = remember { ServiceAssignmentRepository(SupabaseClientProvider.client) }
     val rehearsalRepository = remember { RehearsalRepository(SupabaseClientProvider.client) }
+    val context = LocalContext.current
+    val offlineServiceCache = remember(context) { OfflineServiceCache(context) }
+    val responseQueue = remember(context) { PendingServiceAssignmentResponseQueue(context) }
     val scope = rememberCoroutineScope()
     var plans by remember { mutableStateOf<List<ServicePlanDto>>(emptyList()) }
     var rehearsals by remember { mutableStateOf<List<RehearsalDto>>(emptyList()) }
@@ -82,6 +95,8 @@ fun HomeDashboardScreen(
     var loading by remember { mutableStateOf(true) }
     var assignmentsLoading by remember { mutableStateOf(true) }
     var respondingAssignmentId by remember { mutableStateOf<String?>(null) }
+    var pendingResponseIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var offlineDataMessage by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     var assignmentErrorMessage by remember { mutableStateOf("") }
 
@@ -91,10 +106,19 @@ fun HomeDashboardScreen(
             assignmentsLoading = true
             errorMessage = ""
             assignmentErrorMessage = ""
+            offlineDataMessage = ""
             try {
                 plans = repository.loadPlans(organizationId)
             } catch (_: Exception) {
-                errorMessage = "Upcoming services could not be loaded. Check your connection and try again."
+                val cached = runCatching {
+                    offlineServiceCache.loadServicePlans(userId, organizationId)
+                }.getOrNull()
+                plans = cached?.plans.orEmpty()
+                if (plans.isEmpty()) {
+                    errorMessage = "Upcoming services could not be loaded and no saved copy is available."
+                } else {
+                    offlineDataMessage = "Showing saved service information. Updates will sync when your internet connection returns."
+                }
             } finally {
                 loading = false
             }
@@ -111,11 +135,67 @@ fun HomeDashboardScreen(
 
             try {
                 myAssignments = assignmentRepository.loadMyAssignments(organizationId, userId)
+                assignmentErrorMessage = ""
             } catch (_: Exception) {
-                assignmentErrorMessage = "Your assignments could not be loaded. Check your connection and try again."
+                val cached = runCatching {
+                    offlineServiceCache.loadServicePlans(userId, organizationId)
+                }.getOrNull()
+                val cachedAssignments = mutableListOf<MyServiceAssignment>()
+                cached?.plans.orEmpty().forEach { plan ->
+                    runCatching {
+                        offlineServiceCache.loadAssignments(userId, organizationId, plan.id)
+                    }.getOrNull()?.assignments.orEmpty()
+                        .filter { it.isCurrentUser }
+                        .forEach { entry ->
+                            cachedAssignments += MyServiceAssignment(
+                                assignment = entry.assignment,
+                                servicePlan = plan
+                            )
+                        }
+                }
+                myAssignments = cachedAssignments
+                if (cachedAssignments.isEmpty()) {
+                    assignmentErrorMessage = "Your assignments could not be loaded. Check your connection and sync your offline data."
+                } else if (offlineDataMessage.isBlank()) {
+                    offlineDataMessage = "Showing your last saved assignments. Responses can be saved here and sent when you're online."
+                }
             } finally {
                 assignmentsLoading = false
             }
+
+            val pending = runCatching {
+                responseQueue.loadPending(userId, organizationId)
+            }.getOrDefault(emptyList())
+            val pendingByAssignment = pending.associateBy { it.assignmentId }
+            pendingResponseIds = pendingByAssignment.keys
+            myAssignments = myAssignments.map { item ->
+                val savedResponse = pendingByAssignment[item.assignment.id] ?: return@map item
+                item.copy(
+                    assignment = item.assignment.copy(
+                        responseStatus = savedResponse.responseStatus,
+                        respondedAt = Instant.ofEpochMilli(savedResponse.queuedAt).toString()
+                    )
+                )
+            }
+        }
+    }
+
+    fun applyLocalResponse(item: MyServiceAssignment, response: String, queued: Boolean) {
+        val respondedAt = Instant.now().toString()
+        myAssignments = myAssignments.map { current ->
+            if (current.assignment.id == item.assignment.id) {
+                current.copy(
+                    assignment = current.assignment.copy(
+                        responseStatus = response,
+                        respondedAt = respondedAt
+                    )
+                )
+            } else current
+        }
+        pendingResponseIds = if (queued) {
+            pendingResponseIds + item.assignment.id
+        } else {
+            pendingResponseIds - item.assignment.id
         }
     }
 
@@ -124,22 +204,75 @@ fun HomeDashboardScreen(
             respondingAssignmentId = item.assignment.id
             assignmentErrorMessage = ""
             try {
-                assignmentRepository.respond(
+                if (!hasValidatedNetwork(context)) {
+                    responseQueue.enqueue(
+                        userId = userId,
+                        organizationId = organizationId,
+                        assignmentId = item.assignment.id,
+                        memberId = item.assignment.memberId,
+                        responseStatus = response
+                    )
+                    applyLocalResponse(item, response, queued = true)
+                    OfflineSyncScheduler.syncNow(context, userId, organizationId)
+                    return@launch
+                }
+
+                val applied = assignmentRepository.respond(
                     assignmentId = item.assignment.id,
+                    organizationId = organizationId,
                     memberId = item.assignment.memberId,
                     response = response
                 )
-                myAssignments = assignmentRepository.loadMyAssignments(organizationId, userId)
-            } catch (_: Exception) {
-                assignmentErrorMessage = "Your response could not be saved. Check your connection and try again."
+                if (!applied) {
+                    assignmentErrorMessage = "This assignment is no longer available to your team membership. Refresh the dashboard and try again."
+                } else {
+                    responseQueue.remove(userId, item.assignment.id)
+                    applyLocalResponse(item, response, queued = false)
+                }
+            } catch (exception: Exception) {
+                if (!hasValidatedNetwork(context) || isNetworkFailure(exception)) {
+                    runCatching {
+                        responseQueue.enqueue(
+                            userId = userId,
+                            organizationId = organizationId,
+                            assignmentId = item.assignment.id,
+                            memberId = item.assignment.memberId,
+                            responseStatus = response
+                        )
+                    }.onSuccess {
+                        applyLocalResponse(item, response, queued = true)
+                        OfflineSyncScheduler.syncNow(context, userId, organizationId)
+                    }.onFailure {
+                        assignmentErrorMessage = "Your response could not be saved on this device. Please try again."
+                    }
+                } else {
+                    assignmentErrorMessage = "Your response could not be saved. Check your team access and try again."
+                }
             } finally {
                 respondingAssignmentId = null
             }
         }
     }
 
-    LaunchedEffect(organizationId) {
+    LaunchedEffect(organizationId, userId) {
         refresh()
+    }
+
+    // A completed response-upload worker can update Supabase while the dashboard
+    // remains open. Refresh once for each completed immediate sync so the local
+    // "waiting to sync" label is replaced by the server-confirmed response.
+    LaunchedEffect(context, userId, organizationId) {
+        val handledWorkIds = mutableSetOf<String>()
+        OfflineSyncScheduler.observeWork(context, userId).collect { workInfos ->
+            workInfos
+                .filter { info ->
+                    info.state == WorkInfo.State.SUCCEEDED &&
+                        OfflineSyncScheduler.immediateTagFor(userId) in info.tags
+                }
+                .forEach { info ->
+                    if (handledWorkIds.add(info.id.toString())) refresh()
+                }
+        }
     }
 
     val today = LocalDate.now()
@@ -338,6 +471,34 @@ fun HomeDashboardScreen(
             }
         }
 
+        if (offlineDataMessage.isNotBlank()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Text(
+                        offlineDataMessage,
+                        modifier = Modifier.fillMaxWidth().padding(13.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+        }
+
+        if (pendingResponseIds.isNotEmpty()) {
+            item {
+                Text(
+                    "${pendingResponseIds.size} service response(s) saved on this device and waiting to sync.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -390,6 +551,7 @@ fun HomeDashboardScreen(
                             item = assignment,
                             today = today,
                             responding = respondingAssignmentId == assignment.assignment.id,
+                            pendingSync = assignment.assignment.id in pendingResponseIds,
                             onOpen = { onOpenServicePlan(assignment.servicePlan.id) },
                             onConfirm = { respondToAssignment(assignment, "confirmed") },
                             onDecline = { respondToAssignment(assignment, "declined") }
@@ -511,6 +673,7 @@ private fun MyUpcomingAssignmentCard(
     item: MyServiceAssignment,
     today: LocalDate,
     responding: Boolean,
+    pendingSync: Boolean,
     onOpen: () -> Unit,
     onConfirm: () -> Unit,
     onDecline: () -> Unit
@@ -539,14 +702,14 @@ private fun MyUpcomingAssignmentCard(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    when (status) {
+                    if (pendingSync) "Saved · waiting to sync" else when (status) {
                         "confirmed" -> "Confirmed"
                         "declined" -> "Unable to serve"
                         else -> "Awaiting response"
                     },
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = when (status) {
+                    color = if (pendingSync) MaterialTheme.colorScheme.secondary else when (status) {
                         "confirmed" -> MaterialTheme.colorScheme.primary
                         "declined" -> MaterialTheme.colorScheme.error
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -718,6 +881,25 @@ private fun dashboardDateTimeLabel(dateValue: String?, timeValue: String?, today
     return if (timeLabel.isNullOrBlank()) dateLabel else "$dateLabel · $timeLabel"
 }
 
+
+private fun hasValidatedNetwork(context: Context): Boolean {
+    val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        ?: return false
+    val network = manager.activeNetwork ?: return false
+    val capabilities = manager.getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+}
+
+private fun isNetworkFailure(exception: Throwable): Boolean =
+    generateSequence(exception) { it.cause }
+        .take(8)
+        .any {
+        it is IOException || it.javaClass.simpleName in setOf(
+            "HttpRequestTimeoutException",
+            "ConnectTimeoutException"
+        )
+    }
 
 private fun dashboardRoleLabel(role: String?): String = when (role) {
     "admin" -> "Administrator"

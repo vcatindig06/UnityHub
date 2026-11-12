@@ -54,6 +54,10 @@ Add `unityhub://auth` and `unityhub://auth?mode=recovery` to Supabase Dashboard 
 
 Members can switch between all notifications and unread notifications, mark individual items as read, or mark all of their unread notifications as read. Bulk updates still write each notification only for its own recipient and use the existing authenticated-only read/update row policies; no new table privileges or server-side credentials are introduced.
 
+### Offline service responses
+
+Members can confirm or decline their own upcoming service assignments while offline when the assignment is available in the saved dashboard snapshot. UnityHub stores the most recent response per assignment on the device and labels it **Saved · waiting to sync**. A network-constrained WorkManager task submits queued responses before downloading the next offline snapshot. Supabase remains the authority: each update is restricted to the assignment, organization, and current membership, and the local queue entry is removed only after the server confirms the update. Signing out clears unsent responses and warns before doing so. See [Offline Service Responses](docs/OFFLINE_RESPONSES.md) for scope and behavior.
+
 ### Service plan editing
 
 Administrators and worship leaders can edit an existing service's title, date, start time, and notes from the service details screen. The edit action is hidden in read-only and offline views. Dates and times are validated before a write is sent to Supabase.
@@ -130,11 +134,11 @@ Implemented workflows include:
 - Song library search, editor-only song management, and personal per-member favorites with an All songs / Favorites filter
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
-- Read-only offline service plans, ordered setlists (including saved ChordPro snapshots), and the last-synced service team assignments with their response statuses.
+- Read-only offline service plans, ordered setlists (including saved ChordPro snapshots), and the last-synced service team assignments with their response statuses. Member service-assignment confirmations and declines can be queued offline and synchronized later without granting offline edit access to leaders or other members.
 - Copy a previous service's complete ordered setlist into another service, appending items while preserving item types, notes, durations, song references, and saved ChordPro snapshots.
-- A service Run of Show planner with per-item duration editing, total planned runtime, missing-duration counts, and an estimated finish time when the timing information is complete. Offline assignment data is scoped to the signed-in user, and assignment creation, removal, and response updates remain online-only.
-- Automatic background refresh of the signed-in user's song library, service plans/setlists, and service assignment snapshots. WorkManager runs after a workspace is opened and periodically when a network connection is available; background sync is read-only and scoped to the saved user and active organization.
-- A Home dashboard offline-sync status card showing live WorkManager progress, the last successful sync time, retry/error state, and a manual Sync now action.
+- A service Run of Show planner with per-item duration editing, total planned runtime, missing-duration counts, and an estimated finish time when the timing information is complete. Offline assignment data is scoped to the signed-in user; assignment creation and removal remain online-only, while member responses can be queued from the Home dashboard.
+- Automatic background refresh of the signed-in user's song library, service plans/setlists, and service assignment snapshots. WorkManager runs after a workspace is opened and periodically when a network connection is available. It submits the signed-in member's queued service-assignment responses before refreshing the offline snapshots; all writes remain scoped to the saved user and active organization.
+- A Home dashboard offline-sync status card showing live WorkManager progress, the last successful sync time, retry/error state, and a manual Sync now action. Member Confirm / Can't serve responses can be saved to a user-scoped local queue while offline and uploaded automatically when a validated connection returns. The dashboard labels these responses as waiting to sync until Supabase confirms the update.
 - A personal Home dashboard section for the signed-in member's upcoming service assignments, with role, service date, response status, and quick Confirm / Can't serve actions.
 - A Home dashboard card for the next scheduled rehearsal, linked directly to rehearsal details.
 - A notification center with individual and bulk mark-as-read actions plus an All / Unread filter; rehearsal invitations and availability responses are deep-linked to rehearsal details.
@@ -147,7 +151,7 @@ The app uses Supabase Row Level Security for authorization. Authorization decisi
 ## Planned engineering direction
 
 - Separate domain logic from Compose screens and Supabase data access.
-- Continue the read-only WorkManager background refresh for offline cache data. Queued offline writes remain a separate future feature.
+- Expand the offline response queue to other carefully scoped member actions only after defining conflict, cancellation, and authorization behavior for each action.
 - Add automated unit, integration, and UI tests as workflows are implemented.
 - Add observability, accessibility checks, and release signing before production distribution.
 

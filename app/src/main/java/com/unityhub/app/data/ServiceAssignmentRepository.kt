@@ -226,19 +226,24 @@ class ServiceAssignmentRepository(private val client: SupabaseClient) {
 
     suspend fun respond(
         assignmentId: String,
+        organizationId: String,
         memberId: String,
         response: String
-    ) {
+    ): Boolean {
+        require(assignmentId.isNotBlank() && organizationId.isNotBlank() && memberId.isNotBlank())
         require(ServiceAssignmentRules.isValidResponse(response))
-        client.from("service_plan_assignments").update({
+        val updated = client.from("service_plan_assignments").update({
             set("response_status", response)
             set("responded_at", Instant.now().toString())
         }) {
+            select()
             filter {
                 eq("id", assignmentId)
+                eq("organization_id", organizationId)
                 eq("member_id", memberId)
             }
-        }
+        }.decodeList<ServiceAssignmentDto>()
+        return updated.any { it.responseStatus == response }
     }
 
     suspend fun removeAssignment(assignmentId: String, organizationId: String) {

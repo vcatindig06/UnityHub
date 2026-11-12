@@ -31,6 +31,7 @@ import com.unityhub.app.data.DevicePushTokenRepository
 import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.OfflineWorkspaceCache
+import com.unityhub.app.data.PendingServiceAssignmentResponseQueue
 import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.push.UnityHubFirebase
 import com.unityhub.app.sync.OfflineSyncScheduler
@@ -145,6 +146,9 @@ class MainActivity : ComponentActivity() {
                                         }
                                         if (!userId.isNullOrBlank()) {
                                             OfflineSyncScheduler.cancel(applicationContext, userId)
+                                            runCatching {
+                                                PendingServiceAssignmentResponseQueue(applicationContext).clearUser(userId)
+                                            }
                                             runCatching { OfflineSyncStatusStore.clearUser(applicationContext, userId) }
                                             runCatching { OfflineSongCache(applicationContext).clearUser(userId) }
                                             runCatching { OfflineServiceCache(applicationContext).clearUser(userId) }

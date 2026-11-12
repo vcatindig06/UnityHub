@@ -431,7 +431,7 @@ fun AccountSettingsScreen(
             onDismissRequest = { showSignOutDialog = false },
             title = { Text("Sign out of UnityHub?") },
             text = {
-                Text("Your offline copies will be removed from this device when you sign out.")
+                Text("Your offline copies will be removed from this device when you sign out. Any service responses saved only on this device and still waiting to sync will also be discarded.")
             },
             confirmButton = {
                 TextButton(

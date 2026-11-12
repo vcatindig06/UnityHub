@@ -13,9 +13,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
         CachedSongEntity.class,
         CachedServicePlanEntity.class,
         CachedServicePlanItemEntity.class,
-        CachedServiceAssignmentEntity.class
+        CachedServiceAssignmentEntity.class,
+        PendingServiceAssignmentResponseEntity.class
     },
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 public abstract class UnityHubCacheDatabase extends RoomDatabase {
@@ -73,9 +74,26 @@ public abstract class UnityHubCacheDatabase extends RoomDatabase {
         }
     };
 
+    public static final Migration MIGRATION_3_4 = new Migration(3, 4) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS pending_service_assignment_responses (" +
+                "assignment_id TEXT NOT NULL, owner_user_id TEXT NOT NULL, organization_id TEXT NOT NULL, " +
+                "member_id TEXT NOT NULL, response_status TEXT NOT NULL, queued_at INTEGER NOT NULL, " +
+                "PRIMARY KEY(assignment_id, owner_user_id))"
+            );
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_pending_service_assignment_responses_owner_user_id_organization_id " +
+                "ON pending_service_assignment_responses(owner_user_id, organization_id)"
+            );
+        }
+    };
+
     public abstract CachedSongDao cachedSongDao();
     public abstract CachedServicePlanDao cachedServicePlanDao();
     public abstract CachedServiceAssignmentDao cachedServiceAssignmentDao();
+    public abstract PendingServiceAssignmentResponseDao pendingServiceAssignmentResponseDao();
 
     public static UnityHubCacheDatabase getInstance(@NonNull Context context) {
         if (instance == null) {
@@ -85,7 +103,7 @@ public abstract class UnityHubCacheDatabase extends RoomDatabase {
                         context.getApplicationContext(),
                         UnityHubCacheDatabase.class,
                         "unityhub_offline_cache.db"
-                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build();
+                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build();
                 }
             }
         }
