@@ -118,6 +118,7 @@ class OfflineServiceCache(context: Context) {
                 memberDisplayName = member?.displayName?.takeIf(String::isNotBlank) ?: "Team member"
                 roleLabel = assignment.roleLabel
                 responseStatus = assignment.responseStatus
+                responseNote = assignment.responseNote
                 respondedAt = assignment.respondedAt
                 createdAt = assignment.createdAt
                 cachedAt = timestamp
@@ -148,7 +149,7 @@ class OfflineServiceCache(context: Context) {
                         memberId = cached.memberId,
                         roleLabel = cached.roleLabel,
                         responseStatus = cached.responseStatus,
-                        responseNote = "",
+                        responseNote = cached.responseNote,
                         assignedBy = "",
                         respondedAt = cached.respondedAt,
                         createdAt = cached.createdAt
