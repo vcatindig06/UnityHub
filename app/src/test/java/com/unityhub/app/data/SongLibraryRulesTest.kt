@@ -8,6 +8,35 @@ import org.junit.Test
 class SongLibraryRulesTest {
 
     @Test
+    fun songEditorLimitsKeepSmallValuesAndBoundLargePastes() {
+        assertEquals(
+            "Build My Life",
+            SongEditorInputLimits.limit("Build My Life", SongEditorInputLimits.MAX_TITLE_CHARACTERS)
+        )
+        assertEquals(
+            SongEditorInputLimits.MAX_TITLE_CHARACTERS,
+            SongEditorInputLimits.limit(
+                "T".repeat(SongEditorInputLimits.MAX_TITLE_CHARACTERS + 50),
+                SongEditorInputLimits.MAX_TITLE_CHARACTERS
+            ).length
+        )
+        assertEquals(
+            SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS,
+            SongEditorInputLimits.limit(
+                "C".repeat(SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS + 1),
+                SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS
+            ).length
+        )
+        assertEquals(
+            SongEditorInputLimits.MAX_NOTES_CHARACTERS,
+            SongEditorInputLimits.limit(
+                "N".repeat(SongEditorInputLimits.MAX_NOTES_CHARACTERS + 100),
+                SongEditorInputLimits.MAX_NOTES_CHARACTERS
+            ).length
+        )
+    }
+
+    @Test
     fun supportedEditorRolesCanManageSongsWhenOnline() {
         listOf("admin", "worship_leader", "song_editor").forEach { role ->
             assertTrue(SongLibraryRules.canEditSongs(role, offlineOnly = false, usingOfflineCopy = false))
