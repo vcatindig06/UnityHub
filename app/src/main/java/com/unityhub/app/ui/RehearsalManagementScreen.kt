@@ -284,7 +284,7 @@ fun RehearsalManagementScreen(
     LaunchedEffect(openRehearsalId, openRehearsalRequestId, rehearsals) {
         if (openRehearsalRequestId.isNullOrBlank()) {
             consumedRequestId = null
-        } else if (consumedRequestId != openRehearsalRequestId && rehearsals.isNotEmpty()) {
+        } else if (consumedRequestId != openRehearsalRequestId && !loading) {
             consumedRequestId = openRehearsalRequestId
             rehearsals.firstOrNull { it.id == openRehearsalId }?.let(::openDetails)
                 ?: run { error = "The rehearsal linked to this notification is no longer available." }
@@ -510,6 +510,27 @@ private fun RehearsalDetailContent(
     onMarkAttendance: (RehearsalAssignmentDto, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var confirmDeleteOpen by rememberSaveable(rehearsal.id) { mutableStateOf(false) }
+    if (confirmDeleteOpen) {
+        AlertDialog(
+            onDismissRequest = { if (!saving) confirmDeleteOpen = false },
+            title = { Text("Delete rehearsal?") },
+            text = { Text("This permanently deletes the rehearsal invitation roster and associated rehearsal notifications.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        confirmDeleteOpen = false
+                        onDelete()
+                    },
+                    enabled = !saving
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteOpen = false }, enabled = !saving) { Text("Keep rehearsal") }
+            }
+        )
+    }
+
     val membersById = members.associateBy { it.memberId }
     val myMemberId = members.firstOrNull { it.userId == currentUserId }?.memberId
     val myAssignment = assignments.firstOrNull { it.memberId == myMemberId }
@@ -547,12 +568,12 @@ private fun RehearsalDetailContent(
                         Text(rehearsal.notes, style = MaterialTheme.typography.bodyMedium)
                     }
                     if (canManage) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = onEdit, enabled = !saving && !loading, modifier = Modifier.weight(1f)) {
-                                Icon(Icons.Default.Edit, contentDescription = null)
-                                Text("Edit")
-                            }
-                            if (rehearsal.status == "scheduled") {
+                        if (rehearsal.status == "scheduled") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = onEdit, enabled = !saving && !loading, modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.Edit, contentDescription = null)
+                                    Text("Edit")
+                                }
                                 Button(onClick = { onStatusChange("completed") }, enabled = !saving, modifier = Modifier.weight(1f)) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null)
                                     Text("Complete")
@@ -564,7 +585,7 @@ private fun RehearsalDetailContent(
                                 Text("Cancel rehearsal", color = MaterialTheme.colorScheme.error)
                             }
                         }
-                        TextButton(onClick = onDelete, enabled = !saving) {
+                        TextButton(onClick = { confirmDeleteOpen = true }, enabled = !saving) {
                             Icon(Icons.Default.DeleteOutline, contentDescription = null)
                             Text("Delete rehearsal")
                         }
