@@ -824,6 +824,13 @@ private fun WorkspaceDashboard(
                     selectedTab = 2
                 },
                 onOpenTeam = { selectedTab = 4 },
+                onOpenRehearsal = { rehearsalId ->
+                    requestedRehearsalId = rehearsalId
+                    rehearsalNavigationRequestId = "dashboard-$rehearsalId"
+                    requestedServicePlanId = null
+                    serviceNavigationRequestId = null
+                    selectedTab = 2
+                },
                 modifier = Modifier.padding(innerPadding)
             )
             1 -> SongLibraryScreen(
