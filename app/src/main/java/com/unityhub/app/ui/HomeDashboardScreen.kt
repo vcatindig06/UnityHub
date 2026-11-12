@@ -773,9 +773,9 @@ private fun MyUpcomingAssignmentCard(
                     }
                     TextButton(
                         onClick = onDecline,
-                        enabled = !responding && status != "declined"
+                        enabled = !responding
                     ) {
-                        Text(if (status == "declined") "Unable to serve" else "Can't serve")
+                        Text(if (status == "declined") "Edit note" else "Can't serve")
                     }
                 }
             } else {
