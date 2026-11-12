@@ -230,9 +230,19 @@ class AppUpdateManager(context: Context) {
         }
     }
 
-    fun createInstallIntent(apkFile: File): Intent {
+    fun hasMatchingInstalledSigner(apkFile: File, release: AppUpdateRelease): Boolean =
+        runCatching {
+            apkFile.isFile &&
+                apkFile.parentFile == File(appContext.filesDir, "updates") &&
+                validateDownloadedPackage(apkFile, release)
+        }.getOrDefault(false)
+
+    fun createInstallIntent(apkFile: File, release: AppUpdateRelease): Intent {
         require(apkFile.isFile && apkFile.parentFile == File(appContext.filesDir, "updates")) {
             "The verified UnityHub update file is no longer available."
+        }
+        require(hasMatchingInstalledSigner(apkFile, release)) {
+            "This update has a different signing key. Save it to Downloads, sync your data, uninstall the older UnityHub app, then install the saved APK. Future updates can install in place."
         }
         val uri = FileProvider.getUriForFile(
             appContext,
@@ -335,7 +345,7 @@ class AppUpdateManager(context: Context) {
         }
     }
 
-    private fun validateDownloadedPackage(file: File, release: AppUpdateRelease) {
+    private fun validateDownloadedPackage(file: File, release: AppUpdateRelease): Boolean {
         val packageManager = appContext.packageManager
         val signingFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             PackageManager.GET_SIGNING_CERTIFICATES
@@ -356,9 +366,7 @@ class AppUpdateManager(context: Context) {
         val installed = packageManager.getPackageInfo(appContext.packageName, signingFlag)
         val installedSigners = signerDigests(installed)
         val updateSigners = signerDigests(archive)
-        require(installedSigners.isNotEmpty() && installedSigners == updateSigners) {
-            "This update uses a different UnityHub signing key. Back up and sync your data, then reinstall UnityHub using the official update setup before using in-app updates."
-        }
+        return installedSigners.isNotEmpty() && installedSigners == updateSigners
     }
 
     private fun signerDigests(info: PackageInfo): Set<String> {

@@ -2,6 +2,8 @@ package com.unityhub.app.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -67,7 +69,9 @@ import com.unityhub.app.data.AppUpdateManifest
 import com.unityhub.app.data.AppUpdateRules
 import com.unityhub.app.sync.AppUpdateWorkScheduler
 import com.unityhub.app.data.SupabaseClientProvider
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
@@ -87,10 +91,41 @@ fun AccountSettingsScreen(
     var downloadingUpdate by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableStateOf(0f) }
     var downloadedUpdate by remember { mutableStateOf<File?>(null) }
+    var canInstallDownloadedUpdate by remember { mutableStateOf(false) }
+    var pendingUpdateExport by remember { mutableStateOf<File?>(null) }
     var autoDownloadUpdates by remember(context) {
         mutableStateOf(updateManager.isAutoDownloadEnabled())
     }
     var updateMessage by remember { mutableStateOf("") }
+
+    val exportUpdateLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(AppUpdateManager.APK_MIME_TYPE)
+    ) { destination ->
+        val sourceFile = pendingUpdateExport
+        pendingUpdateExport = null
+        if (destination != null && sourceFile != null) {
+            scope.launch {
+                val result = runCatching {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(destination, "w")?.use { output ->
+                            sourceFile.inputStream().use { input -> input.copyTo(output) }
+                        } ?: error("The selected destination could not be opened.")
+                    }
+                }
+                updateMessage = if (result.isSuccess) {
+                    "The verified APK was saved. Sync your team data, uninstall the older UnityHub app, then open the saved APK to install it. Future updates can install in place."
+                } else {
+                    result.exceptionOrNull()?.message ?: "UnityHub could not save the update file."
+                }
+            }
+        }
+    }
+
+    fun saveUpdateForReinstall(file: File, release: AppUpdateRelease) {
+        pendingUpdateExport = file
+        updateMessage = "This release uses a different signing key. Save the APK to Downloads for the one-time reinstall."
+        exportUpdateLauncher.launch("UnityHub-${release.versionName}-update.apk")
+    }
 
     fun checkForUpdates() {
         scope.launch {
@@ -101,6 +136,11 @@ fun AccountSettingsScreen(
                 updateManifest = loadedManifest
                 val latest = AppUpdateRules.latestRelease(loadedManifest)
                 downloadedUpdate = latest?.let { updateManager.findVerifiedDownload(it) }
+                canInstallDownloadedUpdate = if (latest != null && downloadedUpdate != null) {
+                    updateManager.hasMatchingInstalledSigner(downloadedUpdate!!, latest)
+                } else {
+                    false
+                }
                 updateMessage = when {
                     latest == null -> "No published UnityHub releases were found."
                     latest.versionCode > BuildConfig.VERSION_CODE ->
@@ -124,10 +164,16 @@ fun AccountSettingsScreen(
             updateMessage = ""
             downloadedUpdate = null
             try {
-                downloadedUpdate = updateManager.downloadRelease(release) { progress ->
+                val verifiedFile = updateManager.downloadRelease(release) { progress ->
                     downloadProgress = progress
                 }
-                updateMessage = "The update is downloaded and verified. Android will ask you to approve installation."
+                downloadedUpdate = verifiedFile
+                canInstallDownloadedUpdate = updateManager.hasMatchingInstalledSigner(verifiedFile, release)
+                updateMessage = if (canInstallDownloadedUpdate) {
+                    "The update is downloaded and verified. Android will ask you to approve installation."
+                } else {
+                    "The update is verified, but its signing key differs from this installation. Save it for the one-time reinstall."
+                }
             } catch (exception: Exception) {
                 updateMessage = exception.message ?: "The UnityHub update could not be downloaded."
             } finally {
@@ -136,8 +182,12 @@ fun AccountSettingsScreen(
         }
     }
 
-    fun installDownloadedUpdate() {
+    fun installDownloadedUpdate(release: AppUpdateRelease) {
         val file = downloadedUpdate ?: return
+        if (!updateManager.hasMatchingInstalledSigner(file, release)) {
+            saveUpdateForReinstall(file, release)
+            return
+        }
         if (!context.packageManager.canRequestPackageInstalls()) {
             updateMessage = "Allow UnityHub to install updates in Android settings, then return and tap Install update."
             runCatching {
@@ -153,7 +203,7 @@ fun AccountSettingsScreen(
             return
         }
         runCatching {
-            context.startActivity(updateManager.createInstallIntent(file))
+            context.startActivity(updateManager.createInstallIntent(file, release))
         }.onFailure {
             updateMessage = it.message ?: "Android could not open the update installer."
         }
@@ -473,15 +523,26 @@ fun AccountSettingsScreen(
                     Button(
                         onClick = {
                             val file = downloadedUpdate
-                            if (file != null) installDownloadedUpdate()
-                            else downloadUpdate(latestRelease)
+                            if (file == null) {
+                                downloadUpdate(latestRelease)
+                            } else if (canInstallDownloadedUpdate) {
+                                installDownloadedUpdate(latestRelease)
+                            } else {
+                                saveUpdateForReinstall(file, latestRelease)
+                            }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !downloadingUpdate &&
                             (downloadedUpdate != null ||
                                 AppUpdateRules.hasValidDownloadMetadata(latestRelease))
                     ) {
-                        Text(if (downloadedUpdate != null) "Install update" else "Download update")
+                        Text(
+                            when {
+                                downloadedUpdate == null -> "Download update"
+                                canInstallDownloadedUpdate -> "Install update"
+                                else -> "Save APK for reinstall"
+                            }
+                        )
                     }
                 }
                 if (downloadingUpdate) {

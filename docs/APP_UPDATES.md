@@ -51,7 +51,11 @@ If the signing or service-role secrets are absent, CI still runs the normal test
 
 ## Important first-install transition
 
-The previously distributed 0.30.0 test APK was built on a hosted CI runner without a persistent signing key. A hosted runner's temporary debug certificate is not a stable release identity. Before the first persistent-key update can install over that old APK, the old app may need to be uninstalled and the new, persistently signed APK installed once. Sync online data first; uninstalling clears local offline caches and unsynchronized device-only data. After the persistent-signed build is installed, later updates can be installed in place.
+Version 0.30.0 predates the in-app updater, so the first installation of version 0.31.0 must come from a trusted UnityHub APK build artifact. After that, new versions are downloaded from UnityHub's Supabase update service, not GitHub.
+
+The previously distributed 0.30.0 test APK was built on a hosted CI runner without a persistent signing key. A hosted runner's temporary debug certificate is not a stable release identity. If the installed APK and the first persistently signed update use different certificates, UnityHub downloads and verifies the new package, then opens Android's file picker so you can save it to Downloads. Sync your online team data first, uninstall the older app, and install the saved APK. Uninstalling clears local offline caches and any unsynchronized device-only data. After the persistently signed build is installed, later updates can be installed in place.
+
+The initial 0.31.0 app will only be able to check for updates after CI has published a manifest. Configure the required signing and Supabase secrets before the merge build when possible. If they are configured later, publish a subsequent version-bumped release; the installed updater will download that release and guide you through the one-time signer transition if needed.
 
 Android may require the user to allow **Install unknown apps** for UnityHub. This is an OS-level approval, followed by Android's normal confirmation screen. The auto-download option does not bypass either step.
 
