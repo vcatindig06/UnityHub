@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -61,7 +62,9 @@ import com.unityhub.app.data.SongRepository
 import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.domain.chordpro.ChordProParser
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
@@ -229,13 +232,27 @@ fun SongLibraryScreen(
                     val source = context.contentResolver.openInputStream(uri)?.use(::readLimitedText)
                         ?: throw IllegalStateException("The selected file could not be opened.")
                     require(source.isNotBlank()) { "The selected file is empty." }
-                    val document = ChordProParser.parse(source)
+                    val document = withContext(Dispatchers.Default) {
+                        ChordProParser.parse(source)
+                    }
                     editingSong = null
-                    title = document.title ?: importedFileTitle(uri)
-                    artist = document.artist.orEmpty()
-                    keySignature = document.key.orEmpty()
+                    title = SongEditorInputLimits.limit(
+                        document.title ?: importedFileTitle(uri),
+                        SongEditorInputLimits.MAX_TITLE_CHARACTERS
+                    )
+                    artist = SongEditorInputLimits.limit(
+                        document.artist.orEmpty(),
+                        SongEditorInputLimits.MAX_ARTIST_CHARACTERS
+                    )
+                    keySignature = SongEditorInputLimits.limit(
+                        document.key.orEmpty(),
+                        SongEditorInputLimits.MAX_KEY_SIGNATURE_CHARACTERS
+                    )
                     tempo = document.tempo?.toString().orEmpty()
-                    timeSignature = document.timeSignature ?: "4/4"
+                    timeSignature = SongEditorInputLimits.limit(
+                        document.timeSignature ?: "4/4",
+                        SongEditorInputLimits.MAX_TIME_SIGNATURE_CHARACTERS
+                    )
                     chordpro = source
                     notes = ""
                     importMessage = "File imported. Review the song details and chart before saving."
@@ -293,19 +310,39 @@ fun SongLibraryScreen(
             isEditing = editingSong != null,
             saving = saving,
             title = title,
-            onTitleChange = { title = it },
+            onTitleChange = {
+                title = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_TITLE_CHARACTERS)
+            },
             artist = artist,
-            onArtistChange = { artist = it },
+            onArtistChange = {
+                artist = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_ARTIST_CHARACTERS)
+            },
             keySignature = keySignature,
-            onKeyChange = { keySignature = it },
+            onKeyChange = {
+                keySignature = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_KEY_SIGNATURE_CHARACTERS)
+            },
             tempo = tempo,
-            onTempoChange = { tempo = it.filter(Char::isDigit).take(3) },
+            onTempoChange = {
+                tempo = it.filter(Char::isDigit).take(SongEditorInputLimits.MAX_TEMPO_CHARACTERS)
+            },
             timeSignature = timeSignature,
-            onTimeSignatureChange = { timeSignature = it },
+            onTimeSignatureChange = {
+                timeSignature = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_TIME_SIGNATURE_CHARACTERS)
+            },
             chordpro = chordpro,
-            onChordproChange = { chordpro = it },
+            onChordproChange = { value ->
+                if (value.length > SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS) {
+                    chordpro = value.take(SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS)
+                    error = "ChordPro charts are limited to 1 MB. Remove some text before adding more."
+                } else {
+                    chordpro = value
+                    if (error.startsWith("ChordPro charts are limited")) error = ""
+                }
+            },
             notes = notes,
-            onNotesChange = { notes = it },
+            onNotesChange = {
+                notes = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_NOTES_CHARACTERS)
+            },
             error = error,
             importMessage = importMessage,
             onCancel = { editorOpen = false },
@@ -680,10 +717,13 @@ private fun SongEditor(
                 OutlinedTextField(
                     value = chordpro,
                     onValueChange = onChordproChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 10,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 340.dp),
+                    minLines = 8,
                     maxLines = 18,
                     label = { Text("Paste or type ChordPro text") },
+                    supportingText = {
+                        Text("${chordpro.length} / ${SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS} characters · 1 MB maximum")
+                    },
                     enabled = !saving
                 )
             }
@@ -728,7 +768,7 @@ private fun readLimitedText(input: InputStream): String {
         val count = input.read(buffer)
         if (count < 0) break
         totalBytes += count
-        require(totalBytes <= 1_048_576) { "ChordPro files must be 1 MB or smaller." }
+        require(totalBytes <= SongEditorInputLimits.MAX_CHORDPRO_BYTES) { "ChordPro files must be 1 MB or smaller." }
         output.write(buffer, 0, count)
     }
     return output.toByteArray().toString(StandardCharsets.UTF_8)
