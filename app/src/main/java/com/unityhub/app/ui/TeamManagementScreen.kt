@@ -616,7 +616,7 @@ fun TeamManagementScreen(
                                 IconButton(
                                     onClick = { deletingPosition = position },
                                     enabled = !saving,
-                                    modifier = Modifier.size(44.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.DeleteOutline,
