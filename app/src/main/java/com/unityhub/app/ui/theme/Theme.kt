@@ -97,7 +97,7 @@ internal object ColorTokens {
     val ErrorContainerLight = androidx.compose.ui.graphics.Color(0xFFF9DEDC)
     val OnErrorContainerLight = androidx.compose.ui.graphics.Color(0xFF410E0B)
 
-    val PrimaryDark = androidx.compose.ui.graphics.Color(0xFFA9CCE2)
+    val PrimaryDark = androidx.compose.ui.graphics.Color(0xFFFF8798)
     val OnPrimaryDark = androidx.compose.ui.graphics.Color(0xFF350811)
     val PrimaryContainerDark = androidx.compose.ui.graphics.Color(0xFF5A1F2D)
     val OnPrimaryContainerDark = androidx.compose.ui.graphics.Color(0xFFFFD9DF)
