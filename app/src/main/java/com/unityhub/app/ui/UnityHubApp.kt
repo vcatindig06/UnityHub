@@ -58,6 +58,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import com.unityhub.app.ui.components.UnityHubLoadingScreen
+import com.unityhub.app.ui.components.UnityHubLogoMark
 import com.unityhub.app.data.OfflineWorkspaceCache
 import com.unityhub.app.data.OfflineWorkspaceSnapshot
 import com.unityhub.app.data.OrganizationDirectoryDto
@@ -223,15 +225,7 @@ private fun friendlyMessage(exception: Exception): String {
 
 @Composable
 private fun LoadingScreen() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        CircularProgressIndicator()
-        Spacer(Modifier.height(12.dp))
-        Text("Loading your UnityHub workspace")
-    }
+    UnityHubLoadingScreen()
 }
 
 @Composable
@@ -281,6 +275,12 @@ private fun OrganizationOnboardingScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
+                navigationIcon = {
+                    UnityHubLogoMark(
+                        modifier = Modifier.padding(start = 12.dp).size(34.dp),
+                        contentDescription = null
+                    )
+                },
                 title = {
                     Column {
                         Text("Set up your team", fontWeight = FontWeight.Bold)
@@ -723,6 +723,11 @@ private fun WorkspaceDashboard(
                         IconButton(onClick = { showAccountScreen = false }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back to workspace")
                         }
+                    } else {
+                        UnityHubLogoMark(
+                            modifier = Modifier.padding(start = 12.dp).size(34.dp),
+                            contentDescription = null
+                        )
                     }
                 },
                 title = {
