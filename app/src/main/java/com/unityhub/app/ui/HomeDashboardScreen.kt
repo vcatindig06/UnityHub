@@ -95,6 +95,7 @@ fun HomeDashboardScreen(
     var loading by remember { mutableStateOf(true) }
     var assignmentsLoading by remember { mutableStateOf(true) }
     var respondingAssignmentId by remember { mutableStateOf<String?>(null) }
+    var decliningAssignment by remember { mutableStateOf<MyServiceAssignment?>(null) }
     var pendingResponseIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var offlineDataMessage by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
@@ -173,6 +174,7 @@ fun HomeDashboardScreen(
                 item.copy(
                     assignment = item.assignment.copy(
                         responseStatus = savedResponse.responseStatus,
+                        responseNote = savedResponse.responseNote,
                         respondedAt = Instant.ofEpochMilli(savedResponse.queuedAt).toString()
                     )
                 )
@@ -180,13 +182,19 @@ fun HomeDashboardScreen(
         }
     }
 
-    fun applyLocalResponse(item: MyServiceAssignment, response: String, queued: Boolean) {
+    fun applyLocalResponse(
+        item: MyServiceAssignment,
+        response: String,
+        responseNote: String,
+        queued: Boolean
+    ) {
         val respondedAt = Instant.now().toString()
         myAssignments = myAssignments.map { current ->
             if (current.assignment.id == item.assignment.id) {
                 current.copy(
                     assignment = current.assignment.copy(
                         responseStatus = response,
+                        responseNote = if (response == "declined") responseNote.trim() else "",
                         respondedAt = respondedAt
                     )
                 )
@@ -199,7 +207,11 @@ fun HomeDashboardScreen(
         }
     }
 
-    fun respondToAssignment(item: MyServiceAssignment, response: String) {
+    fun respondToAssignment(
+        item: MyServiceAssignment,
+        response: String,
+        responseNote: String = ""
+    ) {
         scope.launch {
             respondingAssignmentId = item.assignment.id
             assignmentErrorMessage = ""
@@ -210,9 +222,10 @@ fun HomeDashboardScreen(
                         organizationId = organizationId,
                         assignmentId = item.assignment.id,
                         memberId = item.assignment.memberId,
-                        responseStatus = response
+                        responseStatus = response,
+                        responseNote = responseNote
                     )
-                    applyLocalResponse(item, response, queued = true)
+                    applyLocalResponse(item, response, responseNote, queued = true)
                     OfflineSyncScheduler.syncNow(context, userId, organizationId)
                     return@launch
                 }
@@ -221,13 +234,14 @@ fun HomeDashboardScreen(
                     assignmentId = item.assignment.id,
                     organizationId = organizationId,
                     memberId = item.assignment.memberId,
-                    response = response
+                    response = response,
+                    responseNote = responseNote
                 )
                 if (!applied) {
                     assignmentErrorMessage = "This assignment is no longer available to your team membership. Refresh the dashboard and try again."
                 } else {
                     responseQueue.remove(userId, item.assignment.id)
-                    applyLocalResponse(item, response, queued = false)
+                    applyLocalResponse(item, response, responseNote, queued = false)
                 }
             } catch (exception: Exception) {
                 if (!hasValidatedNetwork(context) || isNetworkFailure(exception)) {
@@ -237,10 +251,11 @@ fun HomeDashboardScreen(
                             organizationId = organizationId,
                             assignmentId = item.assignment.id,
                             memberId = item.assignment.memberId,
-                            responseStatus = response
+                            responseStatus = response,
+                            responseNote = responseNote
                         )
                     }.onSuccess {
-                        applyLocalResponse(item, response, queued = true)
+                        applyLocalResponse(item, response, responseNote, queued = true)
                         OfflineSyncScheduler.syncNow(context, userId, organizationId)
                     }.onFailure {
                         assignmentErrorMessage = "Your response could not be saved on this device. Please try again."
@@ -554,7 +569,7 @@ fun HomeDashboardScreen(
                             pendingSync = assignment.assignment.id in pendingResponseIds,
                             onOpen = { onOpenServicePlan(assignment.servicePlan.id) },
                             onConfirm = { respondToAssignment(assignment, "confirmed") },
-                            onDecline = { respondToAssignment(assignment, "declined") }
+                            onDecline = { decliningAssignment = assignment }
                         )
                     }
                     if (allUpcomingAssignments.size > upcomingAssignments.size) {
@@ -666,6 +681,20 @@ fun HomeDashboardScreen(
             }
         }
     }
+
+    decliningAssignment?.let { item ->
+        DeclineServiceAssignmentDialog(
+            assignment = item.assignment,
+            saving = respondingAssignmentId == item.assignment.id,
+            onDismiss = {
+                if (respondingAssignmentId != item.assignment.id) decliningAssignment = null
+            },
+            onSubmit = { note ->
+                decliningAssignment = null
+                respondToAssignment(item, "declined", note)
+            }
+        )
+    }
 }
 
 @Composable
@@ -722,6 +751,14 @@ private fun MyUpcomingAssignmentCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (status == "declined" && item.assignment.responseNote.isNotBlank()) {
+                Text(
+                    if (pendingSync) "Note saved · waiting to sync" else "Note sent to worship leader",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(item.assignment.responseNote, style = MaterialTheme.typography.bodySmall)
+            }
             if (canRespond) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
