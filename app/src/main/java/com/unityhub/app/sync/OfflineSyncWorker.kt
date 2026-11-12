@@ -5,6 +5,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.unityhub.app.data.OfflineServiceCache
+import com.unityhub.app.data.PendingServiceAssignmentResponseQueue
+import com.unityhub.app.data.PendingServiceAssignmentResponseRules
 import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.OfflineWorkspaceCache
 import com.unityhub.app.data.OrganizationDto
@@ -46,11 +48,13 @@ class OfflineSyncWorker(
                     initialMembership?.organizationId
                 )
             ) {
+                PendingServiceAssignmentResponseQueue(applicationContext)
+                    .clearOrganization(requestedUserId, requestedOrganizationId)
                 OfflineSyncStatusStore.markFailure(
                     applicationContext,
                     requestedUserId,
                     requestedOrganizationId,
-                    "This account no longer has access to the selected team. Refresh your workspace to sync again."
+                    "This account no longer has access to the selected team. Saved offline responses for this team were discarded."
                 )
                 return Result.success()
             }
@@ -61,6 +65,46 @@ class OfflineSyncWorker(
             val songRepository = SongRepository(client)
             val servicePlanRepository = ServicePlanRepository(client)
             val assignmentRepository = ServiceAssignmentRepository(client)
+            val responseQueue = PendingServiceAssignmentResponseQueue(applicationContext)
+            var discardedPendingResponses = 0
+
+            // Send member responses saved offline before refreshing the cached snapshot.
+            // Each row is checked against the live session, organization, and membership ID.
+            val queuedResponses = responseQueue.loadPending(requestedUserId, requestedOrganizationId)
+            for (pending in queuedResponses) {
+                val liveUserId = client.auth.currentUserOrNull()?.id
+                if (liveUserId != requestedUserId) return Result.success()
+
+                if (!PendingServiceAssignmentResponseRules.maySync(
+                        authenticatedUserId = liveUserId,
+                        requestedUserId = requestedUserId,
+                        requestedOrganizationId = requestedOrganizationId,
+                        membershipOrganizationId = initialMembership?.organizationId,
+                        membershipId = initialMembership?.id,
+                        pending = pending
+                    )
+                ) {
+                    responseQueue.remove(requestedUserId, pending.assignmentId)
+                    discardedPendingResponses += 1
+                    continue
+                }
+
+                setProgress(workDataOf(PROGRESS_STAGE_KEY to "uploading_responses"))
+                val submitted = assignmentRepository.respond(
+                    assignmentId = pending.assignmentId,
+                    organizationId = pending.organizationId,
+                    memberId = pending.memberId,
+                    response = pending.responseStatus
+                )
+                if (submitted) {
+                    responseQueue.remove(requestedUserId, pending.assignmentId)
+                } else {
+                    // A zero-row update means the assignment no longer belongs to this
+                    // membership or was removed. Do not retry an invalid stale response.
+                    responseQueue.remove(requestedUserId, pending.assignmentId)
+                    discardedPendingResponses += 1
+                }
+            }
 
             // Read the full remote snapshot before replacing any local cache.
             val songs = songRepository.loadSongs(requestedOrganizationId)
@@ -148,6 +192,14 @@ class OfflineSyncWorker(
                 requestedUserId,
                 requestedOrganizationId
             )
+            if (discardedPendingResponses > 0) {
+                OfflineSyncStatusStore.markFailure(
+                    applicationContext,
+                    requestedUserId,
+                    requestedOrganizationId,
+                    "$discardedPendingResponses saved response(s) could not be sent because the assignment or team access changed. Review your service assignments."
+                )
+            }
             setProgress(workDataOf(PROGRESS_STAGE_KEY to "completed"))
             Result.success()
         } catch (cancelled: CancellationException) {
