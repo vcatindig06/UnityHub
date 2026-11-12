@@ -40,6 +40,7 @@ import com.unityhub.app.data.OfflineServiceAssignmentEntry
 import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.ServiceAssignmentDto
 import com.unityhub.app.data.ServiceAssignmentRepository
+import com.unityhub.app.data.ServiceAssignmentRules
 import com.unityhub.app.data.ServiceMemberOption
 import com.unityhub.app.data.SupabaseClientProvider
 import kotlinx.coroutines.launch
@@ -72,6 +73,7 @@ fun ServiceAssignmentsSection(
     var lastSyncedAtMillis by remember(servicePlanId) { mutableStateOf<Long?>(null) }
     var showingOfflineCopy by remember(servicePlanId, offlineOnly) { mutableStateOf(offlineOnly) }
     var addDialogOpen by rememberSaveable(servicePlanId) { mutableStateOf(false) }
+    var decliningAssignment by remember(servicePlanId) { mutableStateOf<ServiceAssignmentDto?>(null) }
 
     val offlineReadOnly = offlineOnly || showingOfflineCopy
 
@@ -184,6 +186,28 @@ fun ServiceAssignmentsSection(
         )
     }
 
+    decliningAssignment?.let { assignment ->
+        DeclineServiceAssignmentDialog(
+            assignment = assignment,
+            saving = saving,
+            onDismiss = { if (!saving) decliningAssignment = null },
+            onSubmit = { note ->
+                decliningAssignment = null
+                runAction {
+                    check(
+                        repository.respond(
+                            assignmentId = assignment.id,
+                            organizationId = organizationId,
+                            memberId = assignment.memberId,
+                            response = "declined",
+                            responseNote = note
+                        )
+                    ) { "This assignment is no longer available to your team membership." }
+                }
+            }
+        )
+    }
+
     Card(shape = RoundedCornerShape(18.dp)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -273,18 +297,7 @@ fun ServiceAssignmentsSection(
                                 ) { "This assignment is no longer available to your team membership." }
                             }
                         },
-                        onDecline = {
-                            runAction {
-                                check(
-                                    repository.respond(
-                                        assignmentId = assignment.id,
-                                        organizationId = organizationId,
-                                        memberId = assignment.memberId,
-                                        response = "declined"
-                                    )
-                                ) { "This assignment is no longer available to your team membership." }
-                            }
-                        },
+                        onDecline = { decliningAssignment = assignment },
                         onRemove = {
                             runAction {
                                 repository.removeAssignment(assignment.id, organizationId)
@@ -304,6 +317,51 @@ fun ServiceAssignmentsSection(
             }
         }
     }
+}
+
+@Composable
+internal fun DeclineServiceAssignmentDialog(
+    assignment: ServiceAssignmentDto,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (String) -> Unit
+) {
+    var note by rememberSaveable(assignment.id) {
+        mutableStateOf(assignment.responseNote.take(ServiceAssignmentRules.MAX_RESPONSE_NOTE_LENGTH))
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Can't serve this assignment?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Add an optional note for your worship leader.")
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it.take(ServiceAssignmentRules.MAX_RESPONSE_NOTE_LENGTH) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Message (optional)") },
+                    maxLines = 4,
+                    enabled = !saving,
+                    supportingText = {
+                        Text("${note.length}/${ServiceAssignmentRules.MAX_RESPONSE_NOTE_LENGTH}")
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(note.trim()) },
+                enabled = !saving
+            ) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Send response")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
@@ -351,6 +409,19 @@ private fun ServiceAssignmentCard(
                         Icon(Icons.Default.DeleteOutline, contentDescription = "Remove assignment", tint = MaterialTheme.colorScheme.error)
                     }
                 }
+            }
+            if (
+                (canManage || isCurrentUser) &&
+                assignment.responseStatus == "declined" &&
+                assignment.responseNote.isNotBlank()
+            ) {
+                Text(
+                    "Member note",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(assignment.responseNote, style = MaterialTheme.typography.bodySmall)
             }
             if (canRespond) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
