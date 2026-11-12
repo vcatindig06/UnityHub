@@ -197,7 +197,6 @@ private fun ChartMetadata(label: String, value: String) {
     }
 }
 
-@Composable
 internal object ChordProPreviewRules {
     // The editor preview only renders a few lines. Parsing an entire large
     // paste creates thousands of temporary objects while the user is typing.
