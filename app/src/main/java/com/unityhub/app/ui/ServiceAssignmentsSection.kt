@@ -263,12 +263,26 @@ fun ServiceAssignmentsSection(
                         saving = saving,
                         onConfirm = {
                             runAction {
-                                repository.respond(assignment.id, assignment.memberId, "confirmed")
+                                check(
+                                    repository.respond(
+                                        assignmentId = assignment.id,
+                                        organizationId = organizationId,
+                                        memberId = assignment.memberId,
+                                        response = "confirmed"
+                                    )
+                                ) { "This assignment is no longer available to your team membership." }
                             }
                         },
                         onDecline = {
                             runAction {
-                                repository.respond(assignment.id, assignment.memberId, "declined")
+                                check(
+                                    repository.respond(
+                                        assignmentId = assignment.id,
+                                        organizationId = organizationId,
+                                        memberId = assignment.memberId,
+                                        response = "declined"
+                                    )
+                                ) { "This assignment is no longer available to your team membership." }
                             }
                         },
                         onRemove = {
