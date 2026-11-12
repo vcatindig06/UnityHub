@@ -11,7 +11,7 @@ UnityHub checks a version manifest hosted in the public `unityhub-updates` Supab
 - Verifies the release path, file size, SHA-256 digest, package name, version code/name, and signing certificate before opening Android's installer.
 - Uses a FileProvider URI. The downloaded APK is stored in the app's private files directory and is not exposed through a public filesystem path.
 
-The update bucket is public for downloads because it contains only published app binaries and their release manifest. Upload access is restricted to the GitHub Actions publisher using a Supabase service-role key kept exclusively as a CI secret. Never put that key in the Android app, repository, or a public config file.
+The update bucket is public for downloads because it contains only published app binaries and their release manifest. Upload access is restricted to the GitHub Actions publisher using a Supabase secret API key kept exclusively as a CI secret. The modern `sb_secret_...` key maps to the `service_role` database role. Send it through the `apikey` header only; it is not a JWT and must not be sent as `Authorization: Bearer`. Never put it in the Android app, repository, or a public config file.
 
 ## One-time distribution setup
 
@@ -41,13 +41,13 @@ The in-app updater requires a persistent signing key. Android rejects an update 
    | `UNITYHUB_KEYSTORE_PASSWORD` | Keystore password |
    | `UNITYHUB_KEY_ALIAS` | `unityhub` (or the alias you created) |
    | `UNITYHUB_KEY_PASSWORD` | Password for that key |
-   | `SUPABASE_SERVICE_ROLE_KEY` | The service-role key for the UnityHub Supabase project |
+   | `SUPABASE_SECRET_KEY` | A Supabase secret API key (`sb_secret_...`) for the UnityHub project. Do not use the publishable key. |
 
-   Keep the existing `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` Actions secrets too. The service-role key is used only by the publishing workflow and is never compiled into the app.
+   Keep the existing `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` Actions secrets too. `SUPABASE_SECRET_KEY` is injected only into the publisher step and is never compiled into the APK. Supabase recommends secret API keys for backend use; the legacy `service_role` JWT is being deprecated by the end of 2026.
 
-4. Push a version-bumped commit to `main`. The Android workflow runs unit tests and builds the APK. On a push to `main`, when both the persistent signing key and Supabase service-role secret are configured, CI creates or updates the public `unityhub-updates` bucket, uploads the signed APK, then publishes `manifest.json` last. Pull-request builds never publish updates.
+4. Push a version-bumped commit to `main`. The Android workflow runs unit tests and builds the APK. On a push to `main`, when both the persistent signing key and Supabase secret API key are configured, CI creates or updates the public `unityhub-updates` bucket, uploads the signed APK, then publishes `manifest.json` last. Pull-request builds never publish updates.
 
-If the signing or service-role secrets are absent, CI still runs the normal test/build and uploads its debug artifact, but it deliberately skips in-app publication. The app will not invent a GitHub fallback.
+If the signing or Supabase secret API key is absent, CI still runs the normal test/build and uploads its debug artifact, but it deliberately skips in-app publication. The app will not invent a GitHub fallback.
 
 ## Important first-install transition
 
