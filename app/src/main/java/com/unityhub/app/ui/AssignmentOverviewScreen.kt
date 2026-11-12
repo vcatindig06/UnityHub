@@ -325,6 +325,15 @@ private fun AssignmentOverviewCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (responseStatus == "declined" && entry.assignment.responseNote.isNotBlank()) {
+                Text(
+                    "Member note",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(entry.assignment.responseNote, style = MaterialTheme.typography.bodySmall)
+            }
             Text(
                 "Open service plan",
                 style = MaterialTheme.typography.labelMedium,

@@ -18,5 +18,6 @@ public class PendingServiceAssignmentResponseEntity {
     @NonNull @ColumnInfo(name = "organization_id") public String organizationId = "";
     @NonNull @ColumnInfo(name = "member_id") public String memberId = "";
     @NonNull @ColumnInfo(name = "response_status") public String responseStatus = "";
+    @NonNull @ColumnInfo(name = "response_note", defaultValue = "''") public String responseNote = "";
     @ColumnInfo(name = "queued_at") public long queuedAt;
 }

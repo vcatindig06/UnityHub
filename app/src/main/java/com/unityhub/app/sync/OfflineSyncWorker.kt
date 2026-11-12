@@ -94,7 +94,8 @@ class OfflineSyncWorker(
                     assignmentId = pending.assignmentId,
                     organizationId = pending.organizationId,
                     memberId = pending.memberId,
-                    response = pending.responseStatus
+                    response = pending.responseStatus,
+                    responseNote = pending.responseNote
                 )
                 if (submitted) {
                     responseQueue.remove(requestedUserId, pending.assignmentId)

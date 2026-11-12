@@ -18,6 +18,20 @@ class ServiceAssignmentRulesTest {
     }
 
     @Test
+    fun normalizesOptionalResponseNotesAndAcceptsTheMaximumLength() {
+        assertEquals("I have a schedule conflict.", ServiceAssignmentRules.normalizeResponseNote("  I have a schedule conflict.  "))
+        assertEquals("", ServiceAssignmentRules.normalizeResponseNote(""))
+        assertEquals(300, ServiceAssignmentRules.normalizeResponseNote("N".repeat(300)).length)
+    }
+
+    @Test
+    fun rejectsResponseNotesLongerThanTheMaximum() {
+        assertTrue(runCatching {
+            ServiceAssignmentRules.normalizeResponseNote("N".repeat(301))
+        }.isFailure)
+    }
+
+    @Test
     fun acceptsOnlyMemberResponseValues() {
         assertTrue(ServiceAssignmentRules.isValidResponse("confirmed"))
         assertTrue(ServiceAssignmentRules.isValidResponse("declined"))
