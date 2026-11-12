@@ -79,6 +79,7 @@ fun RehearsalManagementScreen(
     openRehearsalId: String? = null,
     openRehearsalRequestId: String? = null,
     onOpenRehearsalHandled: () -> Unit = {},
+    onOpenServicePlan: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val repository = remember { RehearsalRepository(SupabaseClientProvider.client) }
@@ -330,6 +331,7 @@ fun RehearsalManagementScreen(
             onDelete = { deleteSelected(rehearsal) },
             onRespond = ::respond,
             onMarkAttendance = ::markAttendance,
+            onOpenServicePlan = onOpenServicePlan,
             modifier = modifier
         )
         return
@@ -508,6 +510,7 @@ private fun RehearsalDetailContent(
     onDelete: () -> Unit,
     onRespond: (RehearsalAssignmentDto, String) -> Unit,
     onMarkAttendance: (RehearsalAssignmentDto, String) -> Unit,
+    onOpenServicePlan: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var confirmDeleteOpen by rememberSaveable(rehearsal.id) { mutableStateOf(false) }
@@ -562,6 +565,11 @@ private fun RehearsalDetailContent(
                     RehearsalDetailLine(Icons.Default.Schedule, rehearsalTimeLabel(rehearsal))
                     if (rehearsal.location.isNotBlank()) RehearsalDetailLine(Icons.Default.LocationOn, rehearsal.location)
                     if (linkedPlan != null) RehearsalDetailLine(Icons.Default.Groups, "Linked service: ${linkedPlan.title}")
+                    if (linkedPlan != null) {
+                        TextButton(onClick = { onOpenServicePlan(linkedPlan.id) }) {
+                            Text("Open linked service setlist")
+                        }
+                    }
                     if (rehearsal.notes.isNotBlank()) {
                         HorizontalDivider()
                         Text("Notes", fontWeight = FontWeight.SemiBold)
