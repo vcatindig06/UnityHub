@@ -29,6 +29,24 @@ class TeamManagementRulesTest {
     }
 
     @Test
+    fun positionNamesAreComparedCaseInsensitivelyAndAfterTrimming() {
+        assertEquals(
+            true,
+            TeamManagementRules.nameAlreadyExists(
+                "  ELECTRIC GUITAR ",
+                listOf("Electric Guitar", "Keys")
+            )
+        )
+        assertEquals(
+            false,
+            TeamManagementRules.nameAlreadyExists(
+                "Electric Bass",
+                listOf("Electric Guitar", "Keys")
+            )
+        )
+    }
+
+    @Test
     fun positionDiffIdentifiesNewAndRemovedPositions() {
         val current = setOf("vocal", "keys")
         val selected = setOf("keys", "drums")
