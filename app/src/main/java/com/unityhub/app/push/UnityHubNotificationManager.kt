@@ -16,13 +16,15 @@ import com.unityhub.app.R
 
 data class UnityHubPushNavigation(
     val notificationId: String?,
-    val servicePlanId: String?
+    val servicePlanId: String?,
+    val rehearsalId: String?
 )
 
 object UnityHubNotificationManager {
     const val CHANNEL_ID = "team_updates"
     const val EXTRA_NOTIFICATION_ID = "unityhub.notification_id"
     const val EXTRA_SERVICE_PLAN_ID = "unityhub.service_plan_id"
+    const val EXTRA_REHEARSAL_ID = "unityhub.rehearsal_id"
 
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -42,7 +44,8 @@ object UnityHubNotificationManager {
         title: String,
         message: String,
         notificationId: String? = null,
-        servicePlanId: String? = null
+        servicePlanId: String? = null,
+        rehearsalId: String? = null
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
@@ -56,6 +59,7 @@ object UnityHubNotificationManager {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(EXTRA_NOTIFICATION_ID, notificationId)
             putExtra(EXTRA_SERVICE_PLAN_ID, servicePlanId)
+            putExtra(EXTRA_REHEARSAL_ID, rehearsalId)
         }
         val requestCode = notificationId?.hashCode() ?: 0
         val pendingIntent = PendingIntent.getActivity(
