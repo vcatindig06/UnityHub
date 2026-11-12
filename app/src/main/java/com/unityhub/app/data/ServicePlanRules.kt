@@ -29,4 +29,11 @@ internal object ServicePlanRules {
         }
         return parsed.toString().let { if (it.length == 5) "$it:00" else it }
     }
+
+    fun normalizeDuration(value: Int?): Int? {
+        require(value == null || value in 0..600) {
+            "Duration must be between 0 and 600 minutes."
+        }
+        return value
+    }
 }
