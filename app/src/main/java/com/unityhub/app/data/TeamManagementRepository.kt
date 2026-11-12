@@ -89,6 +89,9 @@ internal object TeamManagementRules {
         return normalized
     }
 
+    fun nameAlreadyExists(candidate: String, existingNames: Collection<String>): Boolean =
+        existingNames.any { it.trim().equals(candidate.trim(), ignoreCase = true) }
+
     fun positionsToAdd(current: Set<String>, selected: Set<String>): Set<String> =
         selected - current
 
@@ -162,11 +165,10 @@ class TeamManagementRepository(private val client: SupabaseClient) {
         }.decodeList<MemberMinistryPositionDto>()
 
     suspend fun createMinistryPosition(organizationId: String, name: String) {
+        require(organizationId.isNotBlank()) { "Choose a valid organization." }
         val normalizedName = TeamManagementRules.normalizePositionName(name)
-        val existingNames = loadMinistryPositions(organizationId)
-            .map { it.name.trim().lowercase() }
-            .toSet()
-        require(normalizedName.lowercase() !in existingNames) {
+        val existingNames = loadMinistryPositions(organizationId).map { it.name }
+        require(!TeamManagementRules.nameAlreadyExists(normalizedName, existingNames)) {
             "That ministry position already exists."
         }
 
@@ -176,6 +178,51 @@ class TeamManagementRepository(private val client: SupabaseClient) {
                 name = normalizedName
             )
         )
+    }
+
+    suspend fun updateMinistryPosition(
+        organizationId: String,
+        positionId: String,
+        name: String
+    ) {
+        require(organizationId.isNotBlank() && positionId.isNotBlank()) {
+            "Choose a valid ministry position."
+        }
+        val normalizedName = TeamManagementRules.normalizePositionName(name)
+        val existingNames = loadMinistryPositions(organizationId)
+            .filterNot { it.id == positionId }
+            .map { it.name }
+        require(!TeamManagementRules.nameAlreadyExists(normalizedName, existingNames)) {
+            "That ministry position already exists."
+        }
+
+        val updated = client.from("ministry_positions").update({
+            set("name", normalizedName)
+        }) {
+            select()
+            filter {
+                eq("id", positionId)
+                eq("organization_id", organizationId)
+            }
+        }.decodeList<MinistryPositionDto>()
+        require(updated.isNotEmpty()) {
+            "That ministry position no longer exists. Refresh the Team screen and try again."
+        }
+    }
+
+    suspend fun deleteMinistryPosition(organizationId: String, positionId: String) {
+        require(organizationId.isNotBlank() && positionId.isNotBlank()) {
+            "Choose a valid ministry position."
+        }
+        val deleted = client.from("ministry_positions").delete {
+            filter {
+                eq("id", positionId)
+                eq("organization_id", organizationId)
+            }
+        }.decodeList<MinistryPositionDto>()
+        require(deleted.isNotEmpty()) {
+            "That ministry position no longer exists. Refresh the Team screen and try again."
+        }
     }
 
     suspend fun assignPosition(
