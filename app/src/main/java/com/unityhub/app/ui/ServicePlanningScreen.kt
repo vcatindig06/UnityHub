@@ -192,6 +192,25 @@ fun ServicePlanningScreen(
             openRehearsalId = openRehearsalId,
             openRehearsalRequestId = openRehearsalRequestId,
             onOpenRehearsalHandled = onOpenRehearsalHandled,
+            onOpenServicePlan = { servicePlanId ->
+                scope.launch {
+                    val availablePlans = runCatching {
+                        if (plans.isEmpty()) repository.loadPlans(organizationId) else plans
+                    }.getOrElse {
+                        error = "The linked service could not be loaded. Check your connection and try again."
+                        emptyList()
+                    }
+                    val linked = availablePlans.firstOrNull { it.id == servicePlanId }
+                    if (linked != null) {
+                        plans = availablePlans
+                        rehearsalsOpen = false
+                        selectedPlan = linked
+                    } else if (error.isBlank()) {
+                        error = "The linked service is no longer available."
+                        rehearsalsOpen = false
+                    }
+                }
+            },
             modifier = modifier
         )
         return
