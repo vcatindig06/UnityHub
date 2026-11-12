@@ -164,10 +164,10 @@ class MainActivity : ComponentActivity() {
                 if (showNotificationPermissionPrompt) {
                     AlertDialog(
                         onDismissRequest = { showNotificationPermissionPrompt = false },
-                        title = { Text("Enable service alerts") },
+                        title = { Text("Enable team alerts") },
                         text = {
                             Text(
-                                "Allow UnityHub to notify you about team assignments and service reminders, even when the app is closed."
+                                "Allow UnityHub to notify you about rehearsal invitations, availability updates, team assignments, and service reminders, even when the app is closed."
                             )
                         },
                         confirmButton = {
