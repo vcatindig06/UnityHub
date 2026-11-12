@@ -24,6 +24,7 @@ internal object OfflineSyncStatusRules {
 
     fun progressLabel(stage: String?): String = when (stage) {
         "checking_access" -> "Checking account access"
+        "uploading_responses" -> "Sending saved service responses"
         "downloading_songs" -> "Refreshing songs"
         "downloading_services" -> "Refreshing service plans and setlists"
         "downloading_assignments" -> "Refreshing team assignments"
