@@ -78,6 +78,9 @@ fun ServicePlanningScreen(
     openServicePlanId: String? = null,
     openServicePlanRequestId: String? = null,
     onOpenServicePlanHandled: () -> Unit = {},
+    openRehearsalId: String? = null,
+    openRehearsalRequestId: String? = null,
+    onOpenRehearsalHandled: () -> Unit = {},
     offlineOnly: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -97,6 +100,7 @@ fun ServicePlanningScreen(
     var error by remember { mutableStateOf("") }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var assignmentOverviewOpen by rememberSaveable { mutableStateOf(false) }
+    var rehearsalsOpen by rememberSaveable { mutableStateOf(false) }
     var editingPlan by remember { mutableStateOf<ServicePlanDto?>(null) }
     var hasLoadedPlans by remember { mutableStateOf(false) }
     var consumedNavigationRequestId by remember { mutableStateOf<String?>(null) }
@@ -173,6 +177,24 @@ fun ServicePlanningScreen(
                 loading = false
             }
         }
+    }
+
+    LaunchedEffect(openRehearsalRequestId) {
+        if (!openRehearsalRequestId.isNullOrBlank()) rehearsalsOpen = true
+    }
+
+    if (rehearsalsOpen) {
+        RehearsalManagementScreen(
+            organizationId = organizationId,
+            userId = userId,
+            role = role,
+            onBack = { rehearsalsOpen = false },
+            openRehearsalId = openRehearsalId,
+            openRehearsalRequestId = openRehearsalRequestId,
+            onOpenRehearsalHandled = onOpenRehearsalHandled,
+            modifier = modifier
+        )
+        return
     }
 
     LaunchedEffect(organizationId, openServicePlanRequestId) {
@@ -405,6 +427,20 @@ fun ServicePlanningScreen(
                 }
                 if (error.isNotBlank() && !editorOpen) {
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        if (!offlineOnly && !usingOfflineCopy) {
+            item {
+                androidx.compose.material3.OutlinedButton(
+                    onClick = { rehearsalsOpen = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !saving
+                ) {
+                    Icon(Icons.Default.CalendarMonth, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("Rehearsals · Availability & attendance")
                 }
             }
         }
