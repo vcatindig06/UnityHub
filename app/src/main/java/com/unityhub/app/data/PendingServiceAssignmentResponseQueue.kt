@@ -13,6 +13,7 @@ data class PendingServiceAssignmentResponse(
     val organizationId: String,
     val memberId: String,
     val responseStatus: String,
+    val responseNote: String = "",
     val queuedAt: Long
 )
 
@@ -37,7 +38,9 @@ internal object PendingServiceAssignmentResponseRules {
             pending.organizationId == requestedOrganizationId &&
             pending.memberId == membershipId &&
             pending.assignmentId.isNotBlank() &&
-            isValidResponse(pending.responseStatus)
+            isValidResponse(pending.responseStatus) &&
+            ServiceAssignmentRules.isValidResponseNote(pending.responseNote) &&
+            (pending.responseStatus != "confirmed" || pending.responseNote.isBlank())
 }
 
 class PendingServiceAssignmentResponseQueue(context: Context) {
@@ -49,11 +52,17 @@ class PendingServiceAssignmentResponseQueue(context: Context) {
         organizationId: String,
         assignmentId: String,
         memberId: String,
-        responseStatus: String
+        responseStatus: String,
+        responseNote: String = ""
     ) = withContext(Dispatchers.IO) {
         require(userId.isNotBlank() && organizationId.isNotBlank())
         require(assignmentId.isNotBlank() && memberId.isNotBlank())
         require(PendingServiceAssignmentResponseRules.isValidResponse(responseStatus))
+        val normalizedNote = if (responseStatus == "declined") {
+            ServiceAssignmentRules.normalizeResponseNote(responseNote)
+        } else {
+            ""
+        }
 
         dao.upsert(
             PendingServiceAssignmentResponseEntity().apply {
@@ -62,6 +71,7 @@ class PendingServiceAssignmentResponseQueue(context: Context) {
                 this.assignmentId = assignmentId
                 this.memberId = memberId
                 this.responseStatus = responseStatus
+                this.responseNote = normalizedNote
                 queuedAt = System.currentTimeMillis()
             }
         )
@@ -79,6 +89,7 @@ class PendingServiceAssignmentResponseQueue(context: Context) {
                 organizationId = item.organizationId,
                 memberId = item.memberId,
                 responseStatus = item.responseStatus,
+                responseNote = item.responseNote,
                 queuedAt = item.queuedAt
             )
         }
