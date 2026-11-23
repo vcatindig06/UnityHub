@@ -1,6 +1,7 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -801,22 +802,25 @@ private fun RehearsalEditorDialog(
                     } else {
                         members.forEach { member ->
                             Row(
-                                modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) {
-                                    onSelectedMemberIdsChange(
-                                        if (member.memberId in selectedMemberIds) selectedMemberIds - member.memberId
-                                        else selectedMemberIds + member.memberId
-                                    )
-                                }.padding(vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Checkbox(
-                                    checked = member.memberId in selectedMemberIds,
-                                    onCheckedChange = { checked ->
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .toggleable(
+                                        value = member.memberId in selectedMemberIds,
+                                        enabled = !saving,
+                                        role = Role.Checkbox
+                                    ) { checked ->
                                         onSelectedMemberIdsChange(
                                             if (checked) selectedMemberIds + member.memberId
                                             else selectedMemberIds - member.memberId
                                         )
-                                    },
+                                    }
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = member.memberId in selectedMemberIds,
+                                    onCheckedChange = null,
                                     enabled = !saving
                                 )
                                 Column(Modifier.weight(1f)) {
