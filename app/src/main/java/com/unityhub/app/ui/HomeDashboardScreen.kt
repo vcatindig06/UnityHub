@@ -569,6 +569,7 @@ fun HomeDashboardScreen(
                     onClick = { onOpenServicePlan(plan.id) }
                 )
             }
+        }
     }
 
     decliningAssignment?.let { item ->
