@@ -363,7 +363,7 @@ fun AccountSettingsScreen(
                 Icon(Icons.Default.Notifications, contentDescription = null)
             }) {
                 Text(
-                    if (notificationsEnabled) "Allowed by Android" else "Blocked by Android",,
+                    if (notificationsEnabled) "Allowed by Android" else "Blocked by Android",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
