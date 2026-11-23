@@ -391,6 +391,7 @@ fun LiveStageScreen(
                             }
                         }
                     }
+                    }
 
                     currentItem?.notes?.takeIf { it.isNotBlank() && document?.lines?.isNotEmpty() == true }?.let { notes ->
                         Column(
