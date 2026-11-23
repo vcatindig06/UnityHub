@@ -32,6 +32,8 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [ ] Give icon-only actions a meaningful content description or tooltip; do not duplicate a visible label in TalkBack.
 - [ ] Never use color alone to communicate status; pair color with text or an icon.
 - [ ] Support scrolling and Android's font scaling without clipping essential content.
+- [ ] Keep expandable rows and row-level selection controls at least 48 dp high, expose their role and expanded/selected state to TalkBack, and avoid duplicate nested click semantics.
+- [ ] Check narrow-width layouts with long names, translated labels, and 1.3x–2.0x font scale; allow text to wrap rather than forcing fixed-height rows.
 - [ ] Provide loading, empty, failure, success, and offline feedback appropriate to the screen.
 - [ ] Validate input before submission and retain form values when an action fails.
 - [ ] Keep destructive actions separate and confirm irreversible operations.
@@ -51,7 +53,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 
 - [x] Automated unit tests and the debug APK build run in GitHub Actions.
 - [ ] Perform a manual TalkBack pass.
-- [ ] Check the smallest supported phone width and larger font scale.
+- [ ] Check the smallest supported phone width and larger font scale (at least 1.3x and 2.0x).
 - [ ] Verify light and dark appearance on a physical Android device.
 - [ ] Verify the keyboard and navigation gestures on a physical Android device.
 

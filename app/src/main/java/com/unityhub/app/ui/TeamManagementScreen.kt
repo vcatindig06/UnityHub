@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -50,6 +52,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -90,6 +93,7 @@ fun TeamManagementScreen(
     var editingPosition by remember { mutableStateOf<MinistryPositionDto?>(null) }
     var deletingPosition by remember { mutableStateOf<MinistryPositionDto?>(null) }
     var selectedMember by remember { mutableStateOf<ServiceMemberOption?>(null) }
+    var memberProfileTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var memberAccessTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var memberRemovalTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var ownershipTransferOpen by rememberSaveable { mutableStateOf(false) }
@@ -344,6 +348,16 @@ fun TeamManagementScreen(
         )
     }
 
+    memberProfileTarget?.let { member ->
+        MemberProfileScreen(
+            organizationId = organizationId,
+            member = member,
+            onBack = { memberProfileTarget = null },
+            modifier = modifier
+        )
+        return
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
@@ -468,6 +482,7 @@ fun TeamManagementScreen(
                     ),
                     isOrganizationOwner = member.userId == organizationOwnerId,
                     saving = saving,
+                    onViewProfile = { memberProfileTarget = member },
                     onManagePositions = { selectedMember = member },
                     onManageAccess = { memberAccessTarget = member }
                 )
@@ -626,6 +641,7 @@ private fun TeamMemberProfileCard(
     canManageMembers: Boolean,
     isOrganizationOwner: Boolean,
     saving: Boolean,
+    onViewProfile: () -> Unit,
     onManagePositions: () -> Unit,
     onManageAccess: () -> Unit
 ) {
@@ -670,6 +686,9 @@ private fun TeamMemberProfileCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
+                TextButton(onClick = onViewProfile, enabled = !saving) {
+                    Text("View profile")
+                }
                 if (canManagePositions) {
                     TextButton(onClick = onManagePositions, enabled = !saving) {
                         Text("Manage ministry positions")
@@ -986,21 +1005,23 @@ private fun ManageMemberPositionsDialog(
                 } else {
                     positions.forEach { position ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) {
-                                selectedIds = if (position.id in selectedIds) {
-                                    selectedIds - position.id
-                                } else {
-                                    selectedIds + position.id
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .toggleable(
+                                    value = position.id in selectedIds,
+                                    enabled = !saving,
+                                    role = Role.Checkbox
+                                ) { checked ->
+                                    selectedIds = if (checked) selectedIds + position.id
+                                    else selectedIds - position.id
                                 }
-                            }.padding(vertical = 4.dp),
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(
                                 checked = position.id in selectedIds,
-                                onCheckedChange = { checked ->
-                                    selectedIds = if (checked) selectedIds + position.id
-                                    else selectedIds - position.id
-                                },
+                                onCheckedChange = null,
                                 enabled = !saving
                             )
                             Text(position.name)

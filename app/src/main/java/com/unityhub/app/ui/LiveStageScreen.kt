@@ -62,6 +62,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
@@ -234,6 +236,7 @@ fun LiveStageScreen(
                             )
                             Text(
                                 "LIVE STAGE",
+                                modifier = Modifier.semantics { heading() },
                                 color = StageAccent,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -414,48 +417,49 @@ fun LiveStageScreen(
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = { textScale = (textScale - 0.1f).coerceAtLeast(0.8f) },
-                                enabled = textScale > 0.8f
-                            ) {
-                                Icon(Icons.Default.Remove, contentDescription = "Decrease text size", tint = StagePrimaryText)
-                            }
-                            Text("TEXT", color = StageSecondaryText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            IconButton(
-                                onClick = { textScale = (textScale + 0.1f).coerceAtMost(1.8f) },
-                                enabled = textScale < 1.8f
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = "Increase text size", tint = StagePrimaryText)
-                            }
-                            IconButton(
-                                onClick = {
-                                    textScale = 1f
-                                    transpose = 0
-                                    showChords = true
-                                    autoScrollEnabled = false
-                                    autoScrollSpeedIndex = 1
-                                },
-                                enabled = textScale != 1f || transpose != 0 || !showChords ||
-                                    autoScrollEnabled || autoScrollSpeedIndex != 1
-                            ) {
-                                Icon(Icons.Default.RestartAlt, contentDescription = "Reset stage display", tint = StageSecondaryText)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { textScale = (textScale - 0.1f).coerceAtLeast(0.8f) }, enabled = textScale > 0.8f) {
+                                    Icon(Icons.Default.Remove, contentDescription = "Decrease text size", tint = StagePrimaryText)
+                                }
+                                Text("TEXT SIZE", color = StageSecondaryText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                IconButton(onClick = { textScale = (textScale + 0.1f).coerceAtMost(1.8f) }, enabled = textScale < 1.8f) {
+                                    Icon(Icons.Default.Add, contentDescription = "Increase text size", tint = StagePrimaryText)
+                                }
+                                IconButton(
+                                    onClick = {
+                                        textScale = 1f
+                                        transpose = 0
+                                        showChords = true
+                                        autoScrollEnabled = false
+                                        autoScrollSpeedIndex = 1
+                                    },
+                                    enabled = textScale != 1f || transpose != 0 || !showChords ||
+                                        autoScrollEnabled || autoScrollSpeedIndex != 1
+                                ) {
+                                    Icon(Icons.Default.RestartAlt, contentDescription = "Reset stage display", tint = StageSecondaryText)
+                                }
                             }
                         }
-                        TextButton(onClick = { showChords = !showChords }) {
-                            Icon(
-                                if (showChords) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = null,
-                                tint = StageAccent,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(Modifier.width(5.dp))
-                            Text(if (showChords) "Hide chords" else "Show chords", color = StageAccent)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = { showChords = !showChords }) {
+                                Icon(
+                                    if (showChords) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = null,
+                                    tint = StageAccent,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                Text(if (showChords) "Hide chords" else "Show chords", color = StageAccent)
+                            }
                         }
                     }
 

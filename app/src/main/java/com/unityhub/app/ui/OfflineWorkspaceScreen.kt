@@ -2,6 +2,7 @@ package com.unityhub.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,10 +52,6 @@ fun OfflineWorkspaceScreen(
                         )
                     }
                 },
-                actions = {
-                    TextButton(onClick = onRetry) { Text("Try online") }
-                    TextButton(onClick = onSignOut) { Text("Sign out") }
-                }
             )
         },
         bottomBar = {
@@ -89,6 +86,13 @@ fun OfflineWorkspaceScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TextButton(onClick = onRetry) { Text("Try online") }
+                        TextButton(onClick = onSignOut) { Text("Sign out") }
+                    }
                 }
             }
             if (selectedTab == 0) {
