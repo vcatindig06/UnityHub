@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -54,6 +56,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
@@ -259,6 +264,7 @@ fun AccountSettingsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     "Your account",
+                    modifier = Modifier.semantics { heading() },
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -395,7 +401,24 @@ fun AccountSettingsScreen(
                     value = latestRelease?.versionName ?: "Not checked"
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .toggleable(
+                            value = autoDownloadUpdates,
+                            role = Role.Switch,
+                            onValueChange = { enabled ->
+                                autoDownloadUpdates = enabled
+                                updateManager.setAutoDownloadEnabled(enabled)
+                                AppUpdateWorkScheduler.setEnabled(context, enabled)
+                                if (enabled && latestRelease != null &&
+                                    latestRelease.versionCode > BuildConfig.VERSION_CODE &&
+                                    AppUpdateRules.hasValidDownloadMetadata(latestRelease)
+                                ) {
+                                    downloadUpdate(latestRelease)
+                                }
+                            }
+                        ),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -409,17 +432,7 @@ fun AccountSettingsScreen(
                     }
                     Switch(
                         checked = autoDownloadUpdates,
-                        onCheckedChange = { enabled ->
-                            autoDownloadUpdates = enabled
-                            updateManager.setAutoDownloadEnabled(enabled)
-                            AppUpdateWorkScheduler.setEnabled(context, enabled)
-                            if (enabled && latestRelease != null &&
-                                latestRelease.versionCode > BuildConfig.VERSION_CODE &&
-                                AppUpdateRules.hasValidDownloadMetadata(latestRelease)
-                            ) {
-                                downloadUpdate(latestRelease)
-                            }
-                        }
+                        onCheckedChange = null
                     )
                 }
                 OutlinedButton(
@@ -651,7 +664,7 @@ private fun SettingsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             icon()
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(title, modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         }
         content()
     }
