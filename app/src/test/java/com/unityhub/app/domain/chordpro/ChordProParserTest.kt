@@ -33,6 +33,31 @@ class ChordProParserTest {
     }
 
     @Test
+    fun parsesNumberedVerseChorusAndBridgeDirectives() {
+        val document = ChordProParser.parse(
+            """
+            {start_of_verse_1}
+            [D]Verse one
+            {end_of_verse_1}
+            {start_of_chorus_1}
+            [G]Chorus
+            {end_of_chorus_1}
+            {start_of_bridge_1}
+            [A]Bridge
+            {end_of_bridge_1}
+            """.trimIndent()
+        )
+
+        assertTrue(document.lines.any { it.section == "Verse" })
+        assertTrue(document.lines.any { it.section == "Chorus" })
+        assertTrue(document.lines.any { it.section == "Bridge" })
+        assertTrue(document.lines.any { it.lyrics == "Verse one" && it.section == "Verse" })
+        assertTrue(document.lines.any { it.lyrics == "Chorus" && it.section == "Chorus" })
+        assertTrue(document.lines.any { it.lyrics == "Bridge" && it.section == "Bridge" })
+        assertFalse(document.lines.any { it.lyrics.contains("start_of_") })
+    }
+
+    @Test
     fun parsesCommentsAndKeepsPlainLyrics() {
         val document = ChordProParser.parse("{comment: Build softly}\nAmazing grace")
         assertTrue(document.lines.first().comment)
