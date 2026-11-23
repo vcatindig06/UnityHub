@@ -1,6 +1,7 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,6 +64,8 @@ import com.unityhub.app.data.RehearsalAssignmentDto
 import com.unityhub.app.data.RehearsalDto
 import com.unityhub.app.data.RehearsalRepository
 import com.unityhub.app.data.RehearsalRules
+import com.unityhub.app.data.RehearsalRosterFilter
+import com.unityhub.app.data.RehearsalRosterRules
 import com.unityhub.app.data.ServiceMemberOption
 import com.unityhub.app.data.ServicePlanDto
 import com.unityhub.app.data.SupabaseClientProvider
@@ -514,6 +518,10 @@ private fun RehearsalDetailContent(
     modifier: Modifier = Modifier
 ) {
     var confirmDeleteOpen by rememberSaveable(rehearsal.id) { mutableStateOf(false) }
+    var rosterSearch by rememberSaveable(rehearsal.id) { mutableStateOf("") }
+    var rosterFilter by rememberSaveable(rehearsal.id, rehearsal.status) {
+        mutableStateOf(RehearsalRosterFilter.ALL)
+    }
     if (confirmDeleteOpen) {
         AlertDialog(
             onDismissRequest = { if (!saving) confirmDeleteOpen = false },
@@ -534,10 +542,18 @@ private fun RehearsalDetailContent(
         )
     }
 
-    val membersById = members.associateBy { it.memberId }
+    val membersById = remember(members) { members.associateBy { it.memberId } }
+    val memberNames = remember(members) { members.associate { it.memberId to it.displayName } }
     val myMemberId = members.firstOrNull { it.userId == currentUserId }?.memberId
     val myAssignment = assignments.firstOrNull { it.memberId == myMemberId }
     val linkedPlan = servicePlans.firstOrNull { it.id == rehearsal.servicePlanId }
+    val rosterSummary = remember(assignments) { RehearsalRosterRules.summary(assignments) }
+    val visibleAssignments = remember(assignments, memberNames, rosterSearch, rosterFilter) {
+        RehearsalRosterRules.filter(assignments, memberNames, rosterFilter, rosterSearch)
+    }
+    val rosterFilters = remember(rehearsal.status) {
+        RehearsalRosterRules.filtersFor(rehearsal.status)
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -640,6 +656,65 @@ private fun RehearsalDetailContent(
             }
         }
 
+        if (assignments.isNotEmpty()) {
+            item {
+                RehearsalRosterSummaryCard(
+                    metrics = if (rehearsal.status == "completed") {
+                        listOf(
+                            RehearsalRosterMetric("Attended", rosterSummary.attended, MaterialTheme.colorScheme.primary),
+                            RehearsalRosterMetric("Absent", rosterSummary.absent, MaterialTheme.colorScheme.error),
+                            RehearsalRosterMetric("Not recorded", rosterSummary.notRecorded, MaterialTheme.colorScheme.tertiary)
+                        )
+                    } else {
+                        listOf(
+                            RehearsalRosterMetric("Available", rosterSummary.available, MaterialTheme.colorScheme.primary),
+                            RehearsalRosterMetric("Can't attend", rosterSummary.unavailable, MaterialTheme.colorScheme.error),
+                            RehearsalRosterMetric("Awaiting", rosterSummary.awaiting, MaterialTheme.colorScheme.tertiary)
+                        )
+                    }
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = rosterSearch,
+                    onValueChange = { rosterSearch = it.take(80) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Search invited members") },
+                    placeholder = { Text("Enter a member name") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (rosterSearch.isNotBlank()) {
+                            IconButton(onClick = { rosterSearch = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear member search")
+                            }
+                        }
+                    },
+                    singleLine = true
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rosterFilters.forEach { filter ->
+                        FilterChip(
+                            selected = rosterFilter == filter,
+                            onClick = { rosterFilter = filter },
+                            label = { Text(filter.label) }
+                        )
+                    }
+                }
+            }
+            item {
+                Text(
+                    "${visibleAssignments.size} of ${assignments.size} invited members",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         if (error.isNotBlank()) {
             item { Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         }
@@ -654,9 +729,26 @@ private fun RehearsalDetailContent(
                     )
                 }
             }
+        } else if (!loading && visibleAssignments.isEmpty()) {
+            item {
+                Card(shape = RoundedCornerShape(14.dp)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("No invited members match this search or filter.")
+                        TextButton(onClick = {
+                            rosterSearch = ""
+                            rosterFilter = RehearsalRosterFilter.ALL
+                        }) {
+                            Text("Clear search and filters")
+                        }
+                    }
+                }
+            }
         }
 
-        items(assignments, key = { it.id }) { assignment ->
+        items(visibleAssignments, key = { it.id }) { assignment ->
             val memberName = membersById[assignment.memberId]?.displayName ?: "Team member"
             RehearsalAssignmentCard(
                 assignment = assignment,
@@ -666,6 +758,47 @@ private fun RehearsalDetailContent(
                 busy = respondingId == assignment.id,
                 onMarkAttendance = { status -> onMarkAttendance(assignment, status) }
             )
+        }
+    }
+}
+
+private data class RehearsalRosterMetric(
+    val label: String,
+    val value: Int,
+    val color: androidx.compose.ui.graphics.Color
+)
+
+@Composable
+private fun RehearsalRosterSummaryCard(metrics: List<RehearsalRosterMetric>) {
+    Card(shape = RoundedCornerShape(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            metrics.forEach { metric ->
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 11.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            metric.value.toString(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = metric.color
+                        )
+                        Text(
+                            metric.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
     }
 }

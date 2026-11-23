@@ -14,6 +14,10 @@ Each selected member receives an in-app notification and, when their Android pus
 
 Only administrators and worship leaders can schedule, edit, cancel, complete, or delete rehearsals and manage the invited roster.
 
+## Roster insights
+
+The rehearsal detail roster summarizes invitee responses. Scheduled rehearsals show Available, Can't attend, and Awaiting counts. Once a rehearsal is completed, the summary changes to Attended, Absent, and Not recorded. Use the roster search and status filters to find individual members without changing the saved invitation list.
+
 ## Member availability
 
 Invited members open the rehearsal and select **Available** or **Can't attend**. A member can only update the response attached to their own organization-membership record. When a response changes, administrators and worship leaders receive a notification.
