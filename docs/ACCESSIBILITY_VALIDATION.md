@@ -38,3 +38,7 @@ Use this checklist on a physical Android device before release. Automated compil
 - Confirm primary controls and row actions have at least a 48 dp touch target where practical.
 - Confirm status is communicated with text or an icon as well as color.
 - Confirm loading, empty, error, and success states remain understandable with TalkBack enabled.
+
+## Validation record
+
+After each major UI release, record the physical device model, Android version, display/font scale, tested screens, and any follow-up issues in the release checklist. Do not mark the physical-device checks complete based only on a successful CI build.
