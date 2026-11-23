@@ -66,7 +66,7 @@ class SongLibraryRulesTest {
                 artist = "All Sons & Daughters",
                 key = "A",
                 time = "4/4",
-                chordpro = "{title: Great Are You Lord}\\n[G]You give life [D/F#]You are love",
+                chordpro = "{title: Great Are You Lord}\n[G]You give life [D/F#]You are love",
                 notes = "Start softly and build into the chorus"
             ),
             testSong("2", "Build My Life", "Pat Barrett", "E", "6/8")
