@@ -253,7 +253,7 @@ fun AccountSettingsScreen(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -261,11 +261,6 @@ fun AccountSettingsScreen(
                     "Your account",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Manage your profile and UnityHub app preferences.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -285,64 +280,26 @@ fun AccountSettingsScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(58.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.primaryContainer,
-                                        CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    initials(account.displayName),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                Text(
-                                    account.displayName,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    account.email ?: "No email address available",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(account.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(account.email.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        OutlinedButton(
+                        TextButton(
                             onClick = {
                                 nameDraft = account.displayName
                                 editErrorMessage = ""
                                 showEditNameDialog = true
                             },
-                            modifier = Modifier.fillMaxWidth(),
                             enabled = !savingProfile
-                        ) {
-                            Icon(Icons.Default.Edit, contentDescription = null)
-                            Text("Edit display name", modifier = Modifier.padding(start = 8.dp))
-                        }
+                        ) { Text("Edit") }
                     }
                 }
             }
@@ -397,23 +354,7 @@ fun AccountSettingsScreen(
             SettingsSection(title = "Appearance", icon = {
                 Icon(Icons.Default.DarkMode, contentDescription = null)
             }) {
-                Text(
-                    "UnityHub automatically follows your device's light or dark appearance. Change your Android system theme to switch the app.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Appearance preference", fontWeight = FontWeight.Medium)
-                    Text(
-                        "System default",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
+                SettingsValueRow(label = "Theme", value = "System default")
             }
         }
 
@@ -422,11 +363,7 @@ fun AccountSettingsScreen(
                 Icon(Icons.Default.Notifications, contentDescription = null)
             }) {
                 Text(
-                    if (notificationsEnabled) {
-                        "UnityHub notifications are allowed by Android."
-                    } else {
-                        "UnityHub notifications are currently blocked by Android."
-                    },
+                    if (notificationsEnabled) "Allowed by Android" else "Blocked by Android",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -448,18 +385,6 @@ fun AccountSettingsScreen(
         }
 
         item {
-            SettingsSection(title = "Account security", icon = {
-                Icon(Icons.Default.Shield, contentDescription = null)
-            }) {
-                Text(
-                    "Your sign-in and session are managed securely by Supabase Auth. Display names are profile information only; team roles and access are controlled separately by your worship team membership.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        item {
             SettingsSection(title = "App updates", icon = {
                 Icon(Icons.Default.CloudDownload, contentDescription = null)
             }) {
@@ -469,11 +394,6 @@ fun AccountSettingsScreen(
                     label = "Latest version",
                     value = latestRelease?.versionName ?: "Not checked"
                 )
-                Text(
-                    "Check for new versions and review the complete release history.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -482,7 +402,7 @@ fun AccountSettingsScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Automatically download updates", fontWeight = FontWeight.Medium)
                         Text(
-                            "Downloads can happen in the background. Android will still ask you to confirm installation.",
+                            "Android will ask before installation.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -722,24 +642,18 @@ private fun SettingsSection(
     icon: @Composable () -> Unit,
     content: @Composable () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(11.dp)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                icon()
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            }
-            content()
+            icon()
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         }
+        content()
     }
 }
 

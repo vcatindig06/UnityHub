@@ -4,7 +4,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 
 ## Implemented in 0.21.0
 
-- [x] **Brand consistency:** use the UnityHub crimson-to-coral-to-amber gradient, near-black aurora surfaces, scalable logo mark, and coordinated light/dark palettes.
+- [x] **Brand consistency:** use the butter-cream canvas, forest-green primary, terracotta emphasis, muted-gold details, scalable logo mark, and coordinated light/dark palettes.
 - [x] **Light and dark appearance:** follow the Android system appearance automatically; the Account settings screen explains this behavior.
 - [x] **System chrome:** status-bar and navigation-bar colors and icon contrast follow the active app theme.
 - [x] **Readable type hierarchy:** apply consistent headline, title, body, and label weights; use scalable typography and comfortable body line heights.
@@ -13,6 +13,16 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] **Text contrast regression checks:** verify normal text color pairs in both palettes against the WCAG AA 4.5:1 contrast threshold.
 - [x] **State feedback baseline:** preserve visible loading, empty, offline, and retry/error states already implemented across the dashboard, songs, services, notifications, and team workflows.
 - [x] **Form feedback baseline:** preserve Material 3 labels, supporting text, invalid states, disabled submit states, and progress feedback in existing forms.
+
+## Visual restraint and product credibility
+
+- Prefer clear hierarchy, alignment, and restrained surfaces over stacked cards, floating tiles, glass effects, or decorative gradients.
+- Do not use emoji, unicode stars, fake ratings, avatar clusters, mock activity, testimonials, or placeholder dashboard artwork as decoration.
+- Use Material vector icons for recognisable actions and navigation only; avoid repeated decorative icons in content rows.
+- Remove helper copy when the heading, field label, button, or current state already explains the same thing.
+- Avoid uppercase micro-labels, artificial slogans, redundant badges, and repeated calls to action.
+- Keep empty states factual and brief. Do not add paragraphs that explain obvious next steps.
+- Keep motion purposeful; avoid ambient animated backgrounds and effects that do not communicate state.
 
 ## Required for every new or substantially revised screen
 
@@ -26,7 +36,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [ ] Validate input before submission and retain form values when an action fails.
 - [ ] Keep destructive actions separate and confirm irreversible operations.
 - [ ] Check keyboard/IME behavior so primary form actions remain reachable.
-- [ ] Avoid unnecessary animation; animations must not block input or essential information.
+- [ ] Avoid decorative animation, excessive shadows, gradients, and corner radii; use them only when they support hierarchy or feedback.
 
 ## Song library and ChordPro experience
 

@@ -83,6 +83,9 @@ fun SongChartScreen(
         isParsingDocument = true
         try {
             document = withContext(Dispatchers.Default) {
+                require(song.chordpro.length <= 1_048_576) {
+                    "The saved chart is larger than UnityHub can display."
+                }
                 ChordProParser.parse(song.chordpro)
             }
         } catch (cancelled: CancellationException) {
@@ -271,6 +274,7 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
     LaunchedEffect(previewSource) {
         document = null
         parsedAtLeastOnce = false
+        if (previewSource.isBlank()) return@LaunchedEffect
         delay(250)
         val parsed = withContext(Dispatchers.Default) {
             runCatching { ChordProParser.parse(previewSource) }.getOrNull()
@@ -280,7 +284,13 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
     }
 
     val currentDocument = document
-    if (currentDocument == null) {
+    if (previewSource.isBlank()) {
+        Text(
+            "Enter lyrics or add chords to see the chart here.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+    } else if (currentDocument == null) {
         Text(
             if (parsedAtLeastOnce) "The chart preview could not be generated."
             else "Updating chart preview…",

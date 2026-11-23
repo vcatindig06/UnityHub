@@ -20,8 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -40,7 +38,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
@@ -314,14 +311,19 @@ fun HomeDashboardScreen(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(greeting, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(
-                    dateLabel,
+                    "$organizationName · ${dashboardRoleLabel(role)}",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    dateLabel,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -330,94 +332,23 @@ fun HomeDashboardScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Text(
-                            "YOUR WORSHIP TEAM",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.76f),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            organizationName,
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "${dashboardRoleLabel(role)} workspace",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f)
-                        )
+                    DashboardMetric("Members", memberCount.toString(), Modifier.weight(1f))
+                    DashboardMetric(
+                        "Upcoming",
+                        if (loading) "—" else allUpcomingPlans.size.toString(),
+                        Modifier.weight(1f)
+                    )
+                    if (isAdmin) {
+                        DashboardMetric("Requests", pendingCount.toString(), Modifier.weight(1f), emphasize = pendingCount > 0)
                     }
-                    Icon(
-                        imageVector = Icons.Default.Groups,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
-                        modifier = Modifier.size(42.dp)
-                    )
                 }
-            }
-        }
-
-        item {
-            Text("Team at a glance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
-                DashboardMetricCard(
-                    label = "Members",
-                    value = memberCount.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-                DashboardMetricCard(
-                    label = "Upcoming",
-                    value = if (loading) "—" else allUpcomingPlans.size.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-                if (isAdmin) {
-                    DashboardMetricCard(
-                        label = "Requests",
-                        value = pendingCount.toString(),
-                        modifier = Modifier.weight(1f),
-                        emphasize = pendingCount > 0
-                    )
-                }
-            }
-        }
-
-        item {
-            Text("Quick access", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
-                DashboardQuickAction(
-                    label = "Songs",
-                    icon = Icons.Default.LibraryMusic,
-                    onClick = onOpenSongs,
-                    modifier = Modifier.weight(1f)
-                )
-                DashboardQuickAction(
-                    label = "Services",
-                    icon = Icons.Default.CalendarMonth,
-                    onClick = onOpenServices,
-                    modifier = Modifier.weight(1f)
-                )
-                DashboardQuickAction(
-                    label = "Team",
-                    icon = Icons.Default.Groups,
-                    onClick = onOpenTeam,
-                    modifier = Modifier.weight(1f)
-                )
             }
         }
 
@@ -437,11 +368,6 @@ fun HomeDashboardScreen(
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("Next rehearsal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Practice together and prepare for the next service",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                     TextButton(onClick = { nextRehearsal?.let { onOpenRehearsal(it.id) } }, enabled = nextRehearsal != null) {
                         Text("Open")
@@ -476,7 +402,7 @@ fun HomeDashboardScreen(
                     rehearsalErrorMessage.isNotBlank() -> Text(rehearsalErrorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     else -> Card(shape = RoundedCornerShape(14.dp)) {
                         Text(
-                            "No upcoming rehearsals. Your worship leader can schedule one from Services → Rehearsals.",
+                            "No upcoming rehearsals.",
                             modifier = Modifier.fillMaxWidth().padding(15.dp),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -507,7 +433,7 @@ fun HomeDashboardScreen(
         if (pendingResponseIds.isNotEmpty()) {
             item {
                 Text(
-                    "${pendingResponseIds.size} service response(s) saved on this device and waiting to sync.",
+                    "${pendingResponseIds.size} responses waiting to sync",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -518,11 +444,6 @@ fun HomeDashboardScreen(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("My upcoming assignments", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "The ministry roles your team has assigned to you",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
 
                 if (assignmentsLoading && myAssignments.isEmpty()) {
@@ -553,11 +474,6 @@ fun HomeDashboardScreen(
                             verticalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Text("No upcoming roles assigned to you", fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "When a worship leader assigns you to a service, your role and response status will appear here.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                     }
                 } else {
@@ -597,11 +513,6 @@ fun HomeDashboardScreen(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("Upcoming services", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Your next worship gatherings and setlists",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
                 TextButton(onClick = onOpenServices) { Text("View all") }
             }
@@ -645,13 +556,7 @@ fun HomeDashboardScreen(
                         modifier = Modifier.fillMaxWidth().padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("No upcoming services yet", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "When your team schedules a gathering, it will appear here with its date and setlist.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("No upcoming services", fontWeight = FontWeight.SemiBold)
                         TextButton(onClick = onOpenServices) { Text("Open service planning") }
                     }
                 }
@@ -663,21 +568,6 @@ fun HomeDashboardScreen(
                     today = today,
                     onClick = { onOpenServicePlan(plan.id) }
                 )
-            }
-            item {
-                TextButton(onClick = onOpenServices) { Text("Open full service schedule") }
-            }
-        }
-
-        item {
-            TextButton(
-                onClick = { refresh() },
-                enabled = !loading,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null)
-                Spacer(Modifier.size(6.dp))
-                Text("Refresh dashboard")
             }
         }
     }
@@ -791,60 +681,15 @@ private fun MyUpcomingAssignmentCard(
 }
 
 @Composable
-private fun DashboardMetricCard(
+private fun DashboardMetric(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
     emphasize: Boolean = false
 ) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (emphasize) MaterialTheme.colorScheme.secondaryContainer
-            else MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = if (emphasize) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-        }
-    }
-}
-
-@Composable
-private fun DashboardQuickAction(
-    label: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 15.dp, horizontal = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(7.dp)
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-        }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = if (emphasize) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

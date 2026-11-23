@@ -25,7 +25,7 @@ private val UnityHubLightColors = lightColorScheme(
     primaryContainer = ColorTokens.PrimaryContainerLight,
     onPrimaryContainer = ColorTokens.OnPrimaryContainerLight,
     secondary = UnityEmerald,
-    onSecondary = SurfaceWhite,
+    onSecondary = InkPrimary,
     secondaryContainer = ColorTokens.SecondaryContainerLight,
     onSecondaryContainer = ColorTokens.OnSecondaryContainerLight,
     tertiary = UnityCrimson,
@@ -82,38 +82,38 @@ private val UnityHubDarkColors = darkColorScheme(
 )
 
 internal object ColorTokens {
-    val PrimaryContainerLight = androidx.compose.ui.graphics.Color(0xFFFFE1E5)
-    val OnPrimaryContainerLight = androidx.compose.ui.graphics.Color(0xFF5E1020)
-    val SecondaryContainerLight = androidx.compose.ui.graphics.Color(0xFFFFF0D9)
-    val OnSecondaryContainerLight = androidx.compose.ui.graphics.Color(0xFF553400)
-    val TertiaryContainerLight = androidx.compose.ui.graphics.Color(0xFFFFE5DE)
-    val OnTertiaryContainerLight = androidx.compose.ui.graphics.Color(0xFF621E15)
-    val SurfaceVariantLight = androidx.compose.ui.graphics.Color(0xFFF4E9E6)
-    val OutlineLight = androidx.compose.ui.graphics.Color(0xFF74605A)
-    val InverseSurfaceLight = androidx.compose.ui.graphics.Color(0xFF30211F)
-    val InverseOnSurfaceLight = androidx.compose.ui.graphics.Color(0xFFF8EFEB)
-    val InversePrimaryLight = androidx.compose.ui.graphics.Color(0xFFFF8798)
+    val PrimaryContainerLight = androidx.compose.ui.graphics.Color(0xFFDCE8DC)
+    val OnPrimaryContainerLight = androidx.compose.ui.graphics.Color(0xFF193B2B)
+    val SecondaryContainerLight = androidx.compose.ui.graphics.Color(0xFFEFE5CA)
+    val OnSecondaryContainerLight = androidx.compose.ui.graphics.Color(0xFF4B3A1C)
+    val TertiaryContainerLight = androidx.compose.ui.graphics.Color(0xFFF3DED4)
+    val OnTertiaryContainerLight = androidx.compose.ui.graphics.Color(0xFF5C2E20)
+    val SurfaceVariantLight = androidx.compose.ui.graphics.Color(0xFFEDE5D6)
+    val OutlineLight = androidx.compose.ui.graphics.Color(0xFF716858)
+    val InverseSurfaceLight = androidx.compose.ui.graphics.Color(0xFF283A2D)
+    val InverseOnSurfaceLight = androidx.compose.ui.graphics.Color(0xFFF7F1E5)
+    val InversePrimaryLight = androidx.compose.ui.graphics.Color(0xFFA9C7AE)
     val ErrorLight = androidx.compose.ui.graphics.Color(0xFFB3261E)
     val ErrorContainerLight = androidx.compose.ui.graphics.Color(0xFFF9DEDC)
     val OnErrorContainerLight = androidx.compose.ui.graphics.Color(0xFF410E0B)
 
-    val PrimaryDark = androidx.compose.ui.graphics.Color(0xFFFF8798)
-    val OnPrimaryDark = androidx.compose.ui.graphics.Color(0xFF350811)
-    val PrimaryContainerDark = androidx.compose.ui.graphics.Color(0xFF5A1F2D)
-    val OnPrimaryContainerDark = androidx.compose.ui.graphics.Color(0xFFFFD9DF)
-    val SecondaryDark = androidx.compose.ui.graphics.Color(0xFFFFD083)
-    val OnSecondaryDark = androidx.compose.ui.graphics.Color(0xFF402300)
-    val SecondaryContainerDark = androidx.compose.ui.graphics.Color(0xFF4C3518)
-    val OnSecondaryContainerDark = androidx.compose.ui.graphics.Color(0xFFFFE6B5)
-    val TertiaryDark = androidx.compose.ui.graphics.Color(0xFFFF9B84)
-    val OnTertiaryDark = androidx.compose.ui.graphics.Color(0xFF44120B)
-    val TertiaryContainerDark = androidx.compose.ui.graphics.Color(0xFF5A231B)
-    val OnTertiaryContainerDark = androidx.compose.ui.graphics.Color(0xFFFFDAD2)
-    val SurfaceVariantDark = androidx.compose.ui.graphics.Color(0xFF302525)
-    val OutlineDark = androidx.compose.ui.graphics.Color(0xFFBBA6A1)
-    val InverseSurfaceDark = androidx.compose.ui.graphics.Color(0xFFF0E7E3)
-    val InverseOnSurfaceDark = androidx.compose.ui.graphics.Color(0xFF30211F)
-    val InversePrimaryDark = androidx.compose.ui.graphics.Color(0xFF74152B)
+    val PrimaryDark = androidx.compose.ui.graphics.Color(0xFFA9C7AE)
+    val OnPrimaryDark = androidx.compose.ui.graphics.Color(0xFF173A28)
+    val PrimaryContainerDark = androidx.compose.ui.graphics.Color(0xFF294A37)
+    val OnPrimaryContainerDark = androidx.compose.ui.graphics.Color(0xFFE1EEE0)
+    val SecondaryDark = androidx.compose.ui.graphics.Color(0xFFD5BD7A)
+    val OnSecondaryDark = androidx.compose.ui.graphics.Color(0xFF3B3019)
+    val SecondaryContainerDark = androidx.compose.ui.graphics.Color(0xFF4D4127)
+    val OnSecondaryContainerDark = androidx.compose.ui.graphics.Color(0xFFF0E3BE)
+    val TertiaryDark = androidx.compose.ui.graphics.Color(0xFFE0A089)
+    val OnTertiaryDark = androidx.compose.ui.graphics.Color(0xFF512B20)
+    val TertiaryContainerDark = androidx.compose.ui.graphics.Color(0xFF5B3428)
+    val OnTertiaryContainerDark = androidx.compose.ui.graphics.Color(0xFFF5DDD3)
+    val SurfaceVariantDark = androidx.compose.ui.graphics.Color(0xFF2D4034)
+    val OutlineDark = androidx.compose.ui.graphics.Color(0xFFA9B7A8)
+    val InverseSurfaceDark = androidx.compose.ui.graphics.Color(0xFFF5EBDD)
+    val InverseOnSurfaceDark = androidx.compose.ui.graphics.Color(0xFF24362A)
+    val InversePrimaryDark = androidx.compose.ui.graphics.Color(0xFF315C46)
     val ErrorDark = androidx.compose.ui.graphics.Color(0xFFFFB4A7)
     val OnErrorDark = androidx.compose.ui.graphics.Color(0xFF680E0A)
     val ErrorContainerDark = androidx.compose.ui.graphics.Color(0xFF8D1A12)
@@ -122,26 +122,11 @@ internal object ColorTokens {
 
 private val UnityHubBaseTypography = Typography()
 private val UnityHubTypography = UnityHubBaseTypography.copy(
-    headlineLarge = UnityHubBaseTypography.headlineLarge.copy(
-        fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.4).sp
-    ),
-    headlineMedium = UnityHubBaseTypography.headlineMedium.copy(
-        fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.25).sp
-    ),
-    headlineSmall = UnityHubBaseTypography.headlineSmall.copy(
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.sp
-    ),
-    titleLarge = UnityHubBaseTypography.titleLarge.copy(
-        fontWeight = FontWeight.SemiBold,
-        letterSpacing = 0.sp
-    ),
-    titleMedium = UnityHubBaseTypography.titleMedium.copy(
-        fontWeight = FontWeight.SemiBold,
-        letterSpacing = 0.1.sp
-    ),
+    headlineLarge = UnityHubBaseTypography.headlineLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp),
+    headlineMedium = UnityHubBaseTypography.headlineMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.25).sp),
+    headlineSmall = UnityHubBaseTypography.headlineSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
+    titleLarge = UnityHubBaseTypography.titleLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
+    titleMedium = UnityHubBaseTypography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.1.sp),
     bodyLarge = UnityHubBaseTypography.bodyLarge.copy(lineHeight = 24.sp),
     bodyMedium = UnityHubBaseTypography.bodyMedium.copy(lineHeight = 22.sp),
     bodySmall = UnityHubBaseTypography.bodySmall.copy(lineHeight = 19.sp),
@@ -176,12 +161,7 @@ fun UnityHubTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = UnityHubTypography,
-        shapes = UnityHubShapes,
-        content = content
-    )
+    MaterialTheme(colorScheme = colorScheme, typography = UnityHubTypography, shapes = UnityHubShapes, content = content)
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

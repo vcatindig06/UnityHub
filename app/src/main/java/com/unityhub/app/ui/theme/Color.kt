@@ -2,23 +2,22 @@ package com.unityhub.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Warm UnityHub brand identity: crimson, coral, and amber.
-// The original token identifiers are retained to avoid changing call sites.
-val UnityBlue = Color(0xFFB51D37)       // primary crimson
-val UnityBlueDark = Color(0xFF74152B)
-val UnityCrimson = Color(0xFFB63C2E)    // warm coral
-val UnityEmerald = Color(0xFF865000)    // deep amber
+// UnityHub's botanical heritage palette.
+val UnityBlue = Color(0xFF315C46)       // forest green primary
+val UnityBlueDark = Color(0xFF193B2B)   // deep forest
+val UnityCrimson = Color(0xFFA7523B)    // terracotta accent
+val UnityEmerald = Color(0xFFB59A5A)    // muted gold
 
 // Light appearance
-val CanvasLight = Color(0xFFFFFAF7)
-val SurfaceWhite = Color(0xFFFFFFFF)
-val InkPrimary = Color(0xFF241B1A)
-val InkSecondary = Color(0xFF5C4B47)
-val BorderSubtle = Color(0xFFEDE0DC)
+val CanvasLight = Color(0xFFF5EBD8)     // butter cream canvas
+val SurfaceWhite = Color(0xFFFFF9EF)    // warm cream surface
+val InkPrimary = Color(0xFF1D3427)
+val InkSecondary = Color(0xFF536357)
+val BorderSubtle = Color(0xFFDDD2BD)
 
 // Dark appearance
-val CanvasDark = Color(0xFF100B0B)
-val SurfaceDark = Color(0xFF191111)
-val InkPrimaryDark = Color(0xFFF5ECE8)
-val InkSecondaryDark = Color(0xFFCBBAB4)
-val BorderDark = Color(0xFF594641)
+val CanvasDark = Color(0xFF14271D)
+val SurfaceDark = Color(0xFF1D3327)
+val InkPrimaryDark = Color(0xFFF5EBD8)
+val InkSecondaryDark = Color(0xFFD0C9B7)
+val BorderDark = Color(0xFF526354)

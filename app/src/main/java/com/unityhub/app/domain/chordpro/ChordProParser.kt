@@ -54,10 +54,10 @@ object ChordProParser {
                     "time", "timesig", "time_signature" -> {
                         timeSignature = value.takeIf { timeSignaturePattern.matches(it) }
                     }
-                    "start_of_verse", "sov" -> addSection("Verse", lines) { activeSection = it }
-                    "start_of_chorus", "start_of_refrain", "soc" ->
+                    "sov", "start_of_verse" -> addSection("Verse", lines) { activeSection = it }
+                    "soc", "start_of_chorus", "start_of_refrain" ->
                         addSection("Chorus", lines) { activeSection = it }
-                    "start_of_bridge", "sob" -> addSection("Bridge", lines) { activeSection = it }
+                    "sob", "start_of_bridge" -> addSection("Bridge", lines) { activeSection = it }
                     "start_of_pre_chorus" -> addSection("Pre-Chorus", lines) { activeSection = it }
                     "start_of_intro" -> addSection("Intro", lines) { activeSection = it }
                     "start_of_outro" -> addSection("Outro", lines) { activeSection = it }
@@ -75,7 +75,26 @@ object ChordProParser {
                         lines += ChordProLine(value, section = activeSection, comment = true)
                     }
                     "new_page", "np", "new_song", "ns" -> Unit
-                    else -> Unit
+                    else -> when {
+                        name.matches(Regex("start_of_verse_\\d+")) ->
+                            addSection("Verse", lines) { activeSection = it }
+                        name.matches(Regex("start_of_(?:chorus|refrain)_\\d+")) ->
+                            addSection("Chorus", lines) { activeSection = it }
+                        name.matches(Regex("start_of_bridge_\\d+")) ->
+                            addSection("Bridge", lines) { activeSection = it }
+                        name.matches(Regex("start_of_pre_chorus_\\d+")) ->
+                            addSection("Pre-Chorus", lines) { activeSection = it }
+                        name.matches(Regex("start_of_(?:intro|outro|interlude|solo|tab|grid|instruction)_\\d+")) -> {
+                            val label = name.substringAfter("start_of_").substringBefore('_')
+                                .replaceFirstChar(Char::uppercase)
+                            addSection(label, lines) { activeSection = it }
+                        }
+                        name.matches(Regex("start_of_section_\\d+")) ->
+                            addSection(value.ifBlank { "Section" }, lines) { activeSection = it }
+                        name.matches(
+                            Regex("end_of_(?:verse|chorus|refrain|bridge|pre_chorus|intro|outro|interlude|solo|tab|grid|instruction|section)_\\d+")
+                        ) -> activeSection = null
+                    }
                 }
             } else if (trimmed.isEmpty()) {
                 lines += ChordProLine("")

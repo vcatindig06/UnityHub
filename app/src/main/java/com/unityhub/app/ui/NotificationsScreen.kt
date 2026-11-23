@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -140,12 +139,6 @@ fun NotificationsScreen(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("Notifications", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(
-                        if (unreadCount == 0) "You're all caught up."
-                        else "Unread notifications: $unreadCount",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
                 IconButton(onClick = { reload() }, enabled = !loading) {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh notifications")
@@ -213,22 +206,10 @@ fun NotificationsScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Notifications,
-                            contentDescription = null,
-                            modifier = Modifier.size(32.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
                         Text(
                             if (unreadOnly) "No unread notifications" else "No notifications yet",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            if (unreadOnly) "You're all caught up. Switch to All to review older notifications."
-                            else "You'll see service assignments, response reminders, and team responses here.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -246,14 +227,6 @@ fun NotificationsScreen(
             }
         }
 
-        item {
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Notifications are saved to your UnityHub account and remain available when you sign in again.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }
 
@@ -289,12 +262,6 @@ private fun NotificationCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Notifications,
-                        contentDescription = null,
-                        tint = if (unread) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                     Text(
                         NotificationRules.typeLabel(notification.notificationType),
                         style = MaterialTheme.typography.labelLarge,
@@ -303,7 +270,7 @@ private fun NotificationCard(
                 }
                 if (unread) {
                     Text(
-                        "NEW",
+                        "Unread",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -330,12 +297,6 @@ private fun NotificationCard(
                             Text("Mark read")
                         }
                     }
-                } else {
-                    Text(
-                        "Read",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
             if (NotificationRules.hasServicePlan(notification)) {

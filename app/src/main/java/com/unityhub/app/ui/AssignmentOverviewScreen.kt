@@ -110,11 +110,6 @@ fun AssignmentOverviewScreen(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        "Track every member's response for upcoming services",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
                 IconButton(onClick = { reload() }, enabled = !loading) {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh assignments")
@@ -123,28 +118,19 @@ fun AssignmentOverviewScreen(
         }
 
         item {
-            Row(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                AssignmentSummaryCard(
-                    label = "Awaiting",
-                    value = awaitingCount,
-                    modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-                AssignmentSummaryCard(
-                    label = "Confirmed",
-                    value = confirmedCount,
-                    modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.primary
-                )
-                AssignmentSummaryCard(
-                    label = "Can't serve",
-                    value = declinedCount,
-                    modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.error
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    AssignmentSummaryValue("Awaiting", awaitingCount, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
+                    AssignmentSummaryValue("Confirmed", confirmedCount, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                    AssignmentSummaryValue("Can't serve", declinedCount, MaterialTheme.colorScheme.error, Modifier.weight(1f))
+                }
             }
         }
 
@@ -205,11 +191,6 @@ fun AssignmentOverviewScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text("No upcoming assignments", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Assignments for current and future services will appear here with each member's response.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             }
@@ -241,33 +222,15 @@ fun AssignmentOverviewScreen(
 }
 
 @Composable
-private fun AssignmentSummaryCard(
+private fun AssignmentSummaryValue(
     label: String,
     value: Int,
-    modifier: Modifier = Modifier,
-    color: androidx.compose.ui.graphics.Color
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                value.toString(),
-                style = MaterialTheme.typography.headlineSmall,
-                color = color,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(value.toString(), style = MaterialTheme.typography.titleLarge, color = color, fontWeight = FontWeight.SemiBold)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -334,11 +297,6 @@ private fun AssignmentOverviewCard(
                 )
                 Text(entry.assignment.responseNote, style = MaterialTheme.typography.bodySmall)
             }
-            Text(
-                "Open service plan",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
         }
     }
 }

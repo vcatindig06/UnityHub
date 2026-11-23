@@ -24,13 +24,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.unityhub.app.R
 
-/** The warm UnityHub brand gradient: crimson, coral, then amber. */
+/** UnityHub's forest-green, terracotta, and muted-gold brand gradient. */
 val UnityHubBrandGradient: Brush = Brush.linearGradient(
     colors = listOf(
-        Color(0xFFC80F32),
-        Color(0xFFF0443D),
-        Color(0xFFFF9B43),
-        Color(0xFFFFD06B)
+        Color(0xFF315C46),
+        Color(0xFFA7523B),
+        Color(0xFFB59A5A)
     )
 )
 

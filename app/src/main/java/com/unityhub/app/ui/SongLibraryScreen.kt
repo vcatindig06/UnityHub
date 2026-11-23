@@ -747,16 +747,16 @@ private fun SongEditor(
                     },
                     enabled = !saving
                 )
-            }
-        }
-        if (chordpro.isNotBlank()) {
-            item(key = "song-editor-item-6") {
+                Spacer(Modifier.height(10.dp))
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text("Live chart preview", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         ChordProPreview(source = chordpro, maxLines = 8)
                     }

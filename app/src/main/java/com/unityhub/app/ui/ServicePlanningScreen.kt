@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -367,7 +368,7 @@ fun ServicePlanningScreen(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -379,7 +380,7 @@ fun ServicePlanningScreen(
                     Column(Modifier.weight(1f)) {
                         Text("Service planning", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         Text(
-                            "${plans.size} planned services · Build and organize your setlists",
+                            "${plans.size} planned services",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -436,11 +437,6 @@ fun ServicePlanningScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
-                            Text(
-                                "Service details and saved setlists are available offline. Changes require an internet connection.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
                         }
                     }
                 }
@@ -452,25 +448,29 @@ fun ServicePlanningScreen(
 
         if (!offlineOnly && !usingOfflineCopy) {
             item {
-                androidx.compose.material3.OutlinedButton(
-                    onClick = { rehearsalsOpen = true },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !saving
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = null)
-                    Spacer(Modifier.size(8.dp))
-                    Text("Rehearsals · Availability & attendance")
-                }
-            }
-        }
-
-        if (canManage) {
-            item {
-                androidx.compose.material3.OutlinedButton(
-                    onClick = { assignmentOverviewOpen = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Assignment overview · Response tracker")
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { rehearsalsOpen = true },
+                        modifier = Modifier.weight(1f),
+                        enabled = !saving
+                    ) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = null)
+                        Spacer(Modifier.size(6.dp))
+                        Text("Rehearsals")
+                    }
+                    if (canManage) {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { assignmentOverviewOpen = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Groups, contentDescription = null)
+                            Spacer(Modifier.size(6.dp))
+                            Text("Assignments")
+                        }
+                    }
                 }
             }
         }
@@ -485,11 +485,10 @@ fun ServicePlanningScreen(
             item {
                 Card(shape = RoundedCornerShape(18.dp)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("No services planned yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("No services planned", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(
-                            if (canManage) "Create your first service, set its date and time, then build the order of worship."
-                            else "A team administrator or worship leader can create service plans for your team.",
+                            if (canManage) "Create a service to get started."
+                            else "A team leader can create a service plan.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -530,7 +529,7 @@ fun ServicePlanningScreen(
                 }
             } else {
                 Text(
-                    "Reconnect and refresh your workspace to sync the latest service plans.",
+                    "Offline · refresh when connected.",
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
@@ -559,7 +558,6 @@ private fun ServicePlanCard(plan: ServicePlanDto, onClick: () -> Unit) {
             if (plan.notes.isNotBlank()) {
                 Text(plan.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
             }
-            Text("Open service plan", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
