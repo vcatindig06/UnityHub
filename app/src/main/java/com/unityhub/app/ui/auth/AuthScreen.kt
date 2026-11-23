@@ -1,12 +1,6 @@
 package com.unityhub.app.ui.auth
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,19 +24,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MailOutline
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -65,14 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -90,10 +70,6 @@ import io.github.jan.supabase.auth.providers.Github
 import io.github.jan.supabase.auth.providers.OAuthProvider
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.launch
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.random.Random
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -183,16 +159,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                 modifier = Modifier
                     .weight(if (wideLayout) 1.04f else 1f)
                     .fillMaxHeight()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                ButterCreamLight,
-                                ButterCreamLight,
-                                ButterCream,
-                                ButterCreamLight
-                            )
-                        )
-                    )
+                    .background(ButterCreamLight)
             ) {
                 Row(
                     modifier = Modifier
@@ -206,13 +173,6 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                         Spacer(Modifier.width(11.dp))
                         UnityHubWordmark(baseColor = Slate900, fontSize = 21.sp)
                     }
-                    Text(
-                        "WORSHIP TEAM WORKSPACE",
-                        color = Slate500,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.15.sp
-                    )
                 }
 
                 Box(
@@ -242,11 +202,8 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            if (creating) {
-                                "Join your worship team and keep every part of ministry in sync."
-                            } else {
-                                "Sign in to continue planning, organizing songs, and serving together."
-                            },
+                            if (creating) "Set up your UnityHub account."
+                            else "Sign in to your team workspace.",
                             color = Slate500,
                             fontSize = 14.sp,
                             lineHeight = 21.sp
@@ -260,22 +217,13 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                     modifier = Modifier.weight(1f),
                                     enabled = !loading,
                                     onClick = { startOAuth(GoogleOAuthProvider, "Google") }
-                                ) {
-                                    Text(
-                                        "G",
-                                        color = Color(0xFF4285F4),
-                                        fontSize = 19.sp,
-                                        fontWeight = FontWeight.ExtraBold
-                                    )
-                                }
+                                )
                                 SocialAuthButton(
                                     label = "GitHub",
                                     modifier = Modifier.weight(1f),
                                     enabled = !loading,
                                     onClick = { startOAuth(Github, "GitHub") }
-                                ) {
-                                    Icon(Icons.Filled.Code, contentDescription = null, tint = Slate900)
-                                }
+                                )
                             }
 
                             Spacer(Modifier.height(23.dp))
@@ -291,15 +239,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                 value = displayNameInput,
                                 onValueChange = { displayNameInput = it },
                                 placeholder = "Your name",
-                                leadingIcon = { focused ->
-                                    Icon(
-                                        Icons.Filled.Groups,
-                                        contentDescription = null,
-                                        tint = if (focused) Terracotta else Slate400,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                },
-                                keyboardOptions = KeyboardOptions(
+                                                    keyboardOptions = KeyboardOptions(
                                     capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
                                     imeAction = ImeAction.Next
                                 ),
@@ -313,15 +253,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                             value = emailInput,
                             onValueChange = { emailInput = it },
                             placeholder = "you@example.com",
-                            leadingIcon = { focused ->
-                                Icon(
-                                    Icons.Filled.MailOutline,
-                                    contentDescription = null,
-                                    tint = if (focused) Terracotta else Slate400,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
+                                            keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Email,
                                 imeAction = ImeAction.Next
                             ),
@@ -334,15 +266,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                             value = passwordInput,
                             onValueChange = { passwordInput = it },
                             placeholder = "Enter your password",
-                            leadingIcon = { focused ->
-                                Icon(
-                                    Icons.Filled.Lock,
-                                    contentDescription = null,
-                                    tint = if (focused) Terracotta else Slate400,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
+                                            keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Password,
                                 imeAction = if (creating) ImeAction.Next else ImeAction.Done
                             ),
@@ -375,15 +299,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                 value = confirmInput,
                                 onValueChange = { confirmInput = it },
                                 placeholder = "Re-enter your password",
-                                leadingIcon = { focused ->
-                                    Icon(
-                                        Icons.Filled.Lock,
-                                        contentDescription = null,
-                                        tint = if (focused) Terracotta else Slate400,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                },
-                                keyboardOptions = KeyboardOptions(
+                                                    keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Password,
                                     imeAction = ImeAction.Done
                                 ),
@@ -433,13 +349,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(
-                                    "Your session stays active until you sign out.",
-                                    color = Slate500,
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                Spacer(Modifier.weight(1f))
                                 TextButton(
                                     onClick = {
                                         notice = ""
@@ -632,8 +542,7 @@ private fun SocialAuthButton(
     label: String,
     modifier: Modifier = Modifier,
     enabled: Boolean,
-    onClick: () -> Unit,
-    icon: @Composable () -> Unit
+    onClick: () -> Unit
 ) {
     OutlinedButton(
         onClick = onClick,
@@ -648,8 +557,6 @@ private fun SocialAuthButton(
         ),
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
     ) {
-        icon()
-        Spacer(Modifier.width(9.dp))
         Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -679,7 +586,7 @@ private fun AuthField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
-    leadingIcon: @Composable (Boolean) -> Unit,
+    leadingIcon: (@Composable (Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
@@ -719,8 +626,10 @@ private fun AuthField(
                 .padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            leadingIcon(focused)
-            Spacer(Modifier.width(11.dp))
+            if (leadingIcon != null) {
+                leadingIcon(focused)
+                Spacer(Modifier.width(8.dp))
+            }
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
@@ -769,16 +678,8 @@ private fun GradientAuthButton(
         modifier = Modifier
             .fillMaxWidth()
             .height(54.dp)
-            .shadow(
-                elevation = if (enabled) 12.dp else 0.dp,
-                shape = shape,
-                ambientColor = TerracottaSoft.copy(alpha = 0.30f),
-                spotColor = TerracottaSoft.copy(alpha = 0.38f)
-            )
             .clip(shape)
-            .background(
-                Brush.verticalGradient(listOf(ForestGreen, ForestGreenDeep))
-            )
+            .background(ForestGreen)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 18.dp),
         horizontalArrangement = Arrangement.Center,
@@ -797,13 +698,6 @@ private fun GradientAuthButton(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(Modifier.width(10.dp))
-            Icon(
-                Icons.Filled.ArrowForward,
-                contentDescription = null,
-                tint = ButterCreamLight,
-                modifier = Modifier.size(17.dp)
-            )
         }
     }
 }
@@ -812,421 +706,58 @@ private fun GradientAuthButton(
 private fun BrandPanel(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
+            .fillMaxSize()
             .background(ForestGreenDeep)
-            .clip(RoundedCornerShape(0.dp))
     ) {
-        BrandAuroraBackground(Modifier.fillMaxSize())
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 48.dp, vertical = 46.dp),
+                .padding(horizontal = 44.dp, vertical = 44.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(11.dp)
-                ) {
-                    UnityHubLogoMark(Modifier.size(46.dp), contentDescription = null)
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        UnityHubWordmark(baseColor = ButterCreamLight, fontSize = 20.sp)
-                        Text(
-                            "PLAN · LEAD · WORSHIP · TOGETHER",
-                            color = Slate300,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.75.sp
-                        )
-                    }
-                }
-                Surface(
-                    color = ButterCreamLight.copy(alpha = 0.07f),
-                    shape = CircleShape,
-                    border = BorderStroke(1.dp, ButterCreamLight.copy(alpha = 0.14f))
-                ) {
-                    Text(
-                        "MADE FOR WORSHIP TEAMS",
-                        color = MutedGoldBright,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.75.sp,
-                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp)
-                    )
-                }
+                UnityHubLogoMark(Modifier.size(42.dp), contentDescription = null)
+                UnityHubWordmark(baseColor = ButterCreamLight, fontSize = 20.sp)
             }
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(25.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "One team.\\nOne purpose.\\nIn unity.",
-                        color = ButterCreamLight,
-                        fontSize = 36.sp,
-                        lineHeight = 43.sp,
-                        letterSpacing = (-1.2).sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        "Plan every service, organize every song, and keep your people connected in one place.",
-                        color = Slate300,
-                        fontSize = 15.sp,
-                        lineHeight = 24.sp,
-                        modifier = Modifier.widthIn(max = 390.dp)
-                    )
-                }
-
-                ShowcaseCard()
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                listOf("T", "S", "P").forEachIndexed { index, letter ->
-                    Box(
-                        modifier = Modifier
-                            .offset(x = if (index == 0) 0.dp else (-5).dp)
-                            .size(35.dp)
-                            .clip(CircleShape)
-                            .background(
-                                listOf(ForestGreen, Terracotta, TerracottaSoft)[index]
-                            )
-                            .border(2.dp, ForestGreenDeep, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            letter,
-                            color = ButterCreamLight,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                Spacer(Modifier.width(15.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        repeat(5) {
-                            Text("★", color = MutedGold, fontSize = 12.sp)
-                        }
-                    }
-                    Text(
-                        "Teams, songs, and service plans in sync.",
-                        color = Slate300,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Native Compose aurora using UnityHub's forest green, terracotta, and muted gold brand gradient.
- * Each light blade drifts and breathes independently behind the brand-panel content.
- * The mobile form uses the same warm brand accents for a consistent experience.
- */
-@Composable
-private fun BrandAuroraBackground(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "unityhub-brand-aurora")
-
-    val slowDrift by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 22_000, easing = LinearEasing)
-        ),
-        label = "aurora-slow-drift"
-    )
-    val middleDrift by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 18_000, easing = LinearEasing)
-        ),
-        label = "aurora-middle-drift"
-    )
-    val quickDrift by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 15_000, easing = LinearEasing)
-        ),
-        label = "aurora-quick-drift"
-    )
-
-    // A fixed seed keeps the fine film grain stable while the light itself moves.
-    val grain = remember {
-        val random = Random(2_026)
-        List(230) {
-            GrainPoint(
-                x = random.nextFloat(),
-                y = random.nextFloat(),
-                radius = 0.35f + random.nextFloat() * 0.55f,
-                alpha = 0.018f + random.nextFloat() * 0.025f
-            )
-        }
-    }
-
-    Canvas(modifier = modifier) {
-        val panelWidth = size.width
-        val panelHeight = size.height
-        val twoPi = (2.0 * PI).toFloat()
-
-        val forest = ForestGreen
-        val terracotta = Terracotta
-        val gold = MutedGold
-
-        fun drawBlade(
-            start: Offset,
-            end: Offset,
-            pulse: Float,
-            widthFactor: Float
-        ) {
-            val bladeBrush = Brush.linearGradient(
-                colorStops = arrayOf(
-                    0.00f to Color.Transparent,
-                    0.13f to forest.copy(alpha = 0.12f),
-                    0.36f to forest.copy(alpha = 0.48f),
-                    0.58f to terracotta.copy(alpha = 0.43f),
-                    0.79f to gold.copy(alpha = 0.25f),
-                    1.00f to Color.Transparent
-                ),
-                start = start,
-                end = end
-            )
-
-            // Broad low-opacity bloom provides the soft-focus edge of the blade.
-            drawLine(
-                brush = bladeBrush,
-                start = start,
-                end = end,
-                strokeWidth = panelWidth * widthFactor * 2.7f,
-                cap = StrokeCap.Round,
-                alpha = pulse * 0.30f,
-                blendMode = BlendMode.Screen
-            )
-            // Narrower centre line keeps the warm light visible without overpowering text.
-            drawLine(
-                brush = bladeBrush,
-                start = start,
-                end = end,
-                strokeWidth = panelWidth * widthFactor,
-                cap = StrokeCap.Round,
-                alpha = pulse * 0.78f,
-                blendMode = BlendMode.Screen
-            )
-        }
-
-        // 22-second upper blade. The first frame starts at full bloom.
-        val slowAngle = slowDrift * twoPi
-        val slowShift = sin(slowAngle)
-        val slowPulse = 0.84f + 0.16f * ((cos(slowAngle) + 1f) / 2f)
-        drawBlade(
-            start = Offset(
-                -panelWidth * 0.18f + slowShift * panelWidth * 0.045f,
-                panelHeight * 0.40f + cos(slowAngle) * panelHeight * 0.025f
-            ),
-            end = Offset(
-                panelWidth * 1.16f + slowShift * panelWidth * 0.045f,
-                panelHeight * 0.06f - cos(slowAngle) * panelHeight * 0.025f
-            ),
-            pulse = slowPulse,
-            widthFactor = 0.095f * (1f + 0.035f * slowShift)
-        )
-
-        // 18-second middle blade moves on its own loop.
-        val middleAngle = middleDrift * twoPi
-        val middleShift = sin(middleAngle)
-        val middlePulse = 0.82f + 0.18f * ((cos(middleAngle) + 1f) / 2f)
-        drawBlade(
-            start = Offset(
-                -panelWidth * 0.16f + middleShift * panelWidth * 0.055f,
-                panelHeight * 0.82f + cos(middleAngle) * panelHeight * 0.035f
-            ),
-            end = Offset(
-                panelWidth * 1.14f + middleShift * panelWidth * 0.055f,
-                panelHeight * 0.40f - cos(middleAngle) * panelHeight * 0.035f
-            ),
-            pulse = middlePulse,
-            widthFactor = 0.075f * (1f + 0.04f * middleShift)
-        )
-
-        // 15-second lower blade adds a slower secondary glow near the panel edge.
-        val quickAngle = quickDrift * twoPi
-        val quickShift = sin(quickAngle)
-        val quickPulse = 0.80f + 0.20f * ((cos(quickAngle) + 1f) / 2f)
-        drawBlade(
-            start = Offset(
-                -panelWidth * 0.12f + quickShift * panelWidth * 0.04f,
-                panelHeight * 1.02f + cos(quickAngle) * panelHeight * 0.025f
-            ),
-            end = Offset(
-                panelWidth * 1.10f + quickShift * panelWidth * 0.04f,
-                panelHeight * 0.76f - cos(quickAngle) * panelHeight * 0.025f
-            ),
-            pulse = quickPulse,
-            widthFactor = 0.060f * (1f + 0.035f * quickShift)
-        )
-
-        // Fine neutral grid.
-        val gridStep = 56.dp.toPx()
-        var gridX = 0f
-        while (gridX <= panelWidth) {
-            drawLine(
-                color = ButterCreamLight.copy(alpha = 0.025f),
-                start = Offset(gridX, 0f),
-                end = Offset(gridX, panelHeight),
-                strokeWidth = 1.dp.toPx()
-            )
-            gridX += gridStep
-        }
-        var gridY = 0f
-        while (gridY <= panelHeight) {
-            drawLine(
-                color = ButterCreamLight.copy(alpha = 0.025f),
-                start = Offset(0f, gridY),
-                end = Offset(panelWidth, gridY),
-                strokeWidth = 1.dp.toPx()
-            )
-            gridY += gridStep
-        }
-
-        // Subtle film grain: deterministic speckles, not a distracting star field.
-        grain.forEach { point ->
-            drawCircle(
-                color = ButterCreamLight.copy(alpha = point.alpha),
-                radius = point.radius.dp.toPx(),
-                center = Offset(point.x * panelWidth, point.y * panelHeight)
-            )
-        }
-
-        // Vignette keeps the copy and service preview legible over the light blades.
-        drawRect(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    Color.Transparent,
-                    Color(0xB8193B2B)
-                ),
-                center = Offset(panelWidth * 0.52f, panelHeight * 0.48f),
-                radius = maxOf(panelWidth, panelHeight) * 0.78f
-            )
-        )
-    }
-}
-
-private data class GrainPoint(
-    val x: Float,
-    val y: Float,
-    val radius: Float,
-    val alpha: Float
-)
-
-@Composable
-private fun ShowcaseCard() {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .widthIn(max = 420.dp)
-            .shadow(28.dp, RoundedCornerShape(20.dp)),
-        color = ButterCreamLight.copy(alpha = 0.055f),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, ButterCreamLight.copy(alpha = 0.13f))
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(11.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(39.dp)
-                        .clip(RoundedCornerShape(11.dp))
-                        .background(TerracottaSoft.copy(alpha = 0.18f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.CalendarMonth,
-                        contentDescription = null,
-                        tint = MutedGoldBright,
-                        modifier = Modifier.size(21.dp)
-                    )
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Your next service", color = ButterCreamLight, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Text("SERVICE PLAN PREVIEW", color = Slate400, fontSize = 9.sp, letterSpacing = 1.sp)
-                }
-                Surface(
-                    color = TerracottaSoft.copy(alpha = 0.16f),
-                    shape = CircleShape
-                ) {
-                    Text(
-                        "READY",
-                        color = MutedGoldBright,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
-                    )
-                }
+                        .width(44.dp)
+                        .height(3.dp)
+                        .background(Terracotta)
+                )
+                Text(
+                    "Plan. Lead. Worship.",
+                    color = ButterCreamLight,
+                    fontSize = 34.sp,
+                    lineHeight = 40.sp,
+                    letterSpacing = (-0.8).sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Songs, services and team coordination in one workspace.",
+                    color = Slate300,
+                    fontSize = 15.sp,
+                    lineHeight = 23.sp,
+                    modifier = Modifier.widthIn(max = 390.dp)
+                )
             }
 
-            Box(Modifier.fillMaxWidth().height(1.dp).background(ButterCreamLight.copy(alpha = 0.10f)))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Filled.MusicNote, contentDescription = null, tint = MutedGoldBright, modifier = Modifier.size(17.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Song set and team assignments", color = Slate200, fontSize = 11.sp)
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.fillMaxWidth(0.82f).height(7.dp).clip(CircleShape).background(ButterCreamLight.copy(alpha = 0.17f)))
-                Box(Modifier.fillMaxWidth(0.56f).height(7.dp).clip(CircleShape).background(ButterCreamLight.copy(alpha = 0.10f)))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                repeat(3) { index ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                if (index == 0) {
-                                    Brush.linearGradient(
-                                        listOf(
-                                            MutedGold.copy(alpha = 0.32f),
-                                            ForestGreen.copy(alpha = 0.12f)
-                                        )
-                                    )
-                                } else {
-                                    Brush.linearGradient(
-                                        listOf(
-                                            ButterCreamLight.copy(alpha = 0.08f),
-                                            ButterCreamLight.copy(alpha = 0.035f)
-                                        )
-                                    )
-                                }
-                            )
-                            .border(1.dp, ButterCreamLight.copy(alpha = 0.07f), RoundedCornerShape(10.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (index == 0) {
-                            Icon(Icons.Filled.Groups, contentDescription = null, tint = MutedGoldBright, modifier = Modifier.size(20.dp))
-                        } else {
-                            Box(Modifier.size(16.dp).border(1.dp, ButterCreamLight.copy(alpha = 0.25f), CircleShape))
-                        }
-                    }
-                }
-            }
+            Text(
+                "UNITYHUB",
+                color = Slate400,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 1.sp
+            )
         }
     }
 }
+

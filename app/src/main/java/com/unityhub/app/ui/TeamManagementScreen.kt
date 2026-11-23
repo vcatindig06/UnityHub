@@ -350,51 +350,13 @@ fun TeamManagementScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Team", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text(
-                    "Member profiles, ministry roles, and join requests for your worship team.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                TeamSummaryCard("Members", members.size.toString(), Modifier.weight(1f))
-                TeamSummaryCard(
-                    "Ministry roles",
-                    positions.size.toString(),
-                    Modifier.weight(1f)
-                )
-                if (workspace.role == "admin") {
-                    TeamSummaryCard(
-                        "Requests",
-                        workspace.pendingRequests.size.toString(),
-                        Modifier.weight(1f),
-                        emphasize = workspace.pendingRequests.isNotEmpty()
-                    )
-                }
-            }
-        }
-
-        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Members", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(
-                        "Names and ministry responsibilities",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("Members · ${members.size}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = { refresh() }, enabled = !dataLoading && !saving) {
                     Icon(Icons.Default.Refresh, contentDescription = null)
@@ -474,11 +436,6 @@ fun TeamManagementScreen(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Text(
-                        "Try another name or ministry position, or clear the filters.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                     TextButton(
                         onClick = {
                             memberSearchQuery = ""
@@ -534,7 +491,7 @@ fun TeamManagementScreen(
                     ) {
                         Text("Organization ownership", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Transfer the organization to another existing team member. The new owner becomes an administrator, and your account remains in the team as a Team Member.",
+                            "The new owner becomes an administrator. Your account remains a Team Member.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -556,11 +513,6 @@ fun TeamManagementScreen(
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text("Ministry positions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(
-                            "Create, rename, and remove reusable roles for service assignments.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                     Button(onClick = { addPositionOpen = true }, enabled = !saving) {
                         Icon(Icons.Default.Add, contentDescription = null)
@@ -574,11 +526,6 @@ fun TeamManagementScreen(
                     Card(shape = RoundedCornerShape(15.dp)) {
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text("No ministry positions yet", fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "Create roles such as Worship Leader, Vocalist, Guitarist, Keys, Bass, or Drums. You can then assign one or more positions to each member.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                     }
                 }
@@ -635,11 +582,6 @@ fun TeamManagementScreen(
             item {
                 Spacer(Modifier.height(4.dp))
                 Text("Join requests (${workspace.pendingRequests.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    "Approve a request to add the person as a Team Member, or decline it.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
             if (workspace.pendingRequests.isEmpty()) {
                 item {
@@ -1107,35 +1049,6 @@ private fun TeamJoinRequestCard(
                     Text("Decline")
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun TeamSummaryCard(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-    emphasize: Boolean = false
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (emphasize) MaterialTheme.colorScheme.secondaryContainer
-            else MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

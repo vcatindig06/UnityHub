@@ -14,6 +14,16 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] **State feedback baseline:** preserve visible loading, empty, offline, and retry/error states already implemented across the dashboard, songs, services, notifications, and team workflows.
 - [x] **Form feedback baseline:** preserve Material 3 labels, supporting text, invalid states, disabled submit states, and progress feedback in existing forms.
 
+## Visual restraint and product credibility
+
+- Prefer clear hierarchy, alignment, and restrained surfaces over stacked cards, floating tiles, glass effects, or decorative gradients.
+- Do not use emoji, unicode stars, fake ratings, avatar clusters, mock activity, testimonials, or placeholder dashboard artwork as decoration.
+- Use Material vector icons for recognisable actions and navigation only; avoid repeated decorative icons in content rows.
+- Remove helper copy when the heading, field label, button, or current state already explains the same thing.
+- Avoid uppercase micro-labels, artificial slogans, redundant badges, and repeated calls to action.
+- Keep empty states factual and brief. Do not add paragraphs that explain obvious next steps.
+- Keep motion purposeful; avoid ambient animated backgrounds and effects that do not communicate state.
+
 ## Required for every new or substantially revised screen
 
 - [ ] Keep the primary task and next action visually obvious.
@@ -26,7 +36,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [ ] Validate input before submission and retain form values when an action fails.
 - [ ] Keep destructive actions separate and confirm irreversible operations.
 - [ ] Check keyboard/IME behavior so primary form actions remain reachable.
-- [ ] Avoid unnecessary animation; animations must not block input or essential information.
+- [ ] Avoid decorative animation, excessive shadows, gradients, and corner radii; use them only when they support hierarchy or feedback.
 
 ## Release validation
 
