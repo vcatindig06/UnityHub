@@ -10,14 +10,19 @@ Use this checklist on a physical Android device before release. Automated compil
 4. Activate it and confirm the state changes to **Expanded**.
 5. Move through the member list and confirm each member's name and selection state are announced once, without duplicate nested click targets.
 6. Confirm icon-only controls elsewhere announce an action rather than an icon name.
+7. Open Notifications and confirm the page title and each notification title are announced as headings.
+8. Move through the All/Unread filters and Mark all read action; confirm each control is announced once with its visible label and selected/disabled state.
+9. Open the Offline workspace and confirm Try online and Sign out remain separately reachable after the offline explanation.
 
 ## Font scaling and narrow layouts
 
 1. Test the smallest supported phone width.
 2. Set Android display/font size to at least 1.3x, then repeat at 2.0x where the device permits.
-3. Check long member names, rehearsal titles, locations, and translated-length labels.
+3. Check long member names, rehearsal titles, notification titles/messages, organization names, locations, and translated-length labels.
 4. Confirm text wraps, controls remain reachable, and no essential content is clipped or hidden behind the keyboard or system navigation.
 5. Confirm the screen can scroll to every action and dialog button.
+6. In Notifications, confirm All/Unread filters and Mark all read do not compete for the same horizontal space.
+7. In Offline workspace, confirm the organization title and both account actions remain visible and usable at the smallest width.
 
 ## Touch and status feedback
 
