@@ -5,6 +5,8 @@ import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+private const val MAX_CHORDPRO_CHARACTERS = 1_048_576
+
 @Serializable
 data class SongDto(
     val id: String,
@@ -97,6 +99,9 @@ class SongRepository(private val client: SupabaseClient) {
     ) {
         require(title.trim().length in 1..200) { "Enter a song title (up to 200 characters)." }
         require(tempo == null || tempo in 20..300) { "Tempo must be between 20 and 300 BPM." }
+        require(chordpro.length <= MAX_CHORDPRO_CHARACTERS) {
+            "ChordPro charts must be 1 MB or smaller."
+        }
 
         if (existingId == null) {
             client.from("songs").insert(

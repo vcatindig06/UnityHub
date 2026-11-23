@@ -67,7 +67,12 @@ fun SongChartScreen(
         document = null
         chartError = null
         val result = withContext(Dispatchers.Default) {
-            runCatching { ChordProParser.parse(song.chordpro) }
+            runCatching {
+                require(song.chordpro.length <= 1_048_576) {
+                    "The saved chart is larger than UnityHub can display."
+                }
+                ChordProParser.parse(song.chordpro)
+            }
         }
         result.onSuccess { document = it }
             .onFailure { chartError = "This song chart could not be read. Edit the song and check its ChordPro text." }

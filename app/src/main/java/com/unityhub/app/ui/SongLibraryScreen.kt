@@ -69,6 +69,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+private const val MAX_CHORDPRO_CHARACTERS = 1_048_576
+
 @Composable
 fun SongLibraryScreen(
     organizationId: String,
@@ -303,7 +305,14 @@ fun SongLibraryScreen(
             timeSignature = timeSignature,
             onTimeSignatureChange = { timeSignature = it },
             chordpro = chordpro,
-            onChordproChange = { chordpro = it },
+            onChordproChange = {
+                if (it.length <= MAX_CHORDPRO_CHARACTERS) {
+                    chordpro = it
+                    error = ""
+                } else {
+                    error = "ChordPro charts must be 1 MB or smaller."
+                }
+            },
             notes = notes,
             onNotesChange = { notes = it },
             error = error,
