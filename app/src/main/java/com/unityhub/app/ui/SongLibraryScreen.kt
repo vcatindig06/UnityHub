@@ -90,6 +90,8 @@ fun SongLibraryScreen(
     val canEdit = SongLibraryRules.canEditSongs(role, offlineOnly, usingOfflineCopy)
 
     var songs by remember { mutableStateOf<List<SongDto>>(emptyList()) }
+    var filteredSongs by remember { mutableStateOf<List<SongDto>>(emptyList()) }
+    var filteringSongs by remember { mutableStateOf(true) }
     var favoriteSongIds by remember(organizationId, userId) { mutableStateOf<Set<String>>(emptySet()) }
     var favoriteFilter by rememberSaveable { mutableStateOf(false) }
     var favoriteSavingIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -269,6 +271,22 @@ fun SongLibraryScreen(
 
     LaunchedEffect(organizationId, userId, offlineOnly) { reload() }
 
+    LaunchedEffect(songs, search, favoriteFilter, favoriteSongIds) {
+        filteringSongs = true
+        try {
+            filteredSongs = withContext(Dispatchers.Default) {
+                SongLibraryRules.filterSongs(
+                    songs = songs,
+                    searchQuery = search,
+                    favoritesOnly = favoriteFilter,
+                    favoriteSongIds = favoriteSongIds
+                )
+            }
+        } finally {
+            filteringSongs = false
+        }
+    }
+
     selectedSong?.let { song ->
         SongChartScreen(song = song, onBack = { selectedSong = null }, modifier = modifier)
         return
@@ -381,12 +399,6 @@ fun SongLibraryScreen(
             }
         )
     } else {
-        val filteredSongs = SongLibraryRules.filterSongs(
-            songs = songs,
-            searchQuery = search,
-            favoritesOnly = favoriteFilter,
-            favoriteSongIds = favoriteSongIds
-        )
         val favoriteCount = songs.count { it.id in favoriteSongIds }
 
         LazyColumn(
@@ -489,10 +501,18 @@ fun SongLibraryScreen(
                     }
                 }
             }
-            if (loading) {
+            if (loading || filteringSongs) {
                 item {
-                    Column(Modifier.fillMaxWidth().padding(32.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(32.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         CircularProgressIndicator(Modifier.size(28.dp))
+                        Text(
+                            if (loading) "Loading songs…" else "Searching song library…",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             } else if (filteredSongs.isEmpty()) {
