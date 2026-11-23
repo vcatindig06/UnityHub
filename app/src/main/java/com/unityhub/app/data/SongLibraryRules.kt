@@ -40,7 +40,9 @@ internal object SongLibraryRules {
                 song.title.contains(query, ignoreCase = true) ||
                 song.artist.contains(query, ignoreCase = true) ||
                 song.keySignature.contains(query, ignoreCase = true) ||
-                song.timeSignature.contains(query, ignoreCase = true)
+                song.timeSignature.contains(query, ignoreCase = true) ||
+                song.chordpro.contains(query, ignoreCase = true) ||
+                song.notes.contains(query, ignoreCase = true)
 
             matchesSearch && (!favoritesOnly || song.id in favoriteSongIds)
         }
