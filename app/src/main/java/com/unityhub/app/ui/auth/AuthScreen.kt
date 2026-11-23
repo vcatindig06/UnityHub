@@ -815,7 +815,7 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
             .background(ForestGreenDeep)
             .clip(RoundedCornerShape(0.dp))
     ) {
-        WarmAuroraBackground(Modifier.fillMaxSize())
+        BrandAuroraBackground(Modifier.fillMaxSize())
 
         Column(
             modifier = Modifier
@@ -928,12 +928,12 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
 }
 
 /**
- * Native Compose aurora using UnityHub's crimson, coral, and amber brand gradient.
+ * Native Compose aurora using UnityHub's forest green, terracotta, and muted gold brand gradient.
  * Each light blade drifts and breathes independently behind the brand-panel content.
  * The mobile form uses the same warm brand accents for a consistent experience.
  */
 @Composable
-private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
+private fun BrandAuroraBackground(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "unityhub-brand-aurora")
 
     val slowDrift by transition.animateFloat(
@@ -979,9 +979,9 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
         val panelHeight = size.height
         val twoPi = (2.0 * PI).toFloat()
 
-        val crimson = ForestGreen
-        val coral = Terracotta
-        val amber = MutedGold
+        val forest = ForestGreen
+        val terracotta = Terracotta
+        val gold = MutedGold
 
         fun drawBlade(
             start: Offset,
@@ -992,10 +992,10 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
             val bladeBrush = Brush.linearGradient(
                 colorStops = arrayOf(
                     0.00f to Color.Transparent,
-                    0.13f to crimson.copy(alpha = 0.12f),
-                    0.36f to crimson.copy(alpha = 0.48f),
-                    0.58f to coral.copy(alpha = 0.43f),
-                    0.79f to amber.copy(alpha = 0.25f),
+                    0.13f to forest.copy(alpha = 0.12f),
+                    0.36f to forest.copy(alpha = 0.48f),
+                    0.58f to terracotta.copy(alpha = 0.43f),
+                    0.79f to gold.copy(alpha = 0.25f),
                     1.00f to Color.Transparent
                 ),
                 start = start,

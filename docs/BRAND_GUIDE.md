@@ -26,7 +26,7 @@ Light and dark appearances use the same four brand colors with adjusted contrast
 ## Clear space and use
 
 - Keep at least 12% of the mark width clear around the icon when placing it beside text.
-- Use the full-color mark on light or dark neutral surfaces; the mark itself carries its near-black rounded-square tile.
+- Use the full-color mark on light or dark neutral surfaces; the mark itself carries its deep forest-green rounded-square tile.
 - Use the adaptive icon foreground and dark background as separate layers for Android launchers.
 - Use the single-color white version for Android monochrome themed icons and status-bar notification glyphs.
 - Do not stretch, recolor individual letters, or place the mark over a busy photograph.
