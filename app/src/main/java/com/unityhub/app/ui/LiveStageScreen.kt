@@ -312,20 +312,22 @@ fun LiveStageScreen(
                         }
                     }
 
-                    when {
-                        chartLoading -> Text(
+                    if (chartLoading) {
+                        Text(
                             "Preparing song chart…",
                             color = StageSecondaryText,
                             fontSize = (21f * textScale).sp,
                             lineHeight = (30f * textScale).sp
                         )
-                        chartParseFailed -> Text(
+                    } else if (chartParseFailed) {
+                        Text(
                             "The saved song chart could not be displayed. Return to the service and reopen Live Stage.",
                             color = StageSecondaryText,
                             fontSize = (18f * textScale).sp,
                             lineHeight = (27f * textScale).sp
                         )
-                        document?.lines.isNullOrEmpty() -> Text(
+                    } else if (document?.lines.isNullOrEmpty()) {
+                        Text(
                             if (currentItem?.itemType == "song") {
                                 "No ChordPro chart was saved with this setlist item."
                             } else {
@@ -336,8 +338,8 @@ fun LiveStageScreen(
                             fontSize = (21f * textScale).sp,
                             lineHeight = (30f * textScale).sp
                         )
-                        else -> {
-                            document?.lines.orEmpty().forEach { line ->
+                    } else {
+                        document?.lines.orEmpty().forEach { line ->
                             when {
                                 line.section != null && line.lyrics.isBlank() -> {
                                     Text(
@@ -390,7 +392,6 @@ fun LiveStageScreen(
                                 }
                             }
                         }
-                    }
                     }
 
                     currentItem?.notes?.takeIf { it.isNotBlank() && document?.lines?.isNotEmpty() == true }?.let { notes ->
