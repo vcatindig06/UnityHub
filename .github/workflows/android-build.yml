@@ -129,22 +129,40 @@ jobs:
           if-no-files-found: error
 
       - name: Publish signed update to UnityHub storage
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         shell: bash
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           STABLE_SIGNING_ENABLED: ${{ steps.prepare-update-signing.outputs.enabled }}
         run: |
           set -euo pipefail
 
           if [[ "$STABLE_SIGNING_ENABLED" != "true" ]]; then
+            {
+              echo "## In-app update publication"
+              echo ""
+              echo "**Status:** Not published."
+              echo ""
+              echo "The APK was built for testing with a temporary debug signing key. Configure all four UNITYHUB_KEYSTORE_* Actions secrets before expecting in-app updates to work."
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "::warning::In-app publication skipped. Configure the four UNITYHUB_KEYSTORE_* secrets first; the current debug APK uses a temporary signing key."
             exit 0
           fi
-          if [[ -z "$SUPABASE_URL" || -z "$SUPABASE_SERVICE_ROLE_KEY" ]]; then
-            echo "::warning::In-app publication skipped. Configure SUPABASE_SERVICE_ROLE_KEY as a GitHub Actions secret."
+          if [[ -z "$SUPABASE_URL" || -z "$SUPABASE_SECRET_KEY" ]]; then
+            {
+              echo "## In-app update publication"
+              echo ""
+              echo "**Status:** Not published."
+              echo ""
+              echo "The persistent signing key is configured, but SUPABASE_SECRET_KEY is missing. Add the Supabase secret API key (sb_secret_...) as a GitHub Actions secret."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::In-app publication skipped. Configure SUPABASE_SECRET_KEY as a GitHub Actions secret."
             exit 0
+          fi
+          if [[ "$SUPABASE_SECRET_KEY" != sb_secret_* ]]; then
+            echo "::error::SUPABASE_SECRET_KEY must be a Supabase secret API key beginning with sb_secret_. Do not use a publishable key."
+            exit 1
           fi
 
           APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
@@ -162,8 +180,8 @@ jobs:
           APK_SIZE="$(stat -c '%s' "$APK_PATH")"
           STORAGE_BASE="${SUPABASE_URL%/}/storage/v1"
 
-          # Create the public read-only download bucket. Only this CI job has the
-          # service-role credential required to write new releases.
+          # Create the public read-only download bucket. Only this CI job has
+          # the Supabase secret API key required to write new releases.
           BUCKET_BODY="$(jq -nc --arg id "$BUCKET" '{
             id: $id,
             name: $id,
@@ -173,15 +191,13 @@ jobs:
           }')"
           BUCKET_STATUS="$(curl -sS -o "$RUNNER_TEMP/create-bucket.json" -w '%{http_code}' \
             -X POST "$STORAGE_BASE/bucket" \
-            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SECRET_KEY" \
             -H "Content-Type: application/json" \
             --data "$BUCKET_BODY")"
           if [[ "$BUCKET_STATUS" == "409" || "$BUCKET_STATUS" == "400" ]]; then
             UPDATE_STATUS="$(curl -sS -o "$RUNNER_TEMP/update-bucket.json" -w '%{http_code}' \
               -X PUT "$STORAGE_BASE/bucket/$BUCKET" \
-              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "apikey: $SUPABASE_SECRET_KEY" \
               -H "Content-Type: application/json" \
               --data "$BUCKET_BODY")"
             if [[ "$UPDATE_STATUS" != "200" ]]; then
@@ -197,8 +213,7 @@ jobs:
 
           APK_STATUS="$(curl -sS -o "$RUNNER_TEMP/upload-apk.json" -w '%{http_code}' \
             -X POST "$STORAGE_BASE/object/$BUCKET/$DOWNLOAD_PATH" \
-            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SECRET_KEY" \
             -H "Content-Type: application/vnd.android.package-archive" \
             -H "Cache-Control: public, max-age=31536000, immutable" \
             -H "x-upsert: true" \
@@ -239,8 +254,7 @@ jobs:
           # that has not finished uploading.
           MANIFEST_STATUS="$(curl -sS -o "$RUNNER_TEMP/upload-manifest.json" -w '%{http_code}' \
             -X POST "$STORAGE_BASE/object/$BUCKET/manifest.json" \
-            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SECRET_KEY" \
             -H "Content-Type: application/json" \
             -H "Cache-Control: public, max-age=300" \
             -H "x-upsert: true" \
@@ -256,4 +270,14 @@ jobs:
           jq -e --argjson versionCode "$VERSION_CODE" \
             '.latestVersionCode == $versionCode' \
             "$RUNNER_TEMP/published-manifest.json" > /dev/null
+          {
+            echo "## In-app update publication"
+            echo ""
+            echo "**Status:** Published successfully."
+            echo ""
+            echo "- Version: ${VERSION_NAME} (${VERSION_CODE})"
+            echo "- APK size: ${APK_SIZE} bytes"
+            echo "- SHA-256: ${APK_SHA256}"
+            echo "- Storage: unityhub-updates Supabase bucket"
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "Published UnityHub ${VERSION_NAME} (${VERSION_CODE}) to the internal Supabase update service."

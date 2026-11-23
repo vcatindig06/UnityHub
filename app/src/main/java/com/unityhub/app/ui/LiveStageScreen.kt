@@ -67,8 +67,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.unityhub.app.data.ServicePlanItemDto
+import com.unityhub.app.domain.chordpro.ChordProDocument
 import com.unityhub.app.domain.chordpro.ChordProParser
 import com.unityhub.app.domain.chordpro.ChordTransposer
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val autoScrollSpeeds = listOf(
     "Slow" to 14,
@@ -83,6 +87,12 @@ private val StageSecondaryText = Color(0xFFB7C8D3)
 private val StageAccent = Color(0xFF8FD4C1)
 private val StageChord = Color(0xFFFFD27D)
 private val StageDivider = Color(0xFF2B414F)
+
+private data class LoadedStageChart(
+    val itemId: String,
+    val source: String,
+    val document: ChordProDocument?
+)
 
 @Composable
 fun LiveStageScreen(
@@ -106,9 +116,34 @@ fun LiveStageScreen(
     val scrollState = rememberScrollState()
     val density = LocalDensity.current.density
     val currentItem = items.getOrNull(currentIndex)
-    val document = remember(currentItem?.id, currentItem?.chordproSnapshot) {
-        currentItem?.chordproSnapshot?.takeIf(String::isNotBlank)?.let(ChordProParser::parse)
+    val chartSource = currentItem?.chordproSnapshot?.takeIf(String::isNotBlank)
+    var loadedChart by remember(serviceTitle) {
+        mutableStateOf<LoadedStageChart?>(null)
     }
+
+    LaunchedEffect(currentItem?.id, chartSource) {
+        loadedChart = null
+        val itemId = currentItem?.id ?: return@LaunchedEffect
+        val source = chartSource ?: return@LaunchedEffect
+
+        val parsedDocument = try {
+            withContext(Dispatchers.Default) {
+                ChordProParser.parse(source)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+        loadedChart = LoadedStageChart(itemId, source, parsedDocument)
+    }
+
+    val currentLoadedChart = loadedChart?.takeIf {
+        it.itemId == currentItem?.id && it.source == chartSource
+    }
+    val document = currentLoadedChart?.document
+    val chartLoading = chartSource != null && currentLoadedChart == null
+    val chartParseFailed = currentLoadedChart != null && document == null
     val displayKey = ChordTransposer.transposeKey(document?.key, transpose)
 
     DisposableEffect(window, view) {
@@ -131,7 +166,7 @@ fun LiveStageScreen(
 
     BackHandler(onBack = onBack)
 
-    LaunchedEffect(currentIndex, autoScrollEnabled, autoScrollSpeedIndex) {
+    LaunchedEffect(currentIndex, autoScrollEnabled, autoScrollSpeedIndex, chartLoading) {
         if (lastAutoScrollIndex != currentIndex) {
             scrollState.scrollTo(0)
             transpose = 0
@@ -277,7 +312,21 @@ fun LiveStageScreen(
                         }
                     }
 
-                    if (document?.lines.isNullOrEmpty()) {
+                    if (chartLoading) {
+                        Text(
+                            "Preparing song chart…",
+                            color = StageSecondaryText,
+                            fontSize = (21f * textScale).sp,
+                            lineHeight = (30f * textScale).sp
+                        )
+                    } else if (chartParseFailed) {
+                        Text(
+                            "The saved song chart could not be displayed. Return to the service and reopen Live Stage.",
+                            color = StageSecondaryText,
+                            fontSize = (18f * textScale).sp,
+                            lineHeight = (27f * textScale).sp
+                        )
+                    } else if (document?.lines.isNullOrEmpty()) {
                         Text(
                             if (currentItem?.itemType == "song") {
                                 "No ChordPro chart was saved with this setlist item."
@@ -290,7 +339,7 @@ fun LiveStageScreen(
                             lineHeight = (30f * textScale).sp
                         )
                     } else {
-                        document.lines.forEach { line ->
+                        document?.lines.orEmpty().forEach { line ->
                             when {
                                 line.section != null && line.lyrics.isBlank() -> {
                                     Text(
