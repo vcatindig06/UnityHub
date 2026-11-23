@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.work.WorkInfo
@@ -382,7 +383,7 @@ fun HomeDashboardScreen(
                         Text("Loading your rehearsal schedule", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     nextRehearsal != null -> Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onOpenRehearsal(nextRehearsal.id) },
+                        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) { onOpenRehearsal(nextRehearsal.id) },
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
@@ -601,7 +602,7 @@ private fun MyUpcomingAssignmentCard(
     val canRespond = ServiceAssignmentRules.canRespondToService(item.servicePlan.status)
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(15.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -648,6 +649,14 @@ private fun MyUpcomingAssignmentCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(item.assignment.responseNote, style = MaterialTheme.typography.bodySmall)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onOpen) {
+                    Text("View service")
+                }
             }
             if (canRespond) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -712,7 +721,7 @@ private fun UpcomingServiceCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
