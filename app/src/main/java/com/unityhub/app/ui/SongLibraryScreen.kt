@@ -456,7 +456,7 @@ fun SongLibraryScreen(
                         value = search,
                         onValueChange = { search = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Search title, artist, key, or time signature") },
+                        label = { Text("Search titles, artists, lyrics, chords, or notes") },
                         singleLine = true
                     )
                     Row(
