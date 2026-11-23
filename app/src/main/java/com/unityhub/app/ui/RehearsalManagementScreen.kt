@@ -56,6 +56,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.unityhub.app.data.RehearsalAssignmentDto
@@ -774,7 +777,18 @@ private fun RehearsalEditorDialog(
                     enabled = !saving
                 )
                 HorizontalDivider()
-                Row(Modifier.fillMaxWidth().clickable { membersExpanded = !membersExpanded }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .clickable { membersExpanded = !membersExpanded }
+                        .semantics {
+                            role = Role.Button
+                            stateDescription = if (membersExpanded) "Expanded" else "Collapsed"
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Column {
                         Text("Invite team members", fontWeight = FontWeight.SemiBold)
                         Text("${selectedMemberIds.size} selected", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
