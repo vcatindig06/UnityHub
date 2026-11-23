@@ -150,7 +150,7 @@ Implemented workflows include:
 - A personal Home dashboard section for the signed-in member's upcoming service assignments, with role, service date, response status, and quick Confirm / Can't serve actions.
 - A Home dashboard card for the next scheduled rehearsal, linked directly to rehearsal details.
 - A notification center with individual and bulk mark-as-read actions plus an All / Unread filter; rehearsal invitations and availability responses are deep-linked to rehearsal details.
-- Organization-scoped rehearsal scheduling, team invitations, member availability responses, linked service plans, and leader-recorded attendance.
+- Organization-scoped rehearsal scheduling, team invitations, member availability responses, linked service plans, and leader-recorded attendance, with availability/attendance summaries and searchable, filterable rehearsal rosters.
 - An administrator and worship-leader assignment overview for upcoming services, with response totals, member/role/service search, and filters for awaiting, confirmed, and unable-to-serve replies.
 - A dedicated Account screen for updating the signed-in display name, reviewing workspace role and app version, managing Android notification settings, and checking UnityHub updates with an automatic-download preference and complete release history. New releases download directly from UnityHub-managed Supabase Storage; Android still requires the user to approve installation. Signing out requires confirmation before user-scoped offline copies are cleared.
 
