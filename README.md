@@ -139,7 +139,7 @@ Implemented workflows include:
 - Administrator approval or decline of join requests
 - Team directory with member display names, team access roles, and assigned ministry positions, including member search and ministry-position filters; admins and worship leaders can manage the reusable ministry position catalogue
 - Administrator-only member access controls for changing access roles and removing members, plus an atomic owner transfer that promotes the new owner and retains the previous owner as a Team Member
-- Song library search, editor-only song management, and personal per-member favorites with an All songs / Favorites filter
+- Song library search across titles, artists, keys, time signatures, ChordPro lyrics/chords, and song notes; editor-only song management; and personal per-member favorites with an All songs / Favorites filter. Search filtering runs off the UI thread so large charts do not block typing.
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
 - Read-only offline service plans, ordered setlists (including saved ChordPro snapshots), and the last-synced service team assignments with their response statuses and decline notes. Member confirmations and declines, including optional notes of up to 300 characters, can be queued offline and synchronized later without granting offline edit access to leaders or other members.
@@ -150,7 +150,7 @@ Implemented workflows include:
 - A personal Home dashboard section for the signed-in member's upcoming service assignments, with role, service date, response status, and quick Confirm / Can't serve actions.
 - A Home dashboard card for the next scheduled rehearsal, linked directly to rehearsal details.
 - A notification center with individual and bulk mark-as-read actions plus an All / Unread filter; rehearsal invitations and availability responses are deep-linked to rehearsal details.
-- Organization-scoped rehearsal scheduling, team invitations, member availability responses, linked service plans, and leader-recorded attendance.
+- Organization-scoped rehearsal scheduling, team invitations, member availability responses, linked service plans, and leader-recorded attendance, with availability/attendance summaries and searchable, filterable rehearsal rosters.
 - An administrator and worship-leader assignment overview for upcoming services, with response totals, member/role/service search, and filters for awaiting, confirmed, and unable-to-serve replies.
 - A dedicated Account screen for updating the signed-in display name, reviewing workspace role and app version, managing Android notification settings, and checking UnityHub updates with an automatic-download preference and complete release history. New releases download directly from UnityHub-managed Supabase Storage; Android still requires the user to approve installation. Signing out requires confirmation before user-scoped offline copies are cleared.
 

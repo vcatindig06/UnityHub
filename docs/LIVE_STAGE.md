@@ -31,6 +31,8 @@ Changing display settings does not edit saved ChordPro content. Auto-scroll is o
 - Keeps the display awake while Live Stage is open.
 - Restores system bars and the previous keep-screen-on state when closed.
 - Supports the currently loaded online or offline-cached setlist.
+- Parses the active ChordPro snapshot away from the UI thread. Switching setlist items cancels obsolete parsing, and auto-scroll waits until the selected chart is ready.
+- Shows a loading state while a chart is prepared and a readable fallback if a saved snapshot cannot be parsed.
 - Includes custom prayers, readings, announcements, and other non-song items in their original order.
 
 Songs without a saved ChordPro snapshot display a clear notice rather than an empty chart area.

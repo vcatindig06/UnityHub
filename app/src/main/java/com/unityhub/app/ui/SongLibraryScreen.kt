@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -59,20 +60,21 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import com.unityhub.app.data.SongDto
+import com.unityhub.app.data.SongEditorInputLimits
 import com.unityhub.app.data.SongLibraryRules
 import com.unityhub.app.data.SongRepository
 import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.domain.chordpro.ChordProParser
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
-private const val MAX_CHORDPRO_CHARACTERS = 1_048_576
 
 @Composable
 fun SongLibraryScreen(
@@ -91,6 +93,8 @@ fun SongLibraryScreen(
     val canEdit = SongLibraryRules.canEditSongs(role, offlineOnly, usingOfflineCopy)
 
     var songs by remember { mutableStateOf<List<SongDto>>(emptyList()) }
+    var filteredSongs by remember { mutableStateOf<List<SongDto>>(emptyList()) }
+    var filteringSongs by remember { mutableStateOf(true) }
     var favoriteSongIds by remember(organizationId, userId) { mutableStateOf<Set<String>>(emptySet()) }
     var favoriteFilter by rememberSaveable { mutableStateOf(false) }
     var favoriteSavingIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -234,13 +238,27 @@ fun SongLibraryScreen(
                     val source = context.contentResolver.openInputStream(uri)?.use(::readLimitedText)
                         ?: throw IllegalStateException("The selected file could not be opened.")
                     require(source.isNotBlank()) { "The selected file is empty." }
-                    val document = ChordProParser.parse(source)
+                    val document = withContext(Dispatchers.Default) {
+                        ChordProParser.parse(source)
+                    }
                     editingSong = null
-                    title = document.title ?: importedFileTitle(uri)
-                    artist = document.artist.orEmpty()
-                    keySignature = document.key.orEmpty()
+                    title = SongEditorInputLimits.limit(
+                        document.title ?: importedFileTitle(uri),
+                        SongEditorInputLimits.MAX_TITLE_CHARACTERS
+                    )
+                    artist = SongEditorInputLimits.limit(
+                        document.artist.orEmpty(),
+                        SongEditorInputLimits.MAX_ARTIST_CHARACTERS
+                    )
+                    keySignature = SongEditorInputLimits.limit(
+                        document.key.orEmpty(),
+                        SongEditorInputLimits.MAX_KEY_SIGNATURE_CHARACTERS
+                    )
                     tempo = document.tempo?.toString().orEmpty()
-                    timeSignature = document.timeSignature ?: "4/4"
+                    timeSignature = SongEditorInputLimits.limit(
+                        document.timeSignature ?: "4/4",
+                        SongEditorInputLimits.MAX_TIME_SIGNATURE_CHARACTERS
+                    )
                     chordpro = source
                     notes = ""
                     importMessage = "File imported. Review the song details and chart before saving."
@@ -255,6 +273,22 @@ fun SongLibraryScreen(
     }
 
     LaunchedEffect(organizationId, userId, offlineOnly) { reload() }
+
+    LaunchedEffect(songs, search, favoriteFilter, favoriteSongIds) {
+        filteringSongs = true
+        try {
+            filteredSongs = withContext(Dispatchers.Default) {
+                SongLibraryRules.filterSongs(
+                    songs = songs,
+                    searchQuery = search,
+                    favoritesOnly = favoriteFilter,
+                    favoriteSongIds = favoriteSongIds
+                )
+            }
+        } finally {
+            filteringSongs = false
+        }
+    }
 
     selectedSong?.let { song ->
         SongChartScreen(song = song, onBack = { selectedSong = null }, modifier = modifier)
@@ -298,26 +332,39 @@ fun SongLibraryScreen(
             isEditing = editingSong != null,
             saving = saving,
             title = title,
-            onTitleChange = { title = it },
+            onTitleChange = {
+                title = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_TITLE_CHARACTERS)
+            },
             artist = artist,
-            onArtistChange = { artist = it },
+            onArtistChange = {
+                artist = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_ARTIST_CHARACTERS)
+            },
             keySignature = keySignature,
-            onKeyChange = { keySignature = it },
+            onKeyChange = {
+                keySignature = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_KEY_SIGNATURE_CHARACTERS)
+            },
             tempo = tempo,
-            onTempoChange = { tempo = it.filter(Char::isDigit).take(3) },
+            onTempoChange = {
+                tempo = it.filter(Char::isDigit).take(SongEditorInputLimits.MAX_TEMPO_CHARACTERS)
+            },
             timeSignature = timeSignature,
-            onTimeSignatureChange = { timeSignature = it },
+            onTimeSignatureChange = {
+                timeSignature = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_TIME_SIGNATURE_CHARACTERS)
+            },
             chordpro = chordpro,
-            onChordproChange = {
-                if (it.length <= MAX_CHORDPRO_CHARACTERS) {
-                    chordpro = it
-                    error = ""
+            onChordproChange = { value ->
+                if (value.length > SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS) {
+                    chordpro = value.take(SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS)
+                    error = "ChordPro charts are limited to 1 MB. Remove some text before adding more."
                 } else {
-                    error = "ChordPro charts must be 1 MB or smaller."
+                    chordpro = value
+                    if (error.startsWith("ChordPro charts are limited")) error = ""
                 }
             },
             notes = notes,
-            onNotesChange = { notes = it },
+            onNotesChange = {
+                notes = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_NOTES_CHARACTERS)
+            },
             error = error,
             importMessage = importMessage,
             onCancel = { editorOpen = false },
@@ -355,12 +402,6 @@ fun SongLibraryScreen(
             }
         )
     } else {
-        val filteredSongs = SongLibraryRules.filterSongs(
-            songs = songs,
-            searchQuery = search,
-            favoritesOnly = favoriteFilter,
-            favoriteSongIds = favoriteSongIds
-        )
         val favoriteCount = songs.count { it.id in favoriteSongIds }
 
         LazyColumn(
@@ -430,7 +471,7 @@ fun SongLibraryScreen(
                         value = search,
                         onValueChange = { search = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Search title, artist, key, or time signature") },
+                        label = { Text("Search songs, lyrics, chords, or notes") },
                         singleLine = true
                     )
                     Row(
@@ -463,10 +504,18 @@ fun SongLibraryScreen(
                     }
                 }
             }
-            if (loading) {
+            if (loading || filteringSongs) {
                 item {
-                    Column(Modifier.fillMaxWidth().padding(32.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(32.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         CircularProgressIndicator(Modifier.size(28.dp))
+                        Text(
+                            if (loading) "Loading songs…" else "Searching song library…",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             } else if (filteredSongs.isEmpty()) {
@@ -692,10 +741,13 @@ private fun SongEditor(
                 OutlinedTextField(
                     value = chordpro,
                     onValueChange = onChordproChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 10,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 340.dp),
+                    minLines = 8,
                     maxLines = 18,
                     label = { Text("Paste or type ChordPro text") },
+                    supportingText = {
+                        Text("${chordpro.length} / ${SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS} characters · 1 MB maximum")
+                    },
                     enabled = !saving
                 )
                 Spacer(Modifier.height(10.dp))
@@ -740,7 +792,7 @@ private fun readLimitedText(input: InputStream): String {
         val count = input.read(buffer)
         if (count < 0) break
         totalBytes += count
-        require(totalBytes <= 1_048_576) { "ChordPro files must be 1 MB or smaller." }
+        require(totalBytes <= SongEditorInputLimits.MAX_CHORDPRO_BYTES) { "ChordPro files must be 1 MB or smaller." }
         output.write(buffer, 0, count)
     }
     return output.toByteArray().toString(StandardCharsets.UTF_8)

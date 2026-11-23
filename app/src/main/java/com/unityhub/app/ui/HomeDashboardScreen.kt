@@ -654,9 +654,7 @@ private fun MyUpcomingAssignmentCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                TextButton(onClick = onOpen) {
-                    Text("View service")
-                }
+                TextButton(onClick = onOpen) { Text("View service") }
             }
             if (canRespond) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

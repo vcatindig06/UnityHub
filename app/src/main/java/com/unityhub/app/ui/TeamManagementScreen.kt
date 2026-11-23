@@ -1,7 +1,6 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -996,8 +996,8 @@ private fun ManageMemberPositionsDialog(
                                     value = position.id in selectedIds,
                                     enabled = !saving,
                                     role = Role.Checkbox
-                                ) {
-                                    selectedIds = if (it) selectedIds + position.id
+                                ) { checked ->
+                                    selectedIds = if (checked) selectedIds + position.id
                                     else selectedIds - position.id
                                 }
                                 .padding(vertical = 4.dp),

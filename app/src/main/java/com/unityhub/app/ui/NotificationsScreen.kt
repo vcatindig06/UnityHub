@@ -33,9 +33,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.unityhub.app.data.NotificationDto
 import com.unityhub.app.data.NotificationRules
@@ -168,19 +168,13 @@ fun NotificationsScreen(
                     )
                 }
                 if (unreadCount > 0) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(
                             onClick = { markAllRead() },
                             enabled = !loading && !savingAll && savingIds.isEmpty()
                         ) {
-                            if (savingAll) {
-                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
-                            } else {
-                                Text("Mark all read")
-                            }
+                            if (savingAll) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                            else Text("Mark all read")
                         }
                     }
                 }

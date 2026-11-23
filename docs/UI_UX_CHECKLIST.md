@@ -33,12 +33,21 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [ ] Never use color alone to communicate status; pair color with text or an icon.
 - [ ] Support scrolling and Android's font scaling without clipping essential content.
 - [ ] Keep expandable rows and row-level selection controls at least 48 dp high, expose their role and expanded/selected state to TalkBack, and avoid duplicate nested click semantics.
-- [ ] Check narrow-width layouts with long names, translated labels, and 1.3x–2.0x system font scale; allow text to wrap rather than forcing fixed-height rows.
+- [ ] Check narrow-width layouts with long names, translated labels, and 1.3x–2.0x font scale; allow text to wrap rather than forcing fixed-height rows.
 - [ ] Provide loading, empty, failure, success, and offline feedback appropriate to the screen.
 - [ ] Validate input before submission and retain form values when an action fails.
 - [ ] Keep destructive actions separate and confirm irreversible operations.
 - [ ] Check keyboard/IME behavior so primary form actions remain reachable.
 - [ ] Avoid decorative animation, excessive shadows, gradients, and corner radii; use them only when they support hierarchy or feedback.
+
+## Song library and ChordPro experience
+
+- [x] Search covers song titles, artists, keys, time signatures, ChordPro lyrics and chords, and song notes.
+- [x] Run full-text filtering off the UI thread and show progress while results are refreshed.
+- [x] Bound manual/imported ChordPro input and limit the live editor preview to a sample of large charts.
+- [x] Parse saved song charts and Live Stage snapshots away from the UI thread; cancel obsolete work when the selected song or setlist item changes.
+- [x] Keep the original ChordPro text unchanged when showing a preview sample or transposed chart.
+- [ ] Manually test a long imported chart, rapid song/setlist switching, and auto-scroll on a physical Android device.
 
 ## Release validation
 
