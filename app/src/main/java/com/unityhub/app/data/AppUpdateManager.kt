@@ -121,8 +121,27 @@ class AppUpdateManager(context: Context) {
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept", "application/json")
             val status = connection.responseCode
-            require(status in 200..299) {
-                "The update service returned HTTP $status."
+            if (status !in 200..299) {
+                val errorBody = runCatching {
+                    connection.errorStream?.use { input ->
+                        val output = ByteArrayOutputStream()
+                        val buffer = ByteArray(1024)
+                        var total = 0
+                        while (total < 4096) {
+                            val count = input.read(buffer, 0, minOf(buffer.size, 4096 - total))
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            total += count
+                        }
+                        output.toString(Charsets.UTF_8.name())
+                    }.orEmpty()
+                }.getOrDefault("")
+                if (status == 400 && errorBody.contains("NoSuchBucket", ignoreCase = true)) {
+                    throw IllegalStateException(
+                        "UnityHub's update service has not been published yet. The signed release and update bucket must be published from the main-branch build."
+                    )
+                }
+                throw IllegalStateException("The update service returned HTTP $status.")
             }
             requireTrustedStorageHost(connection)
             val body = connection.inputStream.use { input ->

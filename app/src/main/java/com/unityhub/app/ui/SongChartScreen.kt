@@ -60,11 +60,25 @@ fun SongChartScreen(
     var transpose by rememberSaveable(song.id) { mutableIntStateOf(0) }
     var chartScale by rememberSaveable(song.id) { mutableFloatStateOf(1f) }
     val context = LocalContext.current
-    val document = remember(song.chordpro) { ChordProParser.parse(song.chordpro) }
-    val originalKey = document.key?.takeIf(String::isNotBlank) ?: song.keySignature
+    var document by remember(song.id) { mutableStateOf<ChordProDocument?>(null) }
+    var chartError by remember(song.id) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(song.id, song.chordpro) {
+        document = null
+        chartError = null
+        val result = withContext(Dispatchers.Default) {
+            runCatching { ChordProParser.parse(song.chordpro) }
+        }
+        result.onSuccess { document = it }
+            .onFailure { chartError = "This song chart could not be read. Edit the song and check its ChordPro text." }
+    }
+
+    val parsedDocument = document
+    val originalKey = parsedDocument?.key?.takeIf(String::isNotBlank) ?: song.keySignature
     val displayKey = ChordTransposer.transposeKey(originalKey, transpose)
-    val displayTempo = song.tempo ?: document.tempo
-    val displayTimeSignature = song.timeSignature.takeIf(String::isNotBlank) ?: document.timeSignature.orEmpty()
+    val displayTempo = song.tempo ?: parsedDocument?.tempo
+    val displayTimeSignature = song.timeSignature.takeIf(String::isNotBlank)
+        ?: parsedDocument?.timeSignature.orEmpty()
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/plain")
@@ -176,12 +190,18 @@ fun SongChartScreen(
                 }
             }
         }
-        if (document.lines.isEmpty()) {
-            item {
+        when {
+            parsedDocument == null -> item {
+                Text(
+                    chartError ?: "Loading song chart…",
+                    color = if (chartError != null) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            parsedDocument.lines.isEmpty() -> item {
                 Text("No ChordPro content has been added to this song.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        } else {
-            itemsIndexed(document.lines) { _, line ->
+            else -> itemsIndexed(parsedDocument.lines) { _, line ->
                 ChordProChartLine(line = line, transpose = transpose, scale = chartScale)
             }
         }
@@ -203,7 +223,10 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
     var parsedAtLeastOnce by remember { mutableStateOf(false) }
 
     LaunchedEffect(source) {
-        delay(250)
+        document = null
+        parsedAtLeastOnce = false
+        if (source.isBlank()) return@LaunchedEffect
+        delay(200)
         val parsed = withContext(Dispatchers.Default) {
             runCatching { ChordProParser.parse(source) }.getOrNull()
         }
@@ -212,9 +235,15 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
     }
 
     val currentDocument = document
-    if (currentDocument == null) {
+    if (source.isBlank()) {
         Text(
-            if (parsedAtLeastOnce) "The chart preview could not be generated."
+            "Enter lyrics or add chords to see the chart here.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+    } else if (currentDocument == null) {
+        Text(
+            if (parsedAtLeastOnce) "The chart preview could not be generated. Check the ChordPro text."
             else "Updating chart preview…",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
