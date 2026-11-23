@@ -54,6 +54,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.data.SongLibraryRules
@@ -493,7 +496,7 @@ fun SongLibraryScreen(
             } else {
                 items(filteredSongs, key = { it.id }) { song ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clickable { selectedSong = song },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Row(
@@ -501,8 +504,8 @@ fun SongLibraryScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(song.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Column(Modifier.weight(1f).clickable(role = Role.Button) { selectedSong = song }) {
+                                Text(song.title, modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     listOf(
                                         song.artist,
