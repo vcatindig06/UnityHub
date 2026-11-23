@@ -51,10 +51,6 @@ fun OfflineWorkspaceScreen(
                         )
                     }
                 },
-                actions = {
-                    TextButton(onClick = onRetry) { Text("Try online") }
-                    TextButton(onClick = onSignOut) { Text("Sign out") }
-                }
             )
         },
         bottomBar = {
@@ -89,6 +85,13 @@ fun OfflineWorkspaceScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TextButton(onClick = onRetry) { Text("Try online") }
+                        TextButton(onClick = onSignOut) { Text("Sign out") }
+                    }
                 }
             }
             if (selectedTab == 0) {
