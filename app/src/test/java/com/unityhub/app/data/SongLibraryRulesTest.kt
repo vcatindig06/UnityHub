@@ -58,6 +58,35 @@ class SongLibraryRulesTest {
     }
 
     @Test
+    fun searchIncludesChordProLyricsChordsAndSongNotes() {
+        val songs = listOf(
+            testSong(
+                id = "1",
+                title = "Great Are You Lord",
+                artist = "All Sons & Daughters",
+                key = "A",
+                time = "4/4",
+                chordpro = "{title: Great Are You Lord}\\n[G]You give life [D/F#]You are love",
+                notes = "Start softly and build into the chorus"
+            ),
+            testSong("2", "Build My Life", "Pat Barrett", "E", "6/8")
+        )
+
+        listOf("you give life", "D/F#", "BUILD INTO THE CHORUS").forEach { query ->
+            assertEquals(
+                "Search should find chart or note content for query: $query",
+                listOf("1"),
+                SongLibraryRules.filterSongs(
+                    songs,
+                    query,
+                    favoritesOnly = false,
+                    favoriteSongIds = emptySet()
+                ).map { it.id }
+            )
+        }
+    }
+
+    @Test
     fun searchAndFavoritesFiltersCanBeCombined() {
         val songs = listOf(
             testSong("1", "Great Are You Lord", "All Sons & Daughters", "A", "4/4"),
@@ -99,7 +128,9 @@ class SongLibraryRulesTest {
         title: String,
         artist: String,
         key: String,
-        time: String
+        time: String,
+        chordpro: String = "",
+        notes: String = ""
     ) = SongDto(
         id = id,
         organizationId = "org-1",
@@ -108,8 +139,8 @@ class SongLibraryRulesTest {
         keySignature = key,
         tempo = null,
         timeSignature = time,
-        chordpro = "",
-        notes = "",
+        chordpro = chordpro,
+        notes = notes,
         createdBy = "member-1",
         updatedBy = "member-1",
         createdAt = "2026-01-01T00:00:00Z",
