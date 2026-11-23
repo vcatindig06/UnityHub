@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +46,7 @@ import com.unityhub.app.data.SongDto
 import com.unityhub.app.domain.chordpro.ChordProLine
 import com.unityhub.app.domain.chordpro.ChordProParser
 import com.unityhub.app.domain.chordpro.ChordProDocument
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -60,30 +62,46 @@ fun SongChartScreen(
     var transpose by rememberSaveable(song.id) { mutableIntStateOf(0) }
     var chartScale by rememberSaveable(song.id) { mutableFloatStateOf(1f) }
     val context = LocalContext.current
-    var document by remember(song.id) { mutableStateOf<ChordProDocument?>(null) }
-    var chartError by remember(song.id) { mutableStateOf<String?>(null) }
+    var document by remember(song.id, song.chordpro) {
+        mutableStateOf<ChordProDocument?>(null)
+    }
+    var isParsingDocument by remember(song.id, song.chordpro) {
+        mutableStateOf(song.chordpro.isNotBlank())
+    }
+    var documentParseFailed by remember(song.id, song.chordpro) {
+        mutableStateOf(false)
+    }
 
     LaunchedEffect(song.id, song.chordpro) {
         document = null
-        chartError = null
-        val result = withContext(Dispatchers.Default) {
-            runCatching {
+        documentParseFailed = false
+        if (song.chordpro.isBlank()) {
+            isParsingDocument = false
+            return@LaunchedEffect
+        }
+
+        isParsingDocument = true
+        try {
+            document = withContext(Dispatchers.Default) {
                 require(song.chordpro.length <= 1_048_576) {
                     "The saved chart is larger than UnityHub can display."
                 }
                 ChordProParser.parse(song.chordpro)
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            documentParseFailed = true
+        } finally {
+            isParsingDocument = false
         }
-        result.onSuccess { document = it }
-            .onFailure { chartError = "This song chart could not be read. Edit the song and check its ChordPro text." }
     }
 
-    val parsedDocument = document
-    val originalKey = parsedDocument?.key?.takeIf(String::isNotBlank) ?: song.keySignature
+    val originalKey = document?.key?.takeIf(String::isNotBlank) ?: song.keySignature
     val displayKey = ChordTransposer.transposeKey(originalKey, transpose)
-    val displayTempo = song.tempo ?: parsedDocument?.tempo
+    val displayTempo = song.tempo ?: document?.tempo
     val displayTimeSignature = song.timeSignature.takeIf(String::isNotBlank)
-        ?: parsedDocument?.timeSignature.orEmpty()
+        ?: document?.timeSignature.orEmpty()
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/plain")
@@ -196,17 +214,29 @@ fun SongChartScreen(
             }
         }
         when {
-            parsedDocument == null -> item {
+            isParsingDocument -> item {
+                Column(Modifier.fillMaxWidth().padding(vertical = 28.dp)) {
+                    CircularProgressIndicator()
+                    Text(
+                        "Preparing chart…",
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            documentParseFailed -> item {
                 Text(
-                    chartError ?: "Loading song chart…",
-                    color = if (chartError != null) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    "The saved ChordPro chart could not be opened. Return to the song library and try again.",
+                    color = MaterialTheme.colorScheme.error
                 )
             }
-            parsedDocument.lines.isEmpty() -> item {
-                Text("No ChordPro content has been added to this song.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            document?.lines.isNullOrEmpty() -> item {
+                Text(
+                    "No ChordPro content has been added to this song.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            else -> itemsIndexed(parsedDocument.lines) { _, line ->
+            else -> itemsIndexed(document?.lines.orEmpty()) { _, line ->
                 ChordProChartLine(line = line, transpose = transpose, scale = chartScale)
             }
         }
@@ -222,25 +252,39 @@ private fun ChartMetadata(label: String, value: String) {
     }
 }
 
+internal object ChordProPreviewRules {
+    // The editor preview only renders a few lines. Parsing an entire large
+    // paste creates thousands of temporary objects while the user is typing.
+    const val MAX_PREVIEW_SOURCE_CHARACTERS = 32_768
+
+    fun previewSource(source: String): String =
+        source.take(MAX_PREVIEW_SOURCE_CHARACTERS)
+
+    fun isTruncated(source: String): Boolean =
+        source.length > MAX_PREVIEW_SOURCE_CHARACTERS
+}
+
 @Composable
 internal fun ChordProPreview(source: String, maxLines: Int = 8) {
     var document by remember { mutableStateOf<ChordProDocument?>(null) }
     var parsedAtLeastOnce by remember { mutableStateOf(false) }
+    val previewSource = remember(source) { ChordProPreviewRules.previewSource(source) }
+    val previewIsTruncated = ChordProPreviewRules.isTruncated(source)
 
-    LaunchedEffect(source) {
+    LaunchedEffect(previewSource) {
         document = null
         parsedAtLeastOnce = false
-        if (source.isBlank()) return@LaunchedEffect
-        delay(200)
+        if (previewSource.isBlank()) return@LaunchedEffect
+        delay(250)
         val parsed = withContext(Dispatchers.Default) {
-            runCatching { ChordProParser.parse(source) }.getOrNull()
+            runCatching { ChordProParser.parse(previewSource) }.getOrNull()
         }
         document = parsed
         parsedAtLeastOnce = true
     }
 
     val currentDocument = document
-    if (source.isBlank()) {
+    if (previewSource.isBlank()) {
         Text(
             "Enter lyrics or add chords to see the chart here.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -248,7 +292,7 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
         )
     } else if (currentDocument == null) {
         Text(
-            if (parsedAtLeastOnce) "The chart preview could not be generated. Check the ChordPro text."
+            if (parsedAtLeastOnce) "The chart preview could not be generated."
             else "Updating chart preview…",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
@@ -259,9 +303,12 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
         currentDocument.lines.take(maxLines).forEach { line ->
             ChordProChartLine(line = line, transpose = 0, scale = 0.9f)
         }
-        if (currentDocument.lines.size > maxLines) {
+        if (currentDocument.lines.size > maxLines || previewIsTruncated) {
             Text(
-                "Preview only · ${currentDocument.lines.size - maxLines} more lines in the full chart",
+                when {
+                    previewIsTruncated -> "Preview sample only · the complete chart text is retained"
+                    else -> "Preview only · ${currentDocument.lines.size - maxLines} more lines in the full chart"
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
