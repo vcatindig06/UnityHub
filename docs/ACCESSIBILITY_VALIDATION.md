@@ -17,6 +17,9 @@ Use this checklist on a physical Android device before release. Automated compil
 11. Open Assignment overview and confirm the page title and each assignment service title are announced as headings; confirm each assignment card is announced as one button.
 12. In Song Library, confirm the song title/chart area is one navigation action and favorite/edit/delete controls are separate actions.
 13. In Service Planning, confirm each service plan card is announced as a button and can be activated without relying on color or icon-only cues.
+14. In Account Settings, confirm the Automatically download updates label and switch state are announced together as one control and the full row can be activated.
+15. In Song Chart, confirm the song title and Performance settings are headings; confirm A− and A+ announce decrease/increase chart text size.
+16. In Live Stage, confirm LIVE STAGE is announced as a heading and all text-size, chord-visibility, auto-scroll, transpose, and navigation controls have understandable labels.
 
 ## Font scaling and narrow layouts
 
@@ -27,6 +30,8 @@ Use this checklist on a physical Android device before release. Automated compil
 5. Confirm the screen can scroll to every action and dialog button.
 6. In Notifications, confirm All/Unread filters and Mark all read do not compete for the same horizontal space.
 7. In Offline workspace, confirm the organization title and both account actions remain visible and usable at the smallest width.
+8. In Live Stage, confirm text-size controls and chord visibility occupy separate rows and remain reachable without horizontal scrolling.
+9. In Account Settings and Song Chart, confirm section titles, metadata, and adjustment controls wrap without overlapping at large font sizes.
 
 ## Touch and status feedback
 
