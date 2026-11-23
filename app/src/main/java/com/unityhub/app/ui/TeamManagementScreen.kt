@@ -1,6 +1,7 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,6 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -986,21 +988,23 @@ private fun ManageMemberPositionsDialog(
                 } else {
                     positions.forEach { position ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) {
-                                selectedIds = if (position.id in selectedIds) {
-                                    selectedIds - position.id
-                                } else {
-                                    selectedIds + position.id
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .toggleable(
+                                    value = position.id in selectedIds,
+                                    enabled = !saving,
+                                    role = Role.Checkbox
+                                ) {
+                                    selectedIds = if (it) selectedIds + position.id
+                                    else selectedIds - position.id
                                 }
-                            }.padding(vertical = 4.dp),
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(
                                 checked = position.id in selectedIds,
-                                onCheckedChange = { checked ->
-                                    selectedIds = if (checked) selectedIds + position.id
-                                    else selectedIds - position.id
-                                },
+                                onCheckedChange = null,
                                 enabled = !saving
                             )
                             Text(position.name)
