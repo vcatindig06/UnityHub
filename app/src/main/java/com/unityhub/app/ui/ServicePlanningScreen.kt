@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
 import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.ServicePlanDto
 import com.unityhub.app.data.ServicePlanItemDto
@@ -542,7 +543,7 @@ fun ServicePlanningScreen(
 @Composable
 private fun ServicePlanCard(plan: ServicePlanDto, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(18.dp)
     ) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -33,6 +33,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.unityhub.app.data.NotificationDto
@@ -138,7 +140,7 @@ fun NotificationsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Notifications", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("Notifications", modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 }
                 IconButton(onClick = { reload() }, enabled = !loading) {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh notifications")
@@ -147,10 +149,9 @@ fun NotificationsScreen(
         }
 
         item {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
@@ -167,14 +168,13 @@ fun NotificationsScreen(
                     )
                 }
                 if (unreadCount > 0) {
-                    TextButton(
-                        onClick = { markAllRead() },
-                        enabled = !loading && !savingAll && savingIds.isEmpty()
-                    ) {
-                        if (savingAll) {
-                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text("Mark all read")
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(
+                            onClick = { markAllRead() },
+                            enabled = !loading && !savingAll && savingIds.isEmpty()
+                        ) {
+                            if (savingAll) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                            else Text("Mark all read")
                         }
                     }
                 }
@@ -277,7 +277,7 @@ private fun NotificationCard(
                     )
                 }
             }
-            Text(notification.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(notification.title, modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(notification.message, style = MaterialTheme.typography.bodyMedium)
             Row(
                 modifier = Modifier.fillMaxWidth(),
