@@ -76,13 +76,13 @@ private val autoScrollSpeeds = listOf(
     "Fast" to 40
 )
 
-private val StageBackground = Color(0xFF080F15)
-private val StageSurface = Color(0xFF14232E)
-private val StagePrimaryText = Color(0xFFF4F8FB)
-private val StageSecondaryText = Color(0xFFB7C8D3)
-private val StageAccent = Color(0xFF8FD4C1)
-private val StageChord = Color(0xFFFFD27D)
-private val StageDivider = Color(0xFF2B414F)
+private val StageBackground = Color(0xFF14271D)
+private val StageSurface = Color(0xFF1D3327)
+private val StagePrimaryText = Color(0xFFF5EBD8)
+private val StageSecondaryText = Color(0xFFD0C9B7)
+private val StageAccent = Color(0xFFE0A089)
+private val StageChord = Color(0xFFD5BD7A)
+private val StageDivider = Color(0xFF405A46)
 
 @Composable
 fun LiveStageScreen(

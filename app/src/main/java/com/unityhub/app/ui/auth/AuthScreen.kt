@@ -97,23 +97,25 @@ import kotlin.random.Random
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-private val Slate950 = Color(0xFF020617)
-private val Slate900 = Color(0xFF0F172A)
-private val Slate800 = Color(0xFF1E293B)
-private val Slate700 = Color(0xFF334155)
-private val Slate600 = Color(0xFF475569)
-private val Slate500 = Color(0xFF64748B)
-private val Slate400 = Color(0xFF94A3B8)
-private val Slate300 = Color(0xFFCBD5E1)
-private val Slate200 = Color(0xFFE2E8F0)
-private val Slate100 = Color(0xFFF1F5F9)
-private val Slate50 = Color(0xFFF8FAFC)
-private val WarmCrimsonDark = Color(0xFF97152F)
-private val WarmCrimson = Color(0xFFBC1F39)
-private val WarmCoral = Color(0xFFE34B3F)
-private val WarmCoralBright = Color(0xFFFF603E)
-private val WarmOrange = Color(0xFFFF9945)
-private val WarmAmber = Color(0xFFFFC36A)
+private val Slate950 = Color(0xFF12291E)
+private val Slate900 = Color(0xFF193B2B)
+private val Slate800 = Color(0xFF274634)
+private val Slate700 = Color(0xFF405B49)
+private val Slate600 = Color(0xFF566D5C)
+private val Slate500 = Color(0xFF667A69)
+private val Slate400 = Color(0xFF819082)
+private val Slate300 = Color(0xFFBEC6B4)
+private val Slate200 = Color(0xFFD9DDCE)
+private val Slate100 = Color(0xFFECEEE2)
+private val Slate50 = Color(0xFFF8F4E9)
+private val ForestGreenDeep = Color(0xFF193B2B)
+private val ForestGreen = Color(0xFF315C46)
+private val Terracotta = Color(0xFFA7523B)
+private val TerracottaSoft = Color(0xFFC47457)
+private val MutedGold = Color(0xFFB59A5A)
+private val MutedGoldBright = Color(0xFFC0A86F)
+private val ButterCream = Color(0xFFF5EBD8)
+private val ButterCreamLight = Color(0xFFFFF9EF)
 
 private val GoogleOAuthProvider = object : OAuthProvider() {
     override val name: String = "google"
@@ -172,7 +174,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(ButterCreamLight)
             .imePadding()
     ) {
         val wideLayout = maxWidth >= 840.dp
@@ -184,10 +186,10 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color.White,
-                                Color(0xFFFFFBF8),
-                                Color(0xFFFFF3EC),
-                                Color.White
+                                ButterCreamLight,
+                                ButterCreamLight,
+                                ButterCream,
+                                ButterCreamLight
                             )
                         )
                     )
@@ -293,7 +295,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                     Icon(
                                         Icons.Filled.Groups,
                                         contentDescription = null,
-                                        tint = if (focused) WarmCoral else Slate400,
+                                        tint = if (focused) Terracotta else Slate400,
                                         modifier = Modifier.size(19.dp)
                                     )
                                 },
@@ -315,7 +317,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                 Icon(
                                     Icons.Filled.MailOutline,
                                     contentDescription = null,
-                                    tint = if (focused) WarmCoral else Slate400,
+                                    tint = if (focused) Terracotta else Slate400,
                                     modifier = Modifier.size(19.dp)
                                 )
                             },
@@ -336,7 +338,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                 Icon(
                                     Icons.Filled.Lock,
                                     contentDescription = null,
-                                    tint = if (focused) WarmCoral else Slate400,
+                                    tint = if (focused) Terracotta else Slate400,
                                     modifier = Modifier.size(19.dp)
                                 )
                             },
@@ -377,7 +379,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                     Icon(
                                         Icons.Filled.Lock,
                                         contentDescription = null,
-                                        tint = if (focused) WarmCoral else Slate400,
+                                        tint = if (focused) Terracotta else Slate400,
                                         modifier = Modifier.size(19.dp)
                                     )
                                 },
@@ -399,7 +401,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                         Icon(
                                             if (confirmPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                                             contentDescription = if (confirmPasswordVisible) "Hide confirm password" else "Show confirm password",
-                                            tint = if (passwordMismatch) Color(0xFFDC2626) else Slate400,
+                                            tint = if (passwordMismatch) MaterialTheme.colorScheme.error else Slate400,
                                             modifier = Modifier.size(19.dp)
                                         )
                                     }
@@ -410,7 +412,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                             if (passwordMismatch) {
                                 Text(
                                     "Passwords do not match. Re-enter the same password.",
-                                    color = Color(0xFFDC2626),
+                                    color = MaterialTheme.colorScheme.error,
                                     fontSize = 11.sp,
                                     lineHeight = 16.sp
                                 )
@@ -472,7 +474,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                                 ) {
                                     Text(
                                         "Forgot password?",
-                                        color = WarmCrimson,
+                                        color = ForestGreen,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -483,13 +485,13 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                         if (notice.isNotBlank()) {
                             Spacer(Modifier.height(10.dp))
                             Surface(
-                                color = if (noticeIsError) Color(0xFFFFF1F2) else Color(0xFFFFF1E4),
+                                color = if (noticeIsError) Color(0xFFF9DEDC) else Color(0xFFFFF1E4),
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
                                     notice,
-                                    color = if (noticeIsError) Color(0xFF9F1239) else WarmCrimsonDark,
+                                    color = if (noticeIsError) Color(0xFF8B2E25) else ForestGreenDeep,
                                     fontSize = 12.sp,
                                     lineHeight = 18.sp,
                                     modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp)
@@ -592,7 +594,7 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
                             ) {
                                 Text(
                                     if (creating) "Sign in" else "Sign up free",
-                                    color = WarmCrimson,
+                                    color = ForestGreen,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp
                                 )
@@ -640,7 +642,7 @@ private fun SocialAuthButton(
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, Slate200),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
+            containerColor = ButterCreamLight,
             contentColor = Slate700,
             disabledContainerColor = Slate50
         ),
@@ -692,7 +694,7 @@ private fun AuthField(
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             label,
-            color = if (isError) Color(0xFFDC2626) else Slate700,
+            color = if (isError) MaterialTheme.colorScheme.error else Slate700,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -703,15 +705,15 @@ private fun AuthField(
                 .then(
                     if (focused && !isError) Modifier.border(
                         4.dp,
-                        WarmCoralBright.copy(alpha = 0.12f),
+                        TerracottaSoft.copy(alpha = 0.12f),
                         shape
                     ) else Modifier
                 )
                 .clip(shape)
-                .background(if (focused) Color.White else Slate50.copy(alpha = 0.78f))
+                .background(if (focused) ButterCreamLight else Slate50.copy(alpha = 0.78f))
                 .border(
                     width = 1.dp,
-                    color = if (isError) Color(0xFFDC2626) else if (focused) WarmCoralBright else Slate200,
+                    color = if (isError) MaterialTheme.colorScheme.error else if (focused) TerracottaSoft else Slate200,
                     shape = shape
                 )
                 .padding(horizontal = 14.dp, vertical = 14.dp),
@@ -730,7 +732,7 @@ private fun AuthField(
                     fontSize = 14.sp,
                     fontFamily = FontFamily.SansSerif
                 ),
-                cursorBrush = SolidColor(WarmCoral),
+                cursorBrush = SolidColor(Terracotta),
                 keyboardOptions = keyboardOptions,
                 visualTransformation = visualTransformation,
                 interactionSource = interactionSource,
@@ -770,12 +772,12 @@ private fun GradientAuthButton(
             .shadow(
                 elevation = if (enabled) 12.dp else 0.dp,
                 shape = shape,
-                ambientColor = WarmCoralBright.copy(alpha = 0.30f),
-                spotColor = WarmCoralBright.copy(alpha = 0.38f)
+                ambientColor = TerracottaSoft.copy(alpha = 0.30f),
+                spotColor = TerracottaSoft.copy(alpha = 0.38f)
             )
             .clip(shape)
             .background(
-                Brush.verticalGradient(listOf(WarmCrimson, WarmCrimsonDark))
+                Brush.verticalGradient(listOf(ForestGreen, ForestGreenDeep))
             )
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 18.dp),
@@ -785,13 +787,13 @@ private fun GradientAuthButton(
         if (loading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
-                color = Color.White,
+                color = ButterCreamLight,
                 strokeWidth = 2.dp
             )
         } else {
             Text(
                 label,
-                color = Color.White,
+                color = ButterCreamLight,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -799,7 +801,7 @@ private fun GradientAuthButton(
             Icon(
                 Icons.Filled.ArrowForward,
                 contentDescription = null,
-                tint = Color.White,
+                tint = ButterCreamLight,
                 modifier = Modifier.size(17.dp)
             )
         }
@@ -810,7 +812,7 @@ private fun GradientAuthButton(
 private fun BrandPanel(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .background(Color(0xFF07080A))
+            .background(ForestGreenDeep)
             .clip(RoundedCornerShape(0.dp))
     ) {
         WarmAuroraBackground(Modifier.fillMaxSize())
@@ -832,7 +834,7 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                 ) {
                     UnityHubLogoMark(Modifier.size(46.dp), contentDescription = null)
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        UnityHubWordmark(baseColor = Color.White, fontSize = 20.sp)
+                        UnityHubWordmark(baseColor = ButterCreamLight, fontSize = 20.sp)
                         Text(
                             "PLAN · LEAD · WORSHIP · TOGETHER",
                             color = Slate300,
@@ -843,13 +845,13 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                     }
                 }
                 Surface(
-                    color = Color.White.copy(alpha = 0.07f),
+                    color = ButterCreamLight.copy(alpha = 0.07f),
                     shape = CircleShape,
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))
+                    border = BorderStroke(1.dp, ButterCreamLight.copy(alpha = 0.14f))
                 ) {
                     Text(
                         "MADE FOR WORSHIP TEAMS",
-                        color = WarmAmber,
+                        color = MutedGoldBright,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.75.sp,
@@ -865,7 +867,7 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         "One team.\\nOne purpose.\\nIn unity.",
-                        color = Color.White,
+                        color = ButterCreamLight,
                         fontSize = 36.sp,
                         lineHeight = 43.sp,
                         letterSpacing = (-1.2).sp,
@@ -894,14 +896,14 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                             .size(35.dp)
                             .clip(CircleShape)
                             .background(
-                                listOf(WarmCrimson, WarmCoral, WarmCoralBright)[index]
+                                listOf(ForestGreen, Terracotta, TerracottaSoft)[index]
                             )
-                            .border(2.dp, Color(0xFF071B17), CircleShape),
+                            .border(2.dp, ForestGreenDeep, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             letter,
-                            color = Color.White,
+                            color = ButterCreamLight,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -911,7 +913,7 @@ private fun BrandPanel(modifier: Modifier = Modifier) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         repeat(5) {
-                            Text("★", color = WarmOrange, fontSize = 12.sp)
+                            Text("★", color = MutedGold, fontSize = 12.sp)
                         }
                     }
                     Text(
@@ -977,9 +979,9 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
         val panelHeight = size.height
         val twoPi = (2.0 * PI).toFloat()
 
-        val crimson = Color(0xFFD51D3A)
-        val coral = Color(0xFFFF583D)
-        val amber = Color(0xFFFFB547)
+        val crimson = ForestGreen
+        val coral = Terracotta
+        val amber = MutedGold
 
         fun drawBlade(
             start: Offset,
@@ -1078,7 +1080,7 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
         var gridX = 0f
         while (gridX <= panelWidth) {
             drawLine(
-                color = Color.White.copy(alpha = 0.025f),
+                color = ButterCreamLight.copy(alpha = 0.025f),
                 start = Offset(gridX, 0f),
                 end = Offset(gridX, panelHeight),
                 strokeWidth = 1.dp.toPx()
@@ -1088,7 +1090,7 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
         var gridY = 0f
         while (gridY <= panelHeight) {
             drawLine(
-                color = Color.White.copy(alpha = 0.025f),
+                color = ButterCreamLight.copy(alpha = 0.025f),
                 start = Offset(0f, gridY),
                 end = Offset(panelWidth, gridY),
                 strokeWidth = 1.dp.toPx()
@@ -1099,7 +1101,7 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
         // Subtle film grain: deterministic speckles, not a distracting star field.
         grain.forEach { point ->
             drawCircle(
-                color = Color.White.copy(alpha = point.alpha),
+                color = ButterCreamLight.copy(alpha = point.alpha),
                 radius = point.radius.dp.toPx(),
                 center = Offset(point.x * panelWidth, point.y * panelHeight)
             )
@@ -1110,7 +1112,7 @@ private fun WarmAuroraBackground(modifier: Modifier = Modifier) {
             brush = Brush.radialGradient(
                 colors = listOf(
                     Color.Transparent,
-                    Color(0xB807080A)
+                    Color(0xB8193B2B)
                 ),
                 center = Offset(panelWidth * 0.52f, panelHeight * 0.48f),
                 radius = maxOf(panelWidth, panelHeight) * 0.78f
@@ -1133,9 +1135,9 @@ private fun ShowcaseCard() {
             .fillMaxWidth()
             .widthIn(max = 420.dp)
             .shadow(28.dp, RoundedCornerShape(20.dp)),
-        color = Color.White.copy(alpha = 0.055f),
+        color = ButterCreamLight.copy(alpha = 0.055f),
         shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.13f))
+        border = BorderStroke(1.dp, ButterCreamLight.copy(alpha = 0.13f))
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -1149,27 +1151,27 @@ private fun ShowcaseCard() {
                     modifier = Modifier
                         .size(39.dp)
                         .clip(RoundedCornerShape(11.dp))
-                        .background(WarmCoralBright.copy(alpha = 0.18f)),
+                        .background(TerracottaSoft.copy(alpha = 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Filled.CalendarMonth,
                         contentDescription = null,
-                        tint = WarmAmber,
+                        tint = MutedGoldBright,
                         modifier = Modifier.size(21.dp)
                     )
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Your next service", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Your next service", color = ButterCreamLight, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text("SERVICE PLAN PREVIEW", color = Slate400, fontSize = 9.sp, letterSpacing = 1.sp)
                 }
                 Surface(
-                    color = WarmCoralBright.copy(alpha = 0.16f),
+                    color = TerracottaSoft.copy(alpha = 0.16f),
                     shape = CircleShape
                 ) {
                     Text(
                         "READY",
-                        color = WarmAmber,
+                        color = MutedGoldBright,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
@@ -1177,18 +1179,18 @@ private fun ShowcaseCard() {
                 }
             }
 
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(ButterCreamLight.copy(alpha = 0.10f)))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.MusicNote, contentDescription = null, tint = WarmAmber, modifier = Modifier.size(17.dp))
+                Icon(Icons.Filled.MusicNote, contentDescription = null, tint = MutedGoldBright, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Song set and team assignments", color = Slate200, fontSize = 11.sp)
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.fillMaxWidth(0.82f).height(7.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.17f)))
-                Box(Modifier.fillMaxWidth(0.56f).height(7.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.10f)))
+                Box(Modifier.fillMaxWidth(0.82f).height(7.dp).clip(CircleShape).background(ButterCreamLight.copy(alpha = 0.17f)))
+                Box(Modifier.fillMaxWidth(0.56f).height(7.dp).clip(CircleShape).background(ButterCreamLight.copy(alpha = 0.10f)))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 repeat(3) { index ->
@@ -1201,26 +1203,26 @@ private fun ShowcaseCard() {
                                 if (index == 0) {
                                     Brush.linearGradient(
                                         listOf(
-                                            WarmOrange.copy(alpha = 0.32f),
-                                            WarmCrimson.copy(alpha = 0.12f)
+                                            MutedGold.copy(alpha = 0.32f),
+                                            ForestGreen.copy(alpha = 0.12f)
                                         )
                                     )
                                 } else {
                                     Brush.linearGradient(
                                         listOf(
-                                            Color.White.copy(alpha = 0.08f),
-                                            Color.White.copy(alpha = 0.035f)
+                                            ButterCreamLight.copy(alpha = 0.08f),
+                                            ButterCreamLight.copy(alpha = 0.035f)
                                         )
                                     )
                                 }
                             )
-                            .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(10.dp)),
+                            .border(1.dp, ButterCreamLight.copy(alpha = 0.07f), RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         if (index == 0) {
-                            Icon(Icons.Filled.Groups, contentDescription = null, tint = WarmAmber, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Filled.Groups, contentDescription = null, tint = MutedGoldBright, modifier = Modifier.size(20.dp))
                         } else {
-                            Box(Modifier.size(16.dp).border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape))
+                            Box(Modifier.size(16.dp).border(1.dp, ButterCreamLight.copy(alpha = 0.25f), CircleShape))
                         }
                     }
                 }

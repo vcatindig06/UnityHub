@@ -9,7 +9,7 @@ class ThemeContrastTest {
     fun lightThemeTextPairsMeetWcagAaNormalTextContrast() {
         val pairs = listOf(
             "primary button" to (SurfaceWhite to UnityBlue),
-            "secondary button" to (SurfaceWhite to UnityEmerald),
+            "secondary button" to (InkPrimary to UnityEmerald),
             "tertiary button" to (SurfaceWhite to UnityCrimson),
             "main text" to (InkPrimary to CanvasLight),
             "secondary text" to (InkSecondary to ColorTokens.SurfaceVariantLight),
