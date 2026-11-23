@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +46,7 @@ import com.unityhub.app.data.SongDto
 import com.unityhub.app.domain.chordpro.ChordProLine
 import com.unityhub.app.domain.chordpro.ChordProParser
 import com.unityhub.app.domain.chordpro.ChordProDocument
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -60,11 +62,43 @@ fun SongChartScreen(
     var transpose by rememberSaveable(song.id) { mutableIntStateOf(0) }
     var chartScale by rememberSaveable(song.id) { mutableFloatStateOf(1f) }
     val context = LocalContext.current
-    val document = remember(song.chordpro) { ChordProParser.parse(song.chordpro) }
-    val originalKey = document.key?.takeIf(String::isNotBlank) ?: song.keySignature
+    var document by remember(song.id, song.chordpro) {
+        mutableStateOf<ChordProDocument?>(null)
+    }
+    var isParsingDocument by remember(song.id, song.chordpro) {
+        mutableStateOf(song.chordpro.isNotBlank())
+    }
+    var documentParseFailed by remember(song.id, song.chordpro) {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(song.id, song.chordpro) {
+        document = null
+        documentParseFailed = false
+        if (song.chordpro.isBlank()) {
+            isParsingDocument = false
+            return@LaunchedEffect
+        }
+
+        isParsingDocument = true
+        try {
+            document = withContext(Dispatchers.Default) {
+                ChordProParser.parse(song.chordpro)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            documentParseFailed = true
+        } finally {
+            isParsingDocument = false
+        }
+    }
+
+    val originalKey = document?.key?.takeIf(String::isNotBlank) ?: song.keySignature
     val displayKey = ChordTransposer.transposeKey(originalKey, transpose)
-    val displayTempo = song.tempo ?: document.tempo
-    val displayTimeSignature = song.timeSignature.takeIf(String::isNotBlank) ?: document.timeSignature.orEmpty()
+    val displayTempo = song.tempo ?: document?.tempo
+    val displayTimeSignature = song.timeSignature.takeIf(String::isNotBlank)
+        ?: document?.timeSignature.orEmpty()
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/plain")
@@ -176,12 +210,30 @@ fun SongChartScreen(
                 }
             }
         }
-        if (document.lines.isEmpty()) {
-            item {
-                Text("No ChordPro content has been added to this song.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        when {
+            isParsingDocument -> item {
+                Column(Modifier.fillMaxWidth().padding(vertical = 28.dp)) {
+                    CircularProgressIndicator()
+                    Text(
+                        "Preparing chart…",
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-        } else {
-            itemsIndexed(document.lines) { _, line ->
+            documentParseFailed -> item {
+                Text(
+                    "The saved ChordPro chart could not be opened. Return to the song library and try again.",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            document?.lines.isNullOrEmpty() -> item {
+                Text(
+                    "No ChordPro content has been added to this song.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            else -> itemsIndexed(document?.lines.orEmpty()) { _, line ->
                 ChordProChartLine(line = line, transpose = transpose, scale = chartScale)
             }
         }
