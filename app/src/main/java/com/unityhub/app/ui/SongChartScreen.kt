@@ -36,6 +36,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -112,7 +115,7 @@ fun SongChartScreen(
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back to song library")
                 }
                 Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                    Text(song.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(song.title, modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     if (song.artist.isNotBlank()) {
                         Text(song.artist, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -133,7 +136,7 @@ fun SongChartScreen(
         item {
             Card {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Performance settings", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("Performance settings", modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         ChartMetadata("Key", displayKey ?: "—")
                         ChartMetadata("Tempo", displayTempo?.let { "$it BPM" } ?: "—")
@@ -173,7 +176,10 @@ fun SongChartScreen(
                     ) {
                         TextButton(
                             onClick = { chartScale = (chartScale - 0.1f).coerceAtLeast(0.8f) },
-                            enabled = chartScale > 0.8f
+                            enabled = chartScale > 0.8f,
+                            modifier = Modifier.semantics {
+                                contentDescription = "Decrease chart text size"
+                            }
                         ) { Text("A−") }
                         Text(
                             "Text size",
@@ -182,7 +188,10 @@ fun SongChartScreen(
                         )
                         TextButton(
                             onClick = { chartScale = (chartScale + 0.1f).coerceAtMost(1.5f) },
-                            enabled = chartScale < 1.5f
+                            enabled = chartScale < 1.5f,
+                            modifier = Modifier.semantics {
+                                contentDescription = "Increase chart text size"
+                            }
                         ) { Text("A+") }
                     }
                     if (transpose != 0) {
