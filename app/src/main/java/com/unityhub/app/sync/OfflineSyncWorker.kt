@@ -299,7 +299,6 @@ class OfflineSyncWorker(
                 )
             }
 
-            val rehearsalCache = OfflineRehearsalCache(applicationContext)
             rehearsalCache.saveRehearsals(
                 userId = requestedUserId,
                 organizationId = requestedOrganizationId,
