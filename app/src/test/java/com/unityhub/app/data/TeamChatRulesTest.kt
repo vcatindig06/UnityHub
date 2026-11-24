@@ -38,4 +38,52 @@ class TeamChatRulesTest {
         assertEquals("51", latest.first().id)
         assertEquals("150", latest.last().id)
     }
+    @Test
+    fun initiallyPositionsChatAtLatestMessage() {
+        assertEquals(
+            true,
+            TeamChatRules.shouldFollowLatest(
+                lastVisibleItemIndex = -1,
+                totalItemCount = 25,
+                hasPositionedList = false
+            )
+        )
+    }
+
+    @Test
+    fun followsNewMessagesWhenReaderIsAlreadyAtTheBottom() {
+        assertEquals(
+            true,
+            TeamChatRules.shouldFollowLatest(
+                lastVisibleItemIndex = 18,
+                totalItemCount = 20,
+                hasPositionedList = true
+            )
+        )
+    }
+
+    @Test
+    fun keepsReadingPositionWhenReaderHasScrolledUp() {
+        assertEquals(
+            false,
+            TeamChatRules.shouldFollowLatest(
+                lastVisibleItemIndex = 8,
+                totalItemCount = 20,
+                hasPositionedList = true
+            )
+        )
+    }
+
+    @Test
+    fun doesNotScrollAnEmptyChat() {
+        assertEquals(
+            false,
+            TeamChatRules.shouldFollowLatest(
+                lastVisibleItemIndex = -1,
+                totalItemCount = 0,
+                hasPositionedList = false
+            )
+        )
+    }
+
 }
