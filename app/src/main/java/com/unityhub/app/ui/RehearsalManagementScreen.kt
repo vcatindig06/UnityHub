@@ -1,6 +1,7 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -109,6 +110,12 @@ fun RehearsalManagementScreen(
     var respondingId by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf("") }
     var consumedRequestId by remember { mutableStateOf<String?>(null) }
+
+    BackHandler(enabled = selected != null) {
+        selected = null
+        assignments = emptyList()
+        error = ""
+    }
 
     fun reload() {
         scope.launch {
