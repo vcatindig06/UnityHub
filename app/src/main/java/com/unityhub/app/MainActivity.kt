@@ -30,9 +30,11 @@ import androidx.lifecycle.lifecycleScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.unityhub.app.data.DevicePushTokenRepository
 import com.unityhub.app.data.OfflineServiceCache
+import com.unityhub.app.data.OfflineRehearsalCache
 import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.OfflineWorkspaceCache
 import com.unityhub.app.data.PendingServiceAssignmentResponseQueue
+import com.unityhub.app.data.PendingRehearsalAvailabilityResponseQueue
 import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.push.UnityHubFirebase
 import com.unityhub.app.sync.OfflineSyncScheduler
@@ -161,6 +163,10 @@ class MainActivity : ComponentActivity() {
                                             runCatching {
                                                 PendingServiceAssignmentResponseQueue(applicationContext).clearUser(userId)
                                             }
+                                            runCatching {
+                                                PendingRehearsalAvailabilityResponseQueue(applicationContext).clearUser(userId)
+                                            }
+                                            runCatching { OfflineRehearsalCache(applicationContext).clearUser(userId) }
                                             runCatching { OfflineSyncStatusStore.clearUser(applicationContext, userId) }
                                             runCatching { OfflineSongCache(applicationContext).clearUser(userId) }
                                             runCatching { OfflineServiceCache(applicationContext).clearUser(userId) }

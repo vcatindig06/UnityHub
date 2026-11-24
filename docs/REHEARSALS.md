@@ -22,13 +22,17 @@ The rehearsal detail roster summarizes invitee responses. Scheduled rehearsals s
 
 Invited members open the rehearsal and select **Available** or **Can't attend**. A member can only update the response attached to their own organization-membership record. When a response changes, administrators and worship leaders receive a notification.
 
+UnityHub saves the last synced rehearsal schedule and invited rosters on the device. When offline, an invited member can submit an availability choice from a previously synced rehearsal. The response is labelled **Saved on this device · waiting to sync** and is visible only on that device until the server accepts it. The next network-constrained background sync uploads the choice before refreshing the rehearsal data. The most recent unsent choice replaces the previous one.
+
+Offline responses are available only for cached invitations. If the rehearsal has been completed or cancelled, the member's organization membership has changed, or the invitation no longer exists when the queued response is uploaded, Supabase rejects the update and UnityHub discards the stale response. The app does not treat a local save as a server-confirmed response.
+
 Members who were not invited can view the rehearsal schedule and the invited roster, but cannot respond on behalf of somebody else.
 
 ## Attendance
 
 When a leader marks a rehearsal **Complete**, the team list exposes the **Attended** and **Absent** actions. These are leader-only attendance outcomes and are separate from the member's earlier availability response.
 
-Rehearsals can also be cancelled. Completed and cancelled rehearsals no longer accept member availability responses.
+Rehearsals can also be cancelled. Completed and cancelled rehearsals no longer accept member availability responses. Scheduling, editing, cancelling, completing, roster changes, and attendance recording require an online request.
 
 ## Data and security
 
@@ -38,6 +42,6 @@ The migration supabase/migrations/20261112022019_create_rehearsal_management.sql
 - public.rehearsal_assignments: the invited team members, each member's availability, and the leader-recorded attendance outcome.
 - Notification columns and database triggers for invitation and availability-response messages.
 
-Both tables have row-level security enabled. Organization members can read their team's rehearsal schedule. Only administrators and worship leaders can create and manage rehearsal records, invite members, and record attendance. A member can update only their own availability. Composite foreign keys prevent an assignment from referencing a member or rehearsal in a different organization. The optional service link is also checked against the active organization.
+Both tables have row-level security enabled. Organization members can read their team's rehearsal schedule. Only administrators and worship leaders can create and manage rehearsal records, invite members, and record attendance. A member can update only their own availability, and only while the rehearsal remains scheduled. Composite foreign keys prevent an assignment from referencing a member or rehearsal in a different organization. The optional service link is also checked against the active organization.
 
-The new public tables use explicit authenticated Data API grants; no anonymous or service-role credential is added to the mobile app. Invitation and response alerts use the existing server-side signed notification webhook.
+The new public tables use explicit authenticated Data API grants; no anonymous or service-role credential is added to the mobile app. Invitation and response alerts use the existing server-side signed notification webhook. Offline queue entries do not bypass these policies; the server remains authoritative when each response is submitted.

@@ -1,5 +1,8 @@
 package com.unityhub.app.ui
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.compose.foundation.clickable
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.selection.toggleable
@@ -60,12 +63,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.unityhub.app.data.OfflineRehearsalCache
+import com.unityhub.app.data.OfflineServiceCache
+import com.unityhub.app.data.PendingRehearsalAvailabilityResponseQueue
 import com.unityhub.app.data.RehearsalAssignmentDto
 import com.unityhub.app.data.RehearsalDto
 import com.unityhub.app.data.RehearsalRepository
@@ -75,10 +82,30 @@ import com.unityhub.app.data.RehearsalRosterRules
 import com.unityhub.app.data.ServiceMemberOption
 import com.unityhub.app.data.ServicePlanDto
 import com.unityhub.app.data.SupabaseClientProvider
+import com.unityhub.app.sync.OfflineSyncScheduler
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
+
+private fun hasValidatedInternetConnection(context: Context): Boolean {
+    val connectivityManager =
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: return false
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+}
+
+private fun applyPendingAvailabilityResponses(
+    assignments: List<RehearsalAssignmentDto>,
+    pendingResponses: Map<String, String>
+): List<RehearsalAssignmentDto> =
+    assignments.map { assignment ->
+        val pendingStatus = pendingResponses[assignment.id]
+        if (pendingStatus == null) assignment else assignment.copy(responseStatus = pendingStatus)
+    }
 
 @Composable
 fun RehearsalManagementScreen(
@@ -93,6 +120,9 @@ fun RehearsalManagementScreen(
     modifier: Modifier = Modifier
 ) {
     val repository = remember { RehearsalRepository(SupabaseClientProvider.client) }
+    val context = LocalContext.current
+    val offlineCache = remember(context) { OfflineRehearsalCache(context) }
+    val responseQueue = remember(context) { PendingRehearsalAvailabilityResponseQueue(context) }
     val scope = rememberCoroutineScope()
     val canManage = role == "admin" || role == "worship_leader"
 
@@ -108,6 +138,10 @@ fun RehearsalManagementScreen(
     var assignmentsLoading by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var respondingId by remember { mutableStateOf<String?>(null) }
+    var pendingResponseStatuses by remember(userId, organizationId) {
+        mutableStateOf<Map<String, String>>(emptyMap())
+    }
+    var offlineSnapshot by remember(userId, organizationId) { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var consumedRequestId by remember { mutableStateOf<String?>(null) }
 
@@ -122,11 +156,35 @@ fun RehearsalManagementScreen(
             loading = true
             error = ""
             try {
-                rehearsals = repository.loadRehearsals(organizationId)
-                members = repository.loadTeamMembers(organizationId)
-                servicePlans = repository.loadServicePlans(organizationId)
+                pendingResponseStatuses = responseQueue.loadPending(userId, organizationId)
+                    .associate { it.assignmentId to it.responseStatus }
+                val loadedRehearsals = repository.loadRehearsals(organizationId)
+                val loadedMembers = repository.loadTeamMembers(organizationId)
+                val loadedPlans = repository.loadServicePlans(organizationId)
+                rehearsals = loadedRehearsals
+                members = loadedMembers
+                servicePlans = loadedPlans
+                runCatching { offlineCache.saveRehearsals(userId, organizationId, loadedRehearsals) }
+                offlineSnapshot = false
             } catch (_: Exception) {
-                error = "Rehearsals could not be loaded. Check your connection and try again."
+                pendingResponseStatuses = runCatching {
+                    responseQueue.loadPending(userId, organizationId)
+                        .associate { it.assignmentId to it.responseStatus }
+                }.getOrDefault(emptyMap())
+                val cachedRehearsals = runCatching {
+                    offlineCache.loadRehearsals(userId, organizationId)
+                }.getOrDefault(emptyList())
+                if (cachedRehearsals.isNotEmpty()) {
+                    rehearsals = cachedRehearsals
+                    members = emptyList()
+                    servicePlans = runCatching {
+                        OfflineServiceCache(context).loadServicePlans(userId, organizationId).plans
+                    }.getOrDefault(emptyList())
+                    offlineSnapshot = true
+                    error = ""
+                } else {
+                    error = "Rehearsals could not be loaded. Connect to the internet and try again."
+                }
             } finally {
                 loading = false
             }
@@ -137,10 +195,43 @@ fun RehearsalManagementScreen(
         scope.launch {
             assignmentsLoading = true
             error = ""
+            pendingResponseStatuses = runCatching {
+                responseQueue.loadPending(userId, organizationId)
+                    .associate { it.assignmentId to it.responseStatus }
+            }.getOrDefault(pendingResponseStatuses)
             try {
-                assignments = repository.loadAssignments(rehearsal.id, organizationId)
+                val loadedAssignments = repository.loadAssignments(rehearsal.id, organizationId)
+                val loadedMembers = repository.loadTeamMembers(organizationId)
+                members = loadedMembers
+                assignments = applyPendingAvailabilityResponses(
+                    loadedAssignments,
+                    pendingResponseStatuses
+                )
+                runCatching {
+                    offlineCache.saveRoster(
+                        userId = userId,
+                        organizationId = organizationId,
+                        rehearsalId = rehearsal.id,
+                        assignments = loadedAssignments,
+                        members = loadedMembers
+                    )
+                }
+                offlineSnapshot = false
             } catch (_: Exception) {
-                error = "The rehearsal team list could not be loaded. Refresh and try again."
+                val cachedRoster = runCatching {
+                    offlineCache.loadRoster(userId, organizationId, rehearsal.id)
+                }.getOrNull()
+                if (cachedRoster != null && cachedRoster.assignments.isNotEmpty()) {
+                    members = cachedRoster.members
+                    assignments = applyPendingAvailabilityResponses(
+                        cachedRoster.assignments,
+                        pendingResponseStatuses
+                    )
+                    offlineSnapshot = true
+                    error = ""
+                } else {
+                    error = "The rehearsal team list could not be loaded. Refresh when you are online."
+                }
             } finally {
                 assignmentsLoading = false
             }
@@ -194,6 +285,7 @@ fun RehearsalManagementScreen(
                         memberIds = editorMemberIds
                     )
                     rehearsals = repository.loadRehearsals(organizationId)
+                    runCatching { offlineCache.saveRehearsals(userId, organizationId, rehearsals) }
                     editorOpen = false
                     openDetails(created)
                 } else {
@@ -213,6 +305,7 @@ fun RehearsalManagementScreen(
                     editorOpen = false
                     val updated = repository.loadRehearsals(organizationId)
                     rehearsals = updated
+                    runCatching { offlineCache.saveRehearsals(userId, organizationId, updated) }
                     updated.firstOrNull { it.id == existing.id }?.let(::openDetails)
                 }
             } catch (exception: Exception) {
@@ -231,6 +324,7 @@ fun RehearsalManagementScreen(
                 repository.updateStatus(rehearsal.id, organizationId, status)
                 val updated = repository.loadRehearsals(organizationId)
                 rehearsals = updated
+                runCatching { offlineCache.saveRehearsals(userId, organizationId, updated) }
                 selected = updated.firstOrNull { it.id == rehearsal.id }
                 selected?.let(::loadAssignments)
             } catch (exception: Exception) {
@@ -250,6 +344,7 @@ fun RehearsalManagementScreen(
                 selected = null
                 assignments = emptyList()
                 rehearsals = repository.loadRehearsals(organizationId)
+                runCatching { offlineCache.saveRehearsals(userId, organizationId, rehearsals) }
             } catch (exception: Exception) {
                 error = exception.message ?: "The rehearsal could not be deleted."
             } finally {
@@ -259,16 +354,58 @@ fun RehearsalManagementScreen(
     }
 
     fun respond(assignment: RehearsalAssignmentDto, response: String) {
+        val rehearsal = selected ?: return
+        if (!RehearsalRules.canRespond(rehearsal.status)) {
+            error = "This rehearsal is no longer accepting availability responses."
+            return
+        }
         scope.launch {
             respondingId = assignment.id
             error = ""
             try {
-                repository.respond(
-                    assignmentId = assignment.id,
-                    memberId = assignment.memberId,
-                    response = response
-                )
-                assignments = repository.loadAssignments(assignment.rehearsalId, organizationId)
+                if (!hasValidatedInternetConnection(context)) {
+                    responseQueue.enqueue(
+                        userId = userId,
+                        organizationId = organizationId,
+                        rehearsalId = rehearsal.id,
+                        assignmentId = assignment.id,
+                        memberId = assignment.memberId,
+                        responseStatus = response
+                    )
+                    pendingResponseStatuses = pendingResponseStatuses + (assignment.id to response)
+                    assignments = assignments.map {
+                        if (it.id == assignment.id) it.copy(responseStatus = response) else it
+                    }
+                    OfflineSyncScheduler.schedule(context, userId, organizationId)
+                } else {
+                    val submitted = repository.respond(
+                        assignmentId = assignment.id,
+                        rehearsalId = rehearsal.id,
+                        organizationId = organizationId,
+                        memberId = assignment.memberId,
+                        response = response
+                    )
+                    if (!submitted) {
+                        throw IllegalStateException(
+                            "This rehearsal is no longer accepting availability responses. Refresh and check its current status."
+                        )
+                    }
+                    responseQueue.remove(userId, assignment.id)
+                    pendingResponseStatuses = pendingResponseStatuses - assignment.id
+                    val refreshedAssignments =
+                        repository.loadAssignments(rehearsal.id, organizationId)
+                    assignments = refreshedAssignments
+                    runCatching {
+                        offlineCache.saveRoster(
+                            userId = userId,
+                            organizationId = organizationId,
+                            rehearsalId = rehearsal.id,
+                            assignments = refreshedAssignments,
+                            members = members
+                        )
+                    }
+                    offlineSnapshot = false
+                }
             } catch (exception: Exception) {
                 error = exception.message ?: "Your availability could not be saved."
             } finally {
@@ -288,6 +425,15 @@ fun RehearsalManagementScreen(
                     status = attendance
                 )
                 assignments = repository.loadAssignments(assignment.rehearsalId, organizationId)
+                runCatching {
+                    offlineCache.saveRoster(
+                        userId = userId,
+                        organizationId = organizationId,
+                        rehearsalId = assignment.rehearsalId,
+                        assignments = assignments,
+                        members = members
+                    )
+                }
             } catch (exception: Exception) {
                 error = exception.message ?: "Attendance could not be saved."
             } finally {
@@ -296,7 +442,7 @@ fun RehearsalManagementScreen(
         }
     }
 
-    LaunchedEffect(organizationId) { reload() }
+    LaunchedEffect(userId, organizationId) { reload() }
 
     LaunchedEffect(openRehearsalId, openRehearsalRequestId, rehearsals, loading) {
         if (openRehearsalRequestId.isNullOrBlank()) {
@@ -333,6 +479,8 @@ fun RehearsalManagementScreen(
             loading = assignmentsLoading,
             saving = saving,
             respondingId = respondingId,
+            pendingResponseIds = pendingResponseStatuses.keys,
+            offlineSnapshot = offlineSnapshot,
             error = error,
             onBack = {
                 selected = null
@@ -381,9 +529,23 @@ fun RehearsalManagementScreen(
             }
         }
 
+        if (offlineSnapshot) {
+            item {
+                Text(
+                    "Offline copy · schedule and roster changes are read-only. Member availability can be saved on this device.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         if (canManage) {
             item {
-                Button(onClick = ::startCreate, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = ::startCreate,
+                    enabled = !saving && !offlineSnapshot,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Icon(Icons.Default.CalendarMonth, contentDescription = null)
                     Spacer(Modifier.size(8.dp))
                     Text("Schedule rehearsal")
@@ -518,6 +680,8 @@ private fun RehearsalDetailContent(
     loading: Boolean,
     saving: Boolean,
     respondingId: String?,
+    pendingResponseIds: Set<String>,
+    offlineSnapshot: Boolean,
     error: String,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
@@ -606,22 +770,22 @@ private fun RehearsalDetailContent(
                     if (canManage) {
                         if (rehearsal.status == "scheduled") {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = onEdit, enabled = !saving && !loading, modifier = Modifier.weight(1f)) {
+                                OutlinedButton(onClick = onEdit, enabled = !saving && !loading && !offlineSnapshot, modifier = Modifier.weight(1f)) {
                                     Icon(Icons.Default.Edit, contentDescription = null)
                                     Text("Edit")
                                 }
-                                Button(onClick = { onStatusChange("completed") }, enabled = !saving, modifier = Modifier.weight(1f)) {
+                                Button(onClick = { onStatusChange("completed") }, enabled = !saving && !offlineSnapshot, modifier = Modifier.weight(1f)) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null)
                                     Text("Complete")
                                 }
                             }
                         }
                         if (rehearsal.status == "scheduled") {
-                            TextButton(onClick = { onStatusChange("cancelled") }, enabled = !saving) {
+                            TextButton(onClick = { onStatusChange("cancelled") }, enabled = !saving && !offlineSnapshot) {
                                 Text("Cancel rehearsal", color = MaterialTheme.colorScheme.error)
                             }
                         }
-                        TextButton(onClick = { confirmDeleteOpen = true }, enabled = !saving) {
+                        TextButton(onClick = { confirmDeleteOpen = true }, enabled = !saving && !offlineSnapshot) {
                             Icon(Icons.Default.DeleteOutline, contentDescription = null)
                             Text("Delete rehearsal")
                         }
@@ -643,6 +807,20 @@ private fun RehearsalDetailContent(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
+                        if (myAssignment.id in pendingResponseIds) {
+                            Text(
+                                "Saved on this device · waiting to sync",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        if (offlineSnapshot) {
+                            Text(
+                                "Showing the last synced rehearsal details. Your response will be sent when the connection returns.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = { onRespond(myAssignment, "available") },
@@ -765,7 +943,7 @@ private fun RehearsalDetailContent(
             RehearsalAssignmentCard(
                 assignment = assignment,
                 memberName = memberName,
-                canManage = canManage,
+                canManage = canManage && !offlineSnapshot,
                 attendanceEnabled = rehearsal.status == "completed",
                 busy = respondingId == assignment.id,
                 onMarkAttendance = { status -> onMarkAttendance(assignment, status) }

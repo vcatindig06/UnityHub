@@ -182,24 +182,32 @@ class RehearsalRepository(private val client: SupabaseClient) {
 
     suspend fun respond(
         assignmentId: String,
+        rehearsalId: String,
+        organizationId: String,
         memberId: String,
-        response: String,
-        note: String = ""
-    ) {
+        response: String
+    ): Boolean {
+        require(
+            assignmentId.isNotBlank() && rehearsalId.isNotBlank() &&
+                organizationId.isNotBlank() && memberId.isNotBlank()
+        )
         require(RehearsalRules.isAvailabilityResponse(response)) {
             "Choose whether you are available or unable to attend."
         }
-        require(note.trim().length <= 500) { "Response notes must be 500 characters or fewer." }
-        client.from("rehearsal_assignments").update({
+        val updated = client.from("rehearsal_assignments").update({
             set("response_status", response)
-            set("response_note", note.trim())
+            set("response_note", "")
             set("responded_at", Instant.now().toString())
         }) {
+            select()
             filter {
                 eq("id", assignmentId)
+                eq("rehearsal_id", rehearsalId)
+                eq("organization_id", organizationId)
                 eq("member_id", memberId)
             }
-        }
+        }.decodeList<RehearsalAssignmentDto>()
+        return updated.any { it.responseStatus == response }
     }
 
     suspend fun markAttendance(

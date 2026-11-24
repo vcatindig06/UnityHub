@@ -73,6 +73,14 @@ class OfflineSyncStatusRulesTest {
     @Test
     fun progressStagesHaveReadableLabels() {
         assertEquals("Refreshing songs", OfflineSyncStatusRules.progressLabel("downloading_songs"))
+        assertEquals(
+            "Sending rehearsal availability responses",
+            OfflineSyncStatusRules.progressLabel("uploading_rehearsal_responses")
+        )
+        assertEquals(
+            "Refreshing rehearsals and invitees",
+            OfflineSyncStatusRules.progressLabel("downloading_rehearsals")
+        )
         assertEquals("Saving offline copies", OfflineSyncStatusRules.progressLabel("saving_offline_copy"))
         assertEquals("Syncing offline data", OfflineSyncStatusRules.progressLabel("unknown"))
     }

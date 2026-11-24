@@ -142,7 +142,7 @@ fun OfflineSyncStatusCard(
             }
 
             Text(
-                "Saved service responses are sent first, then songs, service plans, setlists, and assignment snapshots refresh in the background.",
+                "Saved service and rehearsal responses are sent first, then songs, services, setlists, and rehearsal snapshots refresh in the background.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

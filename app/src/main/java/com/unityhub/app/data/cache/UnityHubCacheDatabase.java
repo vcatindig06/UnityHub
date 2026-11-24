@@ -14,9 +14,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
         CachedServicePlanEntity.class,
         CachedServicePlanItemEntity.class,
         CachedServiceAssignmentEntity.class,
-        PendingServiceAssignmentResponseEntity.class
+        PendingServiceAssignmentResponseEntity.class,
+        CachedRehearsalEntity.class,
+        CachedRehearsalAssignmentEntity.class,
+        PendingRehearsalAvailabilityResponseEntity.class
     },
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 public abstract class UnityHubCacheDatabase extends RoomDatabase {
@@ -104,10 +107,54 @@ public abstract class UnityHubCacheDatabase extends RoomDatabase {
         }
     };
 
+    public static final Migration MIGRATION_5_6 = new Migration(5, 6) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS cached_rehearsals (" +
+                "id TEXT NOT NULL, owner_user_id TEXT NOT NULL, organization_id TEXT NOT NULL, " +
+                "title TEXT NOT NULL, rehearsal_date TEXT NOT NULL, start_time TEXT NOT NULL, " +
+                "end_time TEXT, location TEXT NOT NULL, notes TEXT NOT NULL, status TEXT NOT NULL, " +
+                "service_plan_id TEXT, created_by TEXT NOT NULL, created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, cached_at INTEGER NOT NULL, " +
+                "PRIMARY KEY(id, owner_user_id))"
+            );
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_cached_rehearsals_owner_user_id_organization_id_rehearsal_date " +
+                "ON cached_rehearsals(owner_user_id, organization_id, rehearsal_date)"
+            );
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS cached_rehearsal_assignments (" +
+                "id TEXT NOT NULL, owner_user_id TEXT NOT NULL, organization_id TEXT NOT NULL, " +
+                "rehearsal_id TEXT NOT NULL, member_id TEXT NOT NULL, member_user_id TEXT NOT NULL, " +
+                "member_display_name TEXT NOT NULL, member_team_role TEXT NOT NULL, " +
+                "response_status TEXT NOT NULL, response_note TEXT NOT NULL, assigned_by TEXT NOT NULL, " +
+                "responded_at TEXT, created_at TEXT NOT NULL, cached_at INTEGER NOT NULL, " +
+                "PRIMARY KEY(id, owner_user_id))"
+            );
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_cached_rehearsal_assignments_owner_user_id_organization_id_rehearsal_id_created_at " +
+                "ON cached_rehearsal_assignments(owner_user_id, organization_id, rehearsal_id, created_at)"
+            );
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS pending_rehearsal_availability_responses (" +
+                "assignment_id TEXT NOT NULL, owner_user_id TEXT NOT NULL, organization_id TEXT NOT NULL, " +
+                "rehearsal_id TEXT NOT NULL, member_id TEXT NOT NULL, response_status TEXT NOT NULL, " +
+                "queued_at INTEGER NOT NULL, PRIMARY KEY(assignment_id, owner_user_id))"
+            );
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_pending_rehearsal_availability_responses_owner_user_id_organization_id " +
+                "ON pending_rehearsal_availability_responses(owner_user_id, organization_id)"
+            );
+        }
+    };
+
     public abstract CachedSongDao cachedSongDao();
     public abstract CachedServicePlanDao cachedServicePlanDao();
     public abstract CachedServiceAssignmentDao cachedServiceAssignmentDao();
     public abstract PendingServiceAssignmentResponseDao pendingServiceAssignmentResponseDao();
+    public abstract CachedRehearsalDao cachedRehearsalDao();
+    public abstract PendingRehearsalAvailabilityResponseDao pendingRehearsalAvailabilityResponseDao();
 
     public static UnityHubCacheDatabase getInstance(@NonNull Context context) {
         if (instance == null) {
@@ -117,7 +164,7 @@ public abstract class UnityHubCacheDatabase extends RoomDatabase {
                         context.getApplicationContext(),
                         UnityHubCacheDatabase.class,
                         "unityhub_offline_cache.db"
-                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build();
+                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build();
                 }
             }
         }
