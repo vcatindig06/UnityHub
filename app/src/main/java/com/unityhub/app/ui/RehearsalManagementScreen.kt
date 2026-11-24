@@ -741,7 +741,6 @@ fun RehearsalManagementScreen(
                 )
             }
         }
-        }
     }
 }
 

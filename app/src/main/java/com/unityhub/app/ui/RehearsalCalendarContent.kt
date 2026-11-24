@@ -136,7 +136,11 @@ fun RehearsalCalendarContent(
             Text(selectedDateLabel, style = MaterialTheme.typography.titleMedium)
             Text(
                 when (selectedRehearsals.size) {
-                    0 -> "No ${timeFilter.label.lowercase(Locale.getDefault())} rehearsals on this day"
+                    0 -> when (timeFilter) {
+                        RehearsalTimeFilter.UPCOMING -> "No upcoming rehearsals on this day"
+                        RehearsalTimeFilter.PAST -> "No past rehearsals on this day"
+                        RehearsalTimeFilter.ALL -> "No rehearsals on this day"
+                    }
                     1 -> "1 rehearsal"
                     else -> "${selectedRehearsals.size} rehearsals"
                 },

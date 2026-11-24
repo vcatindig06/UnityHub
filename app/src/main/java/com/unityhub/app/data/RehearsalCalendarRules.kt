@@ -28,8 +28,7 @@ object RehearsalCalendarRules {
     ): List<RehearsalDto> {
         val matching = rehearsals.filter { rehearsal ->
             val date = runCatching { LocalDate.parse(rehearsal.rehearsalDate) }.getOrNull()
-                ?: return@filter false
-            when (filter) {
+            date != null && when (filter) {
                 RehearsalTimeFilter.UPCOMING ->
                     date >= today && rehearsal.status == "scheduled"
                 RehearsalTimeFilter.PAST ->
