@@ -737,6 +737,13 @@ private fun RehearsalDetailContent(
         )
     }
     var calendarReminderMessage by remember(rehearsal.id) { mutableStateOf("") }
+    LaunchedEffect(rehearsal.updatedAt, currentUserId) {
+        reminderSetMinutes = RehearsalReminderScheduler.getMinutesBefore(
+            context,
+            currentUserId,
+            rehearsal.id
+        )
+    }
     var rosterSearch by rememberSaveable(rehearsal.id) { mutableStateOf("") }
     var rosterFilter by rememberSaveable(rehearsal.id, rehearsal.status) {
         mutableStateOf(RehearsalRosterFilter.ALL)
@@ -893,13 +900,8 @@ private fun RehearsalDetailContent(
                         OutlinedButton(
                             onClick = {
                                 val opened = runCatching {
-                                    val intent = RehearsalCalendarIntent.create(rehearsal)
-                                    if (intent.resolveActivity(context.packageManager) == null) {
-                                        false
-                                    } else {
-                                        context.startActivity(intent)
-                                        true
-                                    }
+                                    context.startActivity(RehearsalCalendarIntent.create(rehearsal))
+                                    true
                                 }.getOrDefault(false)
                                 calendarReminderMessage = if (opened) {
                                     "Calendar opened · review and save the event there."
