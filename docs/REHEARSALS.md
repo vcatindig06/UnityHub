@@ -28,6 +28,22 @@ Offline responses are available only for cached invitations. If the rehearsal ha
 
 Members who were not invited can view the rehearsal schedule and the invited roster, but cannot respond on behalf of somebody else.
 
+## Calendar integration
+
+Open a rehearsal and select **Add to calendar** to hand the event to the device's calendar app. UnityHub pre-fills the rehearsal title, date, start/end time, location, and notes. The calendar app opens its normal event editor so the user can review and save the event. If no end time was set, UnityHub suggests a one-hour duration.
+
+This uses Android's calendar insert intent and does not read the user's calendar or request calendar-provider permissions. See the Android Developers guide for [adding a calendar event](https://developer.android.com/guide/components/intents-common.html#AddEvent).
+
+## Local reminders
+
+Select **Set reminder** in rehearsal details to schedule a reminder on this device. Available choices are 1 day, 1 hour, or 15 minutes before the rehearsal starts. WorkManager delivers the local notification; Android may delay it under battery and background-execution restrictions, so it is not an exact alarm.
+
+Reminders are private to the device and do not send a message to other invited members. The reminder opens the matching rehearsal in UnityHub. Updating the rehearsal date or start time reschedules an existing reminder. Completing, cancelling, or deleting the rehearsal removes it, and signing out clears all reminders belonging to that account. Android notification permission and the **Rehearsal reminders** notification channel must be enabled for the notification to appear.
+
+## Availability overview
+
+The roster summary displays the number of Available, Can't attend, and Awaiting responses, along with a visual breakdown and availability response rate. After completion, it changes to Attended, Absent, and Not recorded and shows the attendance recording rate.
+
 ## Attendance
 
 When a leader marks a rehearsal **Complete**, the team list exposes the **Attended** and **Absent** actions. These are leader-only attendance outcomes and are separate from the member's earlier availability response.
