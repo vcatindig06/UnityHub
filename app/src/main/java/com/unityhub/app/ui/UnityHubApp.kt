@@ -702,6 +702,7 @@ private fun WorkspaceDashboard(
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var tabHistory by rememberSaveable { mutableStateOf(emptyList<Int>()) }
     var showAccountScreen by rememberSaveable { mutableStateOf(false) }
+    var showTeamChat by rememberSaveable { mutableStateOf(false) }
     var requestedServicePlanId by remember { mutableStateOf<String?>(null) }
     var serviceNavigationRequestId by remember { mutableStateOf<String?>(null) }
     var requestedRehearsalId by remember { mutableStateOf<String?>(null) }
@@ -714,10 +715,12 @@ private fun WorkspaceDashboard(
     }
 
     BackHandler(
-        enabled = showAccountScreen || tabHistory.isNotEmpty() || selectedTab != AppBackNavigationRules.HOME_TAB
+        enabled = showAccountScreen || showTeamChat || tabHistory.isNotEmpty() || selectedTab != AppBackNavigationRules.HOME_TAB
     ) {
         if (showAccountScreen) {
             showAccountScreen = false
+        } else if (showTeamChat) {
+            showTeamChat = false
         } else {
             val previousTab = AppBackNavigationRules.previousTab(selectedTab, tabHistory)
             if (previousTab != null) {
@@ -757,9 +760,11 @@ private fun WorkspaceDashboard(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
                 navigationIcon = {
-                    if (showAccountScreen) {
-                        IconButton(onClick = { showAccountScreen = false }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back to workspace")
+                    if (showAccountScreen || showTeamChat) {
+                        IconButton(onClick = {
+                            if (showTeamChat) showTeamChat = false else showAccountScreen = false
+                        }) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = if (showTeamChat) "Back to team" else "Back to workspace")
                         }
                     } else {
                         UnityHubLogoMark(
@@ -771,20 +776,19 @@ private fun WorkspaceDashboard(
                 title = {
                     Column {
                         Text(
-                            if (showAccountScreen) "Account settings" else organization.name,
+                            when { showAccountScreen -> "Account settings"; showTeamChat -> "Team Chat"; else -> organization.name },
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            if (showAccountScreen) "Your profile and app preferences"
-                            else "${roleLabel(workspace.role)} · UnityHub workspace",
+                            when { showAccountScreen -> "Your profile and app preferences"; showTeamChat -> organization.name; else -> "${roleLabel(workspace.role)} · UnityHub workspace" },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
                 actions = {
-                    if (showAccountScreen) {
+                    if (showAccountScreen || showTeamChat) {
                         Spacer(Modifier.size(8.dp))
                     } else {
                         TextButton(onClick = onRefresh, enabled = !loading) { Text("Refresh") }
@@ -796,7 +800,7 @@ private fun WorkspaceDashboard(
             )
         },
         bottomBar = {
-            if (!showAccountScreen) {
+            if (!showAccountScreen && !showTeamChat) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = 3.dp
@@ -827,6 +831,13 @@ private fun WorkspaceDashboard(
                 organizationName = organization.name,
                 role = roleLabel(workspace.role),
                 onSignOut = onSignOut,
+                modifier = Modifier.padding(innerPadding)
+            )
+        } else if (showTeamChat) {
+            TeamChatScreen(
+                organizationId = organization.id,
+                organizationName = organization.name,
+                userId = userId,
                 modifier = Modifier.padding(innerPadding)
             )
         } else {
@@ -913,6 +924,7 @@ private fun WorkspaceDashboard(
                 onReviewRequest = onReviewRequest,
                 errorMessage = errorMessage,
                 onWorkspaceChanged = onRefresh,
+                onOpenChat = { showTeamChat = true },
                 modifier = Modifier.padding(innerPadding)
             )
             }

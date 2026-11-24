@@ -76,6 +76,7 @@ fun TeamManagementScreen(
     onReviewRequest: (String, Boolean) -> Unit,
     errorMessage: String,
     onWorkspaceChanged: () -> Unit = {},
+    onOpenChat: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val organizationId = workspace.organization?.id ?: return
@@ -377,9 +378,12 @@ fun TeamManagementScreen(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("Members · ${members.size}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
-                TextButton(onClick = { refresh() }, enabled = !dataLoading && !saving) {
-                    Icon(Icons.Default.Refresh, contentDescription = null)
-                    Text("Refresh")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onOpenChat) { Text("Team Chat") }
+                    TextButton(onClick = { refresh() }, enabled = !dataLoading && !saving) {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                        Text("Refresh")
+                    }
                 }
             }
         }
