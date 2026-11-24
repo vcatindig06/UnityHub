@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.unityhub.app.data.MemberParticipationRepository
 import com.unityhub.app.data.MemberParticipationRules
 import com.unityhub.app.data.MemberParticipationSnapshot
+import com.unityhub.app.data.TeamAccessRules
 import com.unityhub.app.data.ServiceMemberOption
 import com.unityhub.app.data.SupabaseClientProvider
 import java.time.LocalDate
@@ -143,7 +144,7 @@ fun MemberParticipationScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            teamAccessLabel(member.teamRole),
+                            TeamAccessRules.roleLabel(member.teamRole),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
