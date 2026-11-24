@@ -55,7 +55,7 @@ object RehearsalMonthCalendarRules {
     fun monthGrid(
         month: YearMonth,
         rehearsals: List<RehearsalDto>
-    ): List<RehearsalCalendarDay> {
+    ): List<RehearsalMonthCalendarDay> {
         val firstDay = month.atDay(1)
         val lastDay = month.atEndOfMonth()
         val gridStart = firstDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -64,7 +64,7 @@ object RehearsalMonthCalendarRules {
 
         return (0 until dayCount).map { offset ->
             val date = gridStart.plusDays(offset.toLong())
-            RehearsalCalendarDay(
+            RehearsalMonthCalendarDay(
                 date = date,
                 isInDisplayedMonth = YearMonth.from(date) == month,
                 rehearsals = rehearsalsOn(date, rehearsals)
