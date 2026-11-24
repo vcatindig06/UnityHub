@@ -52,7 +52,7 @@ Add `unityhub://auth` and `unityhub://auth?mode=recovery` to Supabase Dashboard 
 
 ### Notification center
 
-Members can switch between all notifications and unread notifications, mark individual items as read, or mark all of their unread notifications as read. Notifications now stream live through Supabase Realtime while UnityHub is open, and the Notifications tab displays a badge with the signed-in member’s unread count. Updates are filtered to the current recipient and continue to use the existing recipient-only row-level policies; no new table privileges or server-side client credentials are introduced. The `notifications` table is included in the `supabase_realtime` publication by the migration `supabase/migrations/20261124190000_enable_notifications_realtime.sql`.
+Members can switch between all notifications and unread notifications, mark individual items as read, or mark all of their unread notifications as read. Notifications stream live through Supabase Realtime while UnityHub is open, and the Notifications tab displays a badge with the signed-in member’s unread count. Realtime reads are filtered to the signed-in recipient and remain protected by row-level security. The migration `supabase/migrations/20261124190000_enable_notifications_realtime.sql` adds the table to the `supabase_realtime` publication; `supabase/migrations/20261124200000_grant_notification_read_timestamp_update.sql` grants authenticated members column-level update access to `read_at` only, still restricted to their own rows by RLS.
 
 ### Offline service responses
 

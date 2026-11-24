@@ -1,9 +1,20 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 46,
-  "latestVersionName": "0.46.0",
+  "latestVersionCode": 47,
+  "latestVersionName": "0.47.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 47,
+      "versionName": "0.47.0",
+      "releasedAt": "2026-11-24",
+      "summary": "Notification read actions now use the correct restricted database permission.",
+      "changes": [
+        "Mark individual or all notifications as read with authenticated access limited to the read_at column and the recipient's own rows.",
+        "Load the initial notification list from the Realtime subscription without starting a duplicate database request.",
+        "Fall back to a recipient-scoped notification refresh when the Realtime stream cannot be established."
+      ]
+    },
     {
       "versionCode": 46,
       "versionName": "0.46.0",
