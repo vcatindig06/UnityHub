@@ -1,6 +1,8 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,10 +25,12 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -56,6 +60,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
 import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.ServicePlanDto
+import com.unityhub.app.data.ServicePlanFilterRules
+import com.unityhub.app.data.ServicePlanStatusFilter
 import com.unityhub.app.data.ServicePlanItemDto
 import com.unityhub.app.data.ServicePlanRepository
 import com.unityhub.app.data.ServiceRunSheetRules
@@ -110,6 +116,14 @@ fun ServicePlanningScreen(
     var calendarView by rememberSaveable { mutableStateOf("month") }
     var selectedCalendarDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var displayedCalendarMonth by rememberSaveable { mutableStateOf(java.time.YearMonth.now().toString()) }
+    var serviceStatusFilter by rememberSaveable(organizationId) {
+        mutableStateOf(ServicePlanStatusFilter.ALL)
+    }
+    var serviceSearch by rememberSaveable(organizationId) { mutableStateOf("") }
+    val filteredPlans = remember(plans, serviceStatusFilter, serviceSearch) {
+        ServicePlanFilterRules.filter(plans, serviceStatusFilter, serviceSearch)
+    }
+    val hasActiveServiceFilters = serviceStatusFilter != ServicePlanStatusFilter.ALL || serviceSearch.isNotBlank()
     var templates by remember { mutableStateOf<List<ServiceTemplateDto>>(emptyList()) }
     var templateItemCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var templatesDialogOpen by rememberSaveable { mutableStateOf(false) }
@@ -393,7 +407,7 @@ fun ServicePlanningScreen(
                     Column(Modifier.weight(1f)) {
                         Text("Service planning", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         Text(
-                            "${plans.size} planned services",
+                            if (hasActiveServiceFilters) "${filteredPlans.size} of ${plans.size} planned services" else "${plans.size} planned services",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -510,20 +524,75 @@ fun ServicePlanningScreen(
             }
         } else {
             item {
+                OutlinedTextField(
+                    value = serviceSearch,
+                    onValueChange = { serviceSearch = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Search services") },
+                    placeholder = { Text("Title, date, or notes") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = if (serviceSearch.isNotBlank()) {
+                        {
+                            IconButton(onClick = { serviceSearch = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    } else null
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ServicePlanStatusFilter.values().forEach { filter ->
+                        FilterChip(
+                            selected = serviceStatusFilter == filter,
+                            onClick = { serviceStatusFilter = filter },
+                            label = { Text(filter.label) }
+                        )
+                    }
+                }
+            }
+            item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = calendarView == "month", onClick = { calendarView = "month" }, label = { Text("Month") })
                     FilterChip(selected = calendarView == "week", onClick = { calendarView = "week" }, label = { Text("Week") })
                     FilterChip(selected = calendarView == "list", onClick = { calendarView = "list" }, label = { Text("List") })
                 }
             }
-            if (calendarView == "list") {
-                items(plans, key = { it.id }) { plan ->
+            if (filteredPlans.isEmpty()) {
+                item {
+                    Card(shape = RoundedCornerShape(18.dp)) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "No services match these filters.",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            TextButton(
+                                onClick = {
+                                    serviceSearch = ""
+                                    serviceStatusFilter = ServicePlanStatusFilter.ALL
+                                }
+                            ) {
+                                Text("Clear filters")
+                            }
+                        }
+                    }
+                }
+            } else if (calendarView == "list") {
+                items(filteredPlans, key = { it.id }) { plan ->
                     ServicePlanCard(plan = plan, onClick = { selectedPlan = plan })
                 }
             } else {
                 item(key = "service-calendar-content") {
                     ServiceCalendarContent(
-                        plans = plans,
+                        plans = filteredPlans,
                         mode = calendarView,
                         selectedDateText = selectedCalendarDate,
                         displayedMonthText = displayedCalendarMonth,
