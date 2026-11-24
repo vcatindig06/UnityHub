@@ -1,6 +1,10 @@
 package com.unityhub.app.ui
 
 import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.draw.clip
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.compose.foundation.clickable
@@ -49,6 +53,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -74,6 +79,7 @@ import com.unityhub.app.data.OfflineRehearsalCache
 import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.PendingRehearsalAvailabilityResponseQueue
 import com.unityhub.app.data.RehearsalAssignmentDto
+import com.unityhub.app.sync.RehearsalReminderScheduler
 import com.unityhub.app.data.RehearsalDto
 import com.unityhub.app.data.RehearsalRepository
 import com.unityhub.app.data.RehearsalRules
@@ -306,7 +312,27 @@ fun RehearsalManagementScreen(
                     val updated = repository.loadRehearsals(organizationId)
                     rehearsals = updated
                     runCatching { offlineCache.saveRehearsals(userId, organizationId, updated) }
-                    updated.firstOrNull { it.id == existing.id }?.let(::openDetails)
+                    val updatedRehearsal = updated.firstOrNull { it.id == existing.id }
+                    val reminderMinutes = RehearsalReminderScheduler.getMinutesBefore(
+                        context,
+                        userId,
+                        existing.id
+                    )
+                    if (reminderMinutes != null && updatedRehearsal != null) {
+                        val reminderRescheduled = runCatching {
+                            RehearsalReminderScheduler.schedule(
+                                context = context,
+                                userId = userId,
+                                organizationId = organizationId,
+                                rehearsal = updatedRehearsal,
+                                minutesBefore = reminderMinutes
+                            )
+                        }.getOrDefault(false)
+                        if (!reminderRescheduled) {
+                            error = "The rehearsal was updated, but its old reminder time had passed. Set a new reminder."
+                        }
+                    }
+                    updatedRehearsal?.let(::openDetails)
                 }
             } catch (exception: Exception) {
                 error = exception.message ?: "The rehearsal could not be saved."
@@ -322,6 +348,9 @@ fun RehearsalManagementScreen(
             error = ""
             try {
                 repository.updateStatus(rehearsal.id, organizationId, status)
+                if (status == "completed" || status == "cancelled") {
+                    RehearsalReminderScheduler.cancel(context, userId, rehearsal.id)
+                }
                 val updated = repository.loadRehearsals(organizationId)
                 rehearsals = updated
                 runCatching { offlineCache.saveRehearsals(userId, organizationId, updated) }
@@ -341,6 +370,7 @@ fun RehearsalManagementScreen(
             error = ""
             try {
                 repository.deleteRehearsal(rehearsal.id, organizationId)
+                RehearsalReminderScheduler.cancel(context, userId, rehearsal.id)
                 selected = null
                 assignments = emptyList()
                 rehearsals = repository.loadRehearsals(organizationId)
@@ -693,7 +723,27 @@ private fun RehearsalDetailContent(
     onOpenServicePlan: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var confirmDeleteOpen by rememberSaveable(rehearsal.id) { mutableStateOf(false) }
+    var reminderDialogOpen by rememberSaveable(rehearsal.id) { mutableStateOf(false) }
+    var reminderSetMinutes by remember(rehearsal.id, currentUserId) {
+        mutableStateOf(
+            RehearsalReminderScheduler.getMinutesBefore(context, currentUserId, rehearsal.id)
+        )
+    }
+    var reminderChoice by remember(rehearsal.id, currentUserId) {
+        mutableStateOf(
+            reminderSetMinutes ?: RehearsalReminderScheduler.ONE_HOUR_BEFORE_MINUTES
+        )
+    }
+    var calendarReminderMessage by remember(rehearsal.id) { mutableStateOf("") }
+    LaunchedEffect(rehearsal.updatedAt, currentUserId) {
+        reminderSetMinutes = RehearsalReminderScheduler.getMinutesBefore(
+            context,
+            currentUserId,
+            rehearsal.id
+        )
+    }
     var rosterSearch by rememberSaveable(rehearsal.id) { mutableStateOf("") }
     var rosterFilter by rememberSaveable(rehearsal.id, rehearsal.status) {
         mutableStateOf(RehearsalRosterFilter.ALL)
@@ -714,6 +764,85 @@ private fun RehearsalDetailContent(
             },
             dismissButton = {
                 TextButton(onClick = { confirmDeleteOpen = false }, enabled = !saving) { Text("Keep rehearsal") }
+            }
+        )
+    }
+
+    if (reminderDialogOpen) {
+        AlertDialog(
+            onDismissRequest = { reminderDialogOpen = false },
+            title = { Text("Rehearsal reminder") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Choose when this device should remind you.")
+                    listOf(
+                        RehearsalReminderScheduler.ONE_DAY_BEFORE_MINUTES,
+                        RehearsalReminderScheduler.ONE_HOUR_BEFORE_MINUTES,
+                        RehearsalReminderScheduler.FIFTEEN_MINUTES_BEFORE_MINUTES
+                    ).forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { reminderChoice = option },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = reminderChoice == option,
+                                onClick = { reminderChoice = option }
+                            )
+                            Text(RehearsalReminderScheduler.labelFor(option))
+                        }
+                    }
+                    Text(
+                        "UnityHub uses an on-device reminder. Android notification permission and the Rehearsal reminders channel must be enabled.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val scheduled = runCatching {
+                            RehearsalReminderScheduler.schedule(
+                                context = context,
+                                userId = currentUserId,
+                                organizationId = rehearsal.organizationId,
+                                rehearsal = rehearsal,
+                                minutesBefore = reminderChoice
+                            )
+                        }.getOrDefault(false)
+                        if (scheduled) {
+                            reminderSetMinutes = reminderChoice
+                            calendarReminderMessage =
+                                "Reminder set · ${RehearsalReminderScheduler.labelFor(reminderChoice)}"
+                            reminderDialogOpen = false
+                        } else {
+                            calendarReminderMessage =
+                                "That reminder time has already passed. Choose a later reminder."
+                        }
+                    },
+                    enabled = rehearsal.status == "scheduled"
+                ) { Text("Set reminder") }
+            },
+            dismissButton = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (reminderSetMinutes != null) {
+                        TextButton(
+                            onClick = {
+                                RehearsalReminderScheduler.cancel(
+                                    context,
+                                    currentUserId,
+                                    rehearsal.id
+                                )
+                                reminderSetMinutes = null
+                                calendarReminderMessage = "Reminder removed."
+                                reminderDialogOpen = false
+                            }
+                        ) { Text("Remove") }
+                    }
+                    TextButton(onClick = { reminderDialogOpen = false }) { Text("Cancel") }
+                }
             }
         )
     }
@@ -766,6 +895,52 @@ private fun RehearsalDetailContent(
                         HorizontalDivider()
                         Text("Notes", fontWeight = FontWeight.SemiBold)
                         Text(rehearsal.notes, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                val opened = runCatching {
+                                    context.startActivity(RehearsalCalendarIntent.create(rehearsal))
+                                    true
+                                }.getOrDefault(false)
+                                calendarReminderMessage = if (opened) {
+                                    "Calendar opened · review and save the event there."
+                                } else {
+                                    "No calendar app is available to add this rehearsal."
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null)
+                            Text("Add to calendar")
+                        }
+                        if (rehearsal.status == "scheduled") {
+                            OutlinedButton(
+                                onClick = {
+                                    reminderChoice = reminderSetMinutes
+                                        ?: RehearsalReminderScheduler.ONE_HOUR_BEFORE_MINUTES
+                                    reminderDialogOpen = true
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Schedule, contentDescription = null)
+                                Text(if (reminderSetMinutes == null) "Set reminder" else "Reminder set")
+                            }
+                        }
+                    }
+                    if (reminderSetMinutes != null && rehearsal.status == "scheduled") {
+                        Text(
+                            "Reminder · ${RehearsalReminderScheduler.labelFor(reminderSetMinutes!!)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    if (calendarReminderMessage.isNotBlank()) {
+                        Text(
+                            calendarReminderMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     if (canManage) {
                         if (rehearsal.status == "scheduled") {
@@ -849,6 +1024,17 @@ private fun RehearsalDetailContent(
         if (assignments.isNotEmpty()) {
             item {
                 RehearsalRosterSummaryCard(
+                    total = rosterSummary.invited,
+                    responded = if (rehearsal.status == "completed") {
+                        rosterSummary.attended + rosterSummary.absent
+                    } else {
+                        rosterSummary.available + rosterSummary.unavailable
+                    },
+                    responseLabel = if (rehearsal.status == "completed") {
+                        "Attendance recorded"
+                    } else {
+                        "Availability responses"
+                    },
                     metrics = if (rehearsal.status == "completed") {
                         listOf(
                             RehearsalRosterMetric("Attended", rosterSummary.attended, MaterialTheme.colorScheme.primary),
@@ -959,36 +1145,68 @@ private data class RehearsalRosterMetric(
 )
 
 @Composable
-private fun RehearsalRosterSummaryCard(metrics: List<RehearsalRosterMetric>) {
+private fun RehearsalRosterSummaryCard(
+    metrics: List<RehearsalRosterMetric>,
+    total: Int,
+    responded: Int,
+    responseLabel: String
+) {
+    val responseRate = if (total > 0) (responded * 100) / total else 0
     Card(shape = RoundedCornerShape(16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            metrics.forEach { metric ->
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 11.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                metrics.forEach { metric ->
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
-                        Text(
-                            metric.value.toString(),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = metric.color
-                        )
-                        Text(
-                            metric.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 11.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Text(
+                                metric.value.toString(),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = metric.color
+                            )
+                            Text(
+                                metric.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(9.dp)
+                    .clip(RoundedCornerShape(10.dp)),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                metrics.filter { it.value > 0 }.forEach { metric ->
+                    Box(
+                        modifier = Modifier
+                            .weight(metric.value.toFloat())
+                            .fillMaxHeight()
+                            .background(metric.color)
+                    )
+                }
+            }
+            Text(
+                "$responseLabel · $responded of $total · $responseRate%",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

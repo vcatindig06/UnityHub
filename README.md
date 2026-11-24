@@ -72,7 +72,7 @@ Service details include **Start Live Stage** when a setlist is available. Live S
 
 ### Rehearsal management
 
-Administrators and worship leaders can schedule rehearsals, optionally link them to an existing service plan, and invite team members. Invitees receive in-app and Android push notifications and can respond Available or Can't attend, including queuing availability from a previously synced rehearsal while offline. Leaders can complete a rehearsal and record each invitee as Attended or Absent. The Home dashboard shows the next scheduled rehearsal. See [Rehearsal Management](docs/REHEARSALS.md) for the full workflow.
+Administrators and worship leaders can schedule rehearsals, optionally link them to an existing service plan, and invite team members. Invitees receive in-app and Android push notifications and can respond Available or Can't attend, including queuing availability from a previously synced rehearsal while offline. Rehearsal details can be handed off to the device calendar, and each member can schedule a local 1-day, 1-hour, or 15-minute reminder. Leaders can see availability and attendance response rates, complete a rehearsal, and record each invitee as Attended or Absent. The Home dashboard shows the next scheduled rehearsal. See [Rehearsal Management](docs/REHEARSALS.md) for the full workflow.
 
 The migration `supabase/migrations/20261112022019_create_rehearsal_management.sql` creates organization-scoped rehearsal and assignment tables, row-level security policies, explicit authenticated Data API grants, and notification triggers. A member can only update their own availability; leaders manage invitations and attendance. Rehearsal invitations use the existing signed server-side push delivery path.
 

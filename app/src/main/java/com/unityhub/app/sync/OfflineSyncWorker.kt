@@ -221,6 +221,58 @@ class OfflineSyncWorker(
             require(songs.all { it.organizationId == requestedOrganizationId }) {
                 "A song belongs to a different organization."
             }
+            require(rehearsals.all { it.organizationId == requestedOrganizationId }) {
+                "A rehearsal belongs to a different organization."
+            }
+
+            // Keep device-local reminders aligned with schedule changes made elsewhere.
+            // Only the current member's own reminders are touched; no server writes occur.
+            val rehearsalCache = OfflineRehearsalCache(applicationContext)
+            val previousRehearsals = runCatching {
+                rehearsalCache.loadRehearsals(requestedUserId, requestedOrganizationId)
+            }.getOrDefault(emptyList())
+            val currentRehearsalIds = rehearsals.mapTo(mutableSetOf()) { it.id }
+            previousRehearsals
+                .filter { it.id !in currentRehearsalIds }
+                .forEach { removed ->
+                    RehearsalReminderScheduler.cancel(
+                        applicationContext,
+                        requestedUserId,
+                        removed.id
+                    )
+                }
+
+            for (rehearsal in rehearsals) {
+                val reminderMinutes = RehearsalReminderScheduler.getMinutesBefore(
+                    applicationContext,
+                    requestedUserId,
+                    rehearsal.id
+                ) ?: continue
+                if (rehearsal.status == "scheduled") {
+                    val rescheduled = runCatching {
+                        RehearsalReminderScheduler.schedule(
+                            context = applicationContext,
+                            userId = requestedUserId,
+                            organizationId = requestedOrganizationId,
+                            rehearsal = rehearsal,
+                            minutesBefore = reminderMinutes
+                        )
+                    }.getOrDefault(false)
+                    if (!rescheduled) {
+                        RehearsalReminderScheduler.cancel(
+                            applicationContext,
+                            requestedUserId,
+                            rehearsal.id
+                        )
+                    }
+                } else {
+                    RehearsalReminderScheduler.cancel(
+                        applicationContext,
+                        requestedUserId,
+                        rehearsal.id
+                    )
+                }
+            }
 
             setProgress(workDataOf(PROGRESS_STAGE_KEY to "saving_offline_copy"))
             OfflineSongCache(applicationContext).saveSongs(
@@ -247,7 +299,6 @@ class OfflineSyncWorker(
                 )
             }
 
-            val rehearsalCache = OfflineRehearsalCache(applicationContext)
             rehearsalCache.saveRehearsals(
                 userId = requestedUserId,
                 organizationId = requestedOrganizationId,
