@@ -1,6 +1,7 @@
 package com.unityhub.app.ui
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -115,6 +116,14 @@ fun SongLibraryScreen(
     var notes by rememberSaveable { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var importMessage by remember { mutableStateOf("") }
+
+    BackHandler(enabled = selectedSong != null || editorOpen) {
+        if (selectedSong != null) {
+            selectedSong = null
+        } else if (!saving) {
+            editorOpen = false
+        }
+    }
 
     fun reload() {
         scope.launch {
