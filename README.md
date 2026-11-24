@@ -174,3 +174,8 @@ The app uses Supabase Row Level Security for authorization. Authorization decisi
 - Add observability, accessibility checks, and release signing before production distribution.
 
 Do not add service-role keys, signing keys, keystores, or local SDK configuration to the repository.
+
+
+### Team Chat
+
+The Team tab includes an organization-wide text chat. Messages are limited to 1,000 characters, newest history is capped to the latest 100 messages in the app, and message reads/inserts are restricted by authenticated organization membership through row-level security. Realtime updates use Supabase Realtime; enable the `team_messages` table in the `supabase_realtime` publication through the included migration. Apply the new migration to the existing Supabase project before using Team Chat. The first release supports text messages only; attachments, direct messages, edits, and deletes are not included.
