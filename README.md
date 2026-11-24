@@ -149,7 +149,7 @@ Implemented workflows include:
 - Administrator approval or decline of join requests
 - Team directory with member display names, team access roles, and assigned ministry positions, including member search and ministry-position filters; admins and worship leaders can manage the reusable ministry position catalogue
 - Administrator-only member access controls for changing access roles and removing members, plus an atomic owner transfer that promotes the new owner and retains the previous owner as a Team Member
-- Song library search across titles, artists, keys, time signatures, ChordPro lyrics/chords, and song notes; editor-only song management; and personal per-member favorites with an All songs / Favorites filter. Search filtering runs off the UI thread so large charts do not block typing.
+- Song library search across titles, artists, keys, time signatures, ChordPro lyrics/chords, and song notes; sort by title, artist, or most recently updated; editor-only song management; and personal per-member favorites with an All songs / Favorites filter. Search and sorting run off the UI thread so large charts do not block typing.
 - Raw ChordPro song content editing and file import/export
 - Read-only offline song and ChordPro chart access using a user-scoped Room cache
 - Read-only offline service plans, ordered setlists (including saved ChordPro snapshots), service assignments, and previously synced rehearsal schedules and invited rosters. Service confirmations/declines and rehearsal availability responses can be queued for later sync. Member confirmations and declines, including optional notes of up to 300 characters, can be queued offline and synchronized later without granting offline edit access to leaders or other members.

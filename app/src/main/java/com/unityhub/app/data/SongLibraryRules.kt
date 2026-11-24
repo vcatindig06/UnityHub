@@ -1,9 +1,14 @@
 package com.unityhub.app.data
 
-/**
- * Keeps song-editor input bounded so large pastes cannot grow Compose state
- * or ChordPro preview allocations without limit.
- */
+import java.time.Instant
+import java.util.Locale
+
+enum class SongSortOption(val label: String) {
+    TITLE("Title"),
+    ARTIST("Artist"),
+    RECENTLY_UPDATED("Recently updated")
+}
+
 internal object SongEditorInputLimits {
     const val MAX_TITLE_CHARACTERS = 200
     const val MAX_ARTIST_CHARACTERS = 120
@@ -32,10 +37,11 @@ internal object SongLibraryRules {
         songs: List<SongDto>,
         searchQuery: String,
         favoritesOnly: Boolean,
-        favoriteSongIds: Set<String>
+        favoriteSongIds: Set<String>,
+        sortOption: SongSortOption = SongSortOption.TITLE
     ): List<SongDto> {
         val query = searchQuery.trim()
-        return songs.filter { song ->
+        val matchingSongs = songs.filter { song ->
             val matchesSearch = query.isBlank() ||
                 song.title.contains(query, ignoreCase = true) ||
                 song.artist.contains(query, ignoreCase = true) ||
@@ -45,6 +51,23 @@ internal object SongLibraryRules {
                 song.notes.contains(query, ignoreCase = true)
 
             matchesSearch && (!favoritesOnly || song.id in favoriteSongIds)
+        }
+
+        return when (sortOption) {
+            SongSortOption.TITLE -> matchingSongs.sortedWith(
+                compareBy<SongDto> { it.title.trim().lowercase(Locale.ROOT) }
+                    .thenBy { it.artist.trim().lowercase(Locale.ROOT) }
+            )
+            SongSortOption.ARTIST -> matchingSongs.sortedWith(
+                compareBy<SongDto> {
+                    it.artist.trim().lowercase(Locale.ROOT).ifBlank { "\uFFFF" }
+                }.thenBy { it.title.trim().lowercase(Locale.ROOT) }
+            )
+            SongSortOption.RECENTLY_UPDATED -> matchingSongs.sortedWith(
+                compareByDescending<SongDto> { song ->
+                    runCatching { Instant.parse(song.updatedAt) }.getOrDefault(Instant.MIN)
+                }.thenBy { it.title.trim().lowercase(Locale.ROOT) }
+            )
         }
     }
 }
