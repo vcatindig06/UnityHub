@@ -1,6 +1,7 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -178,6 +179,17 @@ fun ServicePlanningScreen(
             } finally {
                 loading = false
             }
+        }
+    }
+
+    BackHandler(enabled = rehearsalsOpen || selectedPlan != null || assignmentOverviewOpen) {
+        when {
+            rehearsalsOpen -> rehearsalsOpen = false
+            selectedPlan != null -> {
+                selectedPlan = null
+                reload()
+            }
+            assignmentOverviewOpen -> assignmentOverviewOpen = false
         }
     }
 

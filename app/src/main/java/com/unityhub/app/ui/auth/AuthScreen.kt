@@ -1,6 +1,7 @@
 package com.unityhub.app.ui.auth
 
 import androidx.compose.foundation.BorderStroke
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -114,6 +115,17 @@ fun AuthScreen(onAuthenticated: () -> Unit) {
     val passwordMismatch = creating &&
         (confirmInput.isNotEmpty() || confirmValidationTriggered) &&
         passwordInput != confirmInput
+
+    BackHandler(enabled = creating) {
+        creating = false
+        notice = ""
+        noticeIsError = false
+        passwordInput = ""
+        confirmInput = ""
+        passwordVisible = false
+        confirmPasswordVisible = false
+        confirmValidationTriggered = false
+    }
 
     fun showNotice(message: String, isError: Boolean = false) {
         notice = message
