@@ -38,7 +38,7 @@ This uses Android's calendar insert intent and does not read the user's calendar
 
 Select **Set reminder** in rehearsal details to schedule a reminder on this device. Available choices are 1 day, 1 hour, or 15 minutes before the rehearsal starts. WorkManager delivers the local notification; Android may delay it under battery and background-execution restrictions, so it is not an exact alarm.
 
-Reminders are private to the device and do not send a message to other invited members. The reminder opens the matching rehearsal in UnityHub. Updating the rehearsal date or start time reschedules an existing reminder. Completing, cancelling, or deleting the rehearsal removes it, and signing out clears all reminders belonging to that account. Android notification permission and the **Rehearsal reminders** notification channel must be enabled for the notification to appear.
+Reminders are private to the device and do not send a message to other invited members. The reminder opens the matching rehearsal in UnityHub. Updating the rehearsal date or start time reschedules an existing reminder, including changes made by a leader on another device when the next background sync refreshes the rehearsal. Deleted or no-longer-scheduled rehearsals have their local reminders removed. Completing, cancelling, or deleting the rehearsal removes it, and signing out clears all reminders belonging to that account. Android notification permission and the **Rehearsal reminders** notification channel must be enabled for the notification to appear.
 
 ## Availability overview
 
