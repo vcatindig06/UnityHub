@@ -123,16 +123,21 @@ fun NotificationsScreen(
     }
 
     LaunchedEffect(userId) {
-        reload()
         try {
+            // selectAsFlow emits the initial recipient-scoped rows before streaming changes.
             repository.observeNotifications(userId).collect { incoming ->
                 notifications = NotificationRules.newestFirst(incoming)
                 loading = false
                 errorMessage = ""
             }
         } catch (_: Exception) {
-            if (notifications.isEmpty()) {
-                errorMessage = "Live notification updates are unavailable. Use Refresh to check for new items."
+            try {
+                notifications = repository.loadNotifications(userId)
+                errorMessage = "Live updates are unavailable. Notifications were loaded once; use Refresh to check again."
+            } catch (_: Exception) {
+                errorMessage = "Your notifications could not be loaded. Check your connection and try again."
+            } finally {
+                loading = false
             }
         }
     }
