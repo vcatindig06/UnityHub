@@ -1,6 +1,7 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -99,6 +100,10 @@ fun TeamManagementScreen(
     var ownershipTransferOpen by rememberSaveable { mutableStateOf(false) }
     var memberSearchQuery by rememberSaveable { mutableStateOf("") }
     var selectedPositionFilter by rememberSaveable { mutableStateOf("") }
+
+    BackHandler(enabled = memberProfileTarget != null) {
+        memberProfileTarget = null
+    }
 
     val assignedPositionsByMember = remember(memberPositions, positions) {
         memberPositions.groupBy { it.memberId }.mapValues { (_, assignments) ->
