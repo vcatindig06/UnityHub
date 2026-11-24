@@ -122,9 +122,22 @@ fun NotificationsScreen(
         }
     }
 
-    LaunchedEffect(userId) { reload() }
+    LaunchedEffect(userId) {
+        reload()
+        try {
+            repository.observeNotifications(userId).collect { incoming ->
+                notifications = NotificationRules.newestFirst(incoming)
+                loading = false
+                errorMessage = ""
+            }
+        } catch (_: Exception) {
+            if (notifications.isEmpty()) {
+                errorMessage = "Live notification updates are unavailable. Use Refresh to check for new items."
+            }
+        }
+    }
 
-    val unreadCount = notifications.count(NotificationRules::isUnread)
+    val unreadCount = NotificationRules.unreadCount(notifications)
     val visibleNotifications = NotificationRules.filterNotifications(
         notifications = notifications,
         unreadOnly = unreadOnly

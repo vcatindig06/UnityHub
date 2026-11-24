@@ -1,9 +1,20 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 44,
-  "latestVersionName": "0.44.0",
+  "latestVersionCode": 45,
+  "latestVersionName": "0.45.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 45,
+      "versionName": "0.45.0",
+      "releasedAt": "2026-11-24",
+      "summary": "Notifications now update live and show an unread badge.",
+      "changes": [
+        "Stream your private notifications in real time while UnityHub is open.",
+        "See the unread notification count on the existing Notifications tab.",
+        "Keep live notification updates restricted to the signed-in recipient through the existing row-level security policies."
+      ]
+    },
     {
       "versionCode": 44,
       "versionName": "0.44.0",
