@@ -151,9 +151,10 @@ fun SongChartScreen(
         }
     }
 
-    LazyColumn(
+    Column(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.weight(1f),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -238,45 +239,6 @@ fun SongChartScreen(
                             modifier = Modifier.semantics { contentDescription = "Increase chart text size" }
                         ) { Text("A+") }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                "Auto-scroll",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                if (autoScrollEnabled) "Scrolling · ${autoScrollSpeed.toInt()} dp/s"
-                                else "Paused",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        TextButton(
-                            onClick = { autoScrollEnabled = !autoScrollEnabled },
-                            enabled = document?.lines?.isNotEmpty() == true
-                        ) {
-                            Text(if (autoScrollEnabled) "Pause" else "Start")
-                        }
-                    }
-                    Text(
-                        "Scroll speed",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Slider(
-                        value = autoScrollSpeed,
-                        onValueChange = {
-                            autoScrollSpeed = ChartAutoScrollRules.clampSpeed(it)
-                        },
-                        valueRange = ChartAutoScrollRules.MIN_SPEED_DP_PER_SECOND..
-                            ChartAutoScrollRules.MAX_SPEED_DP_PER_SECOND,
-                        enabled = document?.lines?.isNotEmpty() == true
-                    )
                     if (transpose != 0) {
                         Text(
                             "Transposed for this view only. The saved song and service setlists remain unchanged.",
@@ -315,6 +277,63 @@ fun SongChartScreen(
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+        }
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Auto-scroll",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            if (autoScrollEnabled) "Scrolling · ${autoScrollSpeed.toInt()} dp/s" else "Paused",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    TextButton(
+                        onClick = { autoScrollEnabled = !autoScrollEnabled },
+                        enabled = document?.lines?.isNotEmpty() == true
+                    ) {
+                        Text(if (autoScrollEnabled) "Pause" else "Start")
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Speed",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Slider(
+                        modifier = Modifier.weight(1f),
+                        value = autoScrollSpeed,
+                        onValueChange = {
+                            autoScrollSpeed = ChartAutoScrollRules.clampSpeed(it)
+                        },
+                        valueRange = ChartAutoScrollRules.MIN_SPEED_DP_PER_SECOND..
+                            ChartAutoScrollRules.MAX_SPEED_DP_PER_SECOND,
+                        enabled = document?.lines?.isNotEmpty() == true
+                    )
+                }
+            }
+        }
     }
 }
 
