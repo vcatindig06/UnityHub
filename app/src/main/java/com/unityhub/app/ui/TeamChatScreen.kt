@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -31,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.unityhub.app.data.ServiceAssignmentRepository
@@ -64,6 +67,7 @@ fun TeamChatScreen(
     var loading by remember(organizationId) { mutableStateOf(true) }
     var sending by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var hasPositionedChatList by remember(organizationId) { mutableStateOf(false) }
 
     fun reload() {
         scope.launch {
@@ -98,14 +102,48 @@ fun TeamChatScreen(
         }
     }
 
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    LaunchedEffect(messages.size, messages.lastOrNull()?.id) {
+        if (messages.isEmpty()) return@LaunchedEffect
+
+        val lastVisibleItemIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+        if (
+            TeamChatRules.shouldFollowLatest(
+                lastVisibleItemIndex = lastVisibleItemIndex,
+                totalItemCount = messages.size,
+                hasPositionedList = hasPositionedChatList
+            )
+        ) {
+            listState.animateScrollToItem(messages.lastIndex)
+        }
+        hasPositionedChatList = true
     }
 
     val normalizedDraft = draft.trim()
     val canSend = normalizedDraft.isNotEmpty() &&
         normalizedDraft.length <= TeamChatRules.MAX_MESSAGE_LENGTH &&
         !sending
+
+    fun sendDraft() {
+        if (!canSend) return
+        val content = normalizedDraft
+        scope.launch {
+            sending = true
+            errorMessage = ""
+            try {
+                repository.sendMessage(organizationId, userId, content)
+                draft = ""
+                // Sending is successful even if this optional refresh fails.
+                // Realtime normally supplies the new row; Refresh remains a
+                // fallback when the stream is temporarily unavailable.
+                runCatching { repository.loadMessages(organizationId) }
+                    .onSuccess { messages = TeamChatRules.latestMessages(it) }
+            } catch (_: Exception) {
+                errorMessage = "Your message could not be sent. Check your connection and try again."
+            } finally {
+                sending = false
+            }
+        }
+    }
 
     Column(
         modifier = modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
@@ -190,35 +228,26 @@ fun TeamChatScreen(
                     onValueChange = { if (it.length <= TeamChatRules.MAX_MESSAGE_LENGTH) draft = it },
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Write a message…") },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    label = { Text("Message") },
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Send
+                    ),
+                    keyboardActions = KeyboardActions(onSend = { sendDraft() }),
                     minLines = 1,
                     maxLines = 4,
                     enabled = !sending
                 )
                 Button(
-                    onClick = {
-                        if (!canSend) return@Button
-                        scope.launch {
-                            sending = true
-                            errorMessage = ""
-                            try {
-                                repository.sendMessage(organizationId, userId, draft)
-                                draft = ""
-                                messages = repository.loadMessages(organizationId)
-                            } catch (_: Exception) {
-                                errorMessage = "Your message could not be sent. Check your connection and try again."
-                            } finally {
-                                sending = false
-                            }
-                        }
-                    },
+                    onClick = { sendDraft() },
+                    modifier = Modifier.heightIn(min = 48.dp),
                     enabled = canSend
                 ) {
                     Text(if (sending) "Sending" else "Send")
                 }
             }
             Text(
-                "${normalizedDraft.length}/${TeamChatRules.MAX_MESSAGE_LENGTH}",
+                "${normalizedDraft.length} of ${TeamChatRules.MAX_MESSAGE_LENGTH} characters",
                 modifier = Modifier.align(Alignment.End),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
