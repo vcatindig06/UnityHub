@@ -18,6 +18,8 @@ Only administrators and worship leaders can schedule, edit, cancel, complete, or
 
 The rehearsal screen opens in **Calendar** view and shows a Monday-first month grid. Use the month arrows to move between months, select **Today** to return to the current date, and tap a day to see its rehearsals. A small count marks dates with matching rehearsals. Switch to **List** to browse the same filtered results as cards. The **Upcoming**, **Past**, and **All** filters are available in either view. Upcoming includes scheduled rehearsals today or later; Past includes earlier dates and rehearsals that have already been completed or cancelled.
 
+Search rehearsals by title, location, or notes. The status filter can narrow results to Scheduled, Completed, or Cancelled; filters apply in both calendar and list views. The calendar's day counts and selected-day cards reflect the active search and filters. Use **Clear filters** when a list search returns no matches.
+
 ## Roster insights
 
 The rehearsal detail roster summarizes invitee responses. Scheduled rehearsals show Available, Can't attend, and Awaiting counts. Once a rehearsal is completed, the summary changes to Attended, Absent, and Not recorded. Use the roster search and status filters to find individual members without changing the saved invitation list.

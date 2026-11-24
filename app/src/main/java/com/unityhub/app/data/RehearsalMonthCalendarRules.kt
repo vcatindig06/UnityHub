@@ -13,6 +13,13 @@ enum class RehearsalTimeFilter(val label: String) {
     ALL("All")
 }
 
+enum class RehearsalStatusFilter(val label: String) {
+    ALL("Any status"),
+    SCHEDULED("Scheduled"),
+    COMPLETED("Completed"),
+    CANCELLED("Cancelled")
+}
+
 data class RehearsalMonthCalendarDay(
     val date: LocalDate,
     val isInDisplayedMonth: Boolean,
@@ -24,17 +31,32 @@ object RehearsalMonthCalendarRules {
     fun filter(
         rehearsals: List<RehearsalDto>,
         filter: RehearsalTimeFilter,
-        today: LocalDate = LocalDate.now()
+        today: LocalDate = LocalDate.now(),
+        statusFilter: RehearsalStatusFilter = RehearsalStatusFilter.ALL,
+        searchQuery: String = ""
     ): List<RehearsalDto> {
+        val normalizedQuery = searchQuery.trim().lowercase(Locale.ROOT)
         val matching = rehearsals.filter { rehearsal ->
             val date = runCatching { LocalDate.parse(rehearsal.rehearsalDate) }.getOrNull()
-            date != null && when (filter) {
+            val matchesTime = date != null && when (filter) {
                 RehearsalTimeFilter.UPCOMING ->
                     date >= today && rehearsal.status == "scheduled"
                 RehearsalTimeFilter.PAST ->
                     date < today || rehearsal.status != "scheduled"
                 RehearsalTimeFilter.ALL -> true
             }
+            val matchesStatus = when (statusFilter) {
+                RehearsalStatusFilter.ALL -> true
+                RehearsalStatusFilter.SCHEDULED -> rehearsal.status == "scheduled"
+                RehearsalStatusFilter.COMPLETED -> rehearsal.status == "completed"
+                RehearsalStatusFilter.CANCELLED -> rehearsal.status == "cancelled"
+            }
+            val matchesQuery = normalizedQuery.isBlank() ||
+                rehearsal.title.lowercase(Locale.ROOT).contains(normalizedQuery) ||
+                rehearsal.location.lowercase(Locale.ROOT).contains(normalizedQuery) ||
+                rehearsal.notes.lowercase(Locale.ROOT).contains(normalizedQuery)
+
+            matchesTime && matchesStatus && matchesQuery
         }
 
         return if (filter == RehearsalTimeFilter.PAST) {
