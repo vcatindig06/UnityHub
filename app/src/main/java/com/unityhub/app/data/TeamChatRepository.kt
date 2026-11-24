@@ -4,8 +4,6 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.annotations.SupabaseExperimental
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.realtime.selectAsFlow
-import io.github.jan.supabase.postgrest.query.filter.FilterOperation
-import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -71,7 +69,7 @@ class TeamChatRepository(private val client: SupabaseClient) {
         require(organizationId.isNotBlank())
         return client.from("team_messages").selectAsFlow(
             TeamChatMessageDto::id,
-            filter = FilterOperation("organization_id", FilterOperator.EQ, organizationId)
+            filter = { eq("organization_id", organizationId) }
         )
     }
 }
