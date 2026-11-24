@@ -1,9 +1,21 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 32,
-  "latestVersionName": "0.32.0",
+  "latestVersionCode": 44,
+  "latestVersionName": "0.44.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 44,
+      "versionName": "0.44.0",
+      "releasedAt": "2026-11-24",
+      "summary": "Team Chat now notifies the rest of the worship team when a new message arrives.",
+      "changes": [
+        "Create an in-app notification for each new Team Chat message for every other current member of the same organization.",
+        "Use the existing Firebase push-delivery pipeline for registered Android devices; message senders are excluded from their own alerts.",
+        "Keep message contents out of lock-screen notification previews.",
+        "Open Team Chat from an in-app notification or Android push alert, scoped to the notification's organization."
+      ]
+    },
     {
       "versionCode": 32,
       "versionName": "0.32.0",

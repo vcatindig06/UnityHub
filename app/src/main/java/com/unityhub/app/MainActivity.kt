@@ -229,8 +229,20 @@ class MainActivity : ComponentActivity() {
             ?: source.getStringExtra("service_plan_id")
         val rehearsalId = source.getStringExtra(UnityHubNotificationManager.EXTRA_REHEARSAL_ID)
             ?: source.getStringExtra("rehearsal_id")
-        if (!notificationId.isNullOrBlank() || !servicePlanId.isNullOrBlank() || !rehearsalId.isNullOrBlank()) {
-            pendingPushNavigation = UnityHubPushNavigation(notificationId, servicePlanId, rehearsalId)
+        val teamMessageId = source.getStringExtra(UnityHubNotificationManager.EXTRA_TEAM_MESSAGE_ID)
+            ?: source.getStringExtra("team_message_id")
+        val organizationId = source.getStringExtra(UnityHubNotificationManager.EXTRA_ORGANIZATION_ID)
+            ?: source.getStringExtra("organization_id")
+        if (!notificationId.isNullOrBlank() || !servicePlanId.isNullOrBlank() ||
+            !rehearsalId.isNullOrBlank() || !teamMessageId.isNullOrBlank()
+        ) {
+            pendingPushNavigation = UnityHubPushNavigation(
+                notificationId = notificationId,
+                servicePlanId = servicePlanId,
+                rehearsalId = rehearsalId,
+                teamMessageId = teamMessageId,
+                organizationId = organizationId
+            )
         }
     }
 

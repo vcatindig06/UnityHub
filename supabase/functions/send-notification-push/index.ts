@@ -8,10 +8,12 @@ type FirebaseServiceAccount = {
 
 type NotificationRow = {
   id: string;
+  organization_id: string;
   recipient_user_id: string;
   notification_type: string;
   service_plan_id: string | null;
   rehearsal_id: string | null;
+  team_message_id: string | null;
   title: string;
   message: string;
 };
@@ -124,7 +126,7 @@ Deno.serve(async (request: Request) => {
 
   const { data: notificationData, error: notificationError } = await admin
     .from("notifications")
-    .select("id, recipient_user_id, notification_type, service_plan_id, rehearsal_id, title, message")
+    .select("id, organization_id, recipient_user_id, notification_type, service_plan_id, rehearsal_id, team_message_id, title, message")
     .eq("id", notificationId)
     .maybeSingle();
   const notification = notificationData as NotificationRow | null;
@@ -178,8 +180,10 @@ Deno.serve(async (request: Request) => {
               data: {
                 notification_id: notification.id,
                 notification_type: notification.notification_type,
+                organization_id: notification.organization_id,
                 service_plan_id: notification.service_plan_id ?? "",
                 rehearsal_id: notification.rehearsal_id ?? "",
+                team_message_id: notification.team_message_id ?? "",
                 title: notification.title,
                 message: notification.message,
               },

@@ -733,11 +733,25 @@ private fun WorkspaceDashboard(
     LaunchedEffect(
         pushNavigation?.notificationId,
         pushNavigation?.servicePlanId,
-        pushNavigation?.rehearsalId
+        pushNavigation?.rehearsalId,
+        pushNavigation?.teamMessageId,
+        pushNavigation?.organizationId
     ) {
         val navigation = pushNavigation ?: return@LaunchedEffect
         showAccountScreen = false
         when {
+            !navigation.teamMessageId.isNullOrBlank() -> {
+                if (navigation.organizationId == organization.id) {
+                    requestedServicePlanId = null
+                    serviceNavigationRequestId = null
+                    requestedRehearsalId = null
+                    rehearsalNavigationRequestId = null
+                    showTeamChat = true
+                    navigateToTab(4)
+                } else {
+                    navigateToTab(3)
+                }
+            }
             !navigation.rehearsalId.isNullOrBlank() -> {
                 requestedRehearsalId = navigation.rehearsalId
                 rehearsalNavigationRequestId = navigation.notificationId ?: navigation.rehearsalId
@@ -896,6 +910,7 @@ private fun WorkspaceDashboard(
             )
             3 -> NotificationsScreen(
                 userId = userId,
+                currentOrganizationId = organization.id,
                 onOpenServicePlan = { notification ->
                     val servicePlanId = notification.servicePlanId
                     if (!servicePlanId.isNullOrBlank()) {
@@ -914,6 +929,19 @@ private fun WorkspaceDashboard(
                         requestedServicePlanId = null
                         serviceNavigationRequestId = null
                         navigateToTab(2)
+                    }
+                },
+                onOpenTeamChat = { notification ->
+                    if (notification.organizationId == organization.id &&
+                        !notification.teamMessageId.isNullOrBlank()
+                    ) {
+                        requestedServicePlanId = null
+                        serviceNavigationRequestId = null
+                        requestedRehearsalId = null
+                        rehearsalNavigationRequestId = null
+                        showAccountScreen = false
+                        showTeamChat = true
+                        navigateToTab(4)
                     }
                 },
                 modifier = Modifier.padding(innerPadding)

@@ -48,7 +48,9 @@ class UnityHubFirebaseMessagingService : FirebaseMessagingService() {
             message = body,
             notificationId = message.data["notification_id"],
             servicePlanId = message.data["service_plan_id"],
-            rehearsalId = message.data["rehearsal_id"]
+            rehearsalId = message.data["rehearsal_id"],
+            teamMessageId = message.data["team_message_id"],
+            organizationId = message.data["organization_id"]
         )
     }
 

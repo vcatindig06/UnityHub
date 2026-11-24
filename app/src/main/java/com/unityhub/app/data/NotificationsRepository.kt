@@ -18,6 +18,7 @@ data class NotificationDto(
     @SerialName("assignment_id") val assignmentId: String? = null,
     @SerialName("rehearsal_id") val rehearsalId: String? = null,
     @SerialName("rehearsal_assignment_id") val rehearsalAssignmentId: String? = null,
+    @SerialName("team_message_id") val teamMessageId: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("read_at") val readAt: String? = null
 )
@@ -31,6 +32,10 @@ internal object NotificationRules {
     fun hasRehearsal(notification: NotificationDto): Boolean =
         !notification.rehearsalId.isNullOrBlank()
 
+    fun hasTeamChatMessage(notification: NotificationDto): Boolean =
+        notification.notificationType == "team_message" &&
+            !notification.teamMessageId.isNullOrBlank()
+
     fun filterNotifications(
         notifications: List<NotificationDto>,
         unreadOnly: Boolean
@@ -43,6 +48,7 @@ internal object NotificationRules {
         "assignment_response" -> "Team response"
         "rehearsal_assigned" -> "Rehearsal invitation"
         "rehearsal_response" -> "Rehearsal response"
+        "team_message" -> "Team Chat message"
         else -> "Notification"
     }
 
