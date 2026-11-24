@@ -93,6 +93,7 @@ fun TeamManagementScreen(
     var editingPosition by remember { mutableStateOf<MinistryPositionDto?>(null) }
     var deletingPosition by remember { mutableStateOf<MinistryPositionDto?>(null) }
     var selectedMember by remember { mutableStateOf<ServiceMemberOption?>(null) }
+    var profileMember by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var memberAccessTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var memberRemovalTarget by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var ownershipTransferOpen by rememberSaveable { mutableStateOf(false) }
@@ -347,6 +348,21 @@ fun TeamManagementScreen(
         )
     }
 
+    profileMember?.let { member ->
+        MemberParticipationScreen(
+            organizationId = organizationId,
+            organizationName = workspace.organization?.name.orEmpty(),
+            member = member,
+            assignedPositions = assignedPositionsByMember[member.memberId].orEmpty(),
+            canViewParticipation = workspace.role == "admin" ||
+                workspace.role == "worship_leader" ||
+                member.userId == currentUserId,
+            onBack = { profileMember = null },
+            modifier = modifier
+        )
+        return
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
@@ -471,6 +487,7 @@ fun TeamManagementScreen(
                     ),
                     isOrganizationOwner = member.userId == organizationOwnerId,
                     saving = saving,
+                    onViewProfile = { profileMember = member },
                     onManagePositions = { selectedMember = member },
                     onManageAccess = { memberAccessTarget = member }
                 )
@@ -629,6 +646,7 @@ private fun TeamMemberProfileCard(
     canManageMembers: Boolean,
     isOrganizationOwner: Boolean,
     saving: Boolean,
+    onViewProfile: () -> Unit,
     onManagePositions: () -> Unit,
     onManageAccess: () -> Unit
 ) {
@@ -673,6 +691,9 @@ private fun TeamMemberProfileCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
+                TextButton(onClick = onViewProfile, enabled = !saving) {
+                    Text("View member profile")
+                }
                 if (canManagePositions) {
                     TextButton(onClick = onManagePositions, enabled = !saving) {
                         Text("Manage ministry positions")
