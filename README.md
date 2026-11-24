@@ -62,6 +62,10 @@ Members can confirm or decline their own upcoming service assignments while offl
 
 Administrators and worship leaders can edit an existing service's title, date, start time, and notes from the service details screen. The edit action is hidden in read-only and offline views. Dates and times are validated before a write is sent to Supabase.
 
+### Service plan search and status filters
+
+The Service Planning screen supports searching service titles, dates, and notes, and filtering by Draft, Published, Completed, or Cancelled status. The same filters apply to the month calendar, week calendar, and list view. Calendar day counts and selected-day cards reflect the active filters, including when viewing the device's offline read-only service cache.
+
 ### Service run sheet
 
 Administrators and worship leaders can set or edit a duration for each song, prayer, reading, announcement, or other service item. The Run of Show summary totals all entered durations and estimates the finish time only when every item has a duration and the service start time is set. Missing durations are counted explicitly rather than treated as zero. Duration edits use the existing service-item duration field and are retained by the existing offline cache and setlist-template copying. See [Service Run of Show](docs/SERVICE_RUN_SHEET.md) for the complete workflow.
