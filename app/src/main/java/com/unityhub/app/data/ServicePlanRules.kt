@@ -36,4 +36,12 @@ internal object ServicePlanRules {
         }
         return value
     }
+
+    fun normalizeItemNotes(value: String): String {
+        val normalized = value.trim()
+        require(normalized.length <= 500) {
+            "Item notes must be 500 characters or fewer."
+        }
+        return normalized
+    }
 }

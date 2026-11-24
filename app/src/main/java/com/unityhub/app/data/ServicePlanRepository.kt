@@ -200,6 +200,25 @@ class ServicePlanRepository(private val client: SupabaseClient) {
         )
     }
 
+    suspend fun updateItemNotes(
+        itemId: String,
+        planId: String,
+        organizationId: String,
+        notes: String
+    ) {
+        require(itemId.isNotBlank() && planId.isNotBlank() && organizationId.isNotBlank())
+        val normalizedNotes = ServicePlanRules.normalizeItemNotes(notes)
+        client.from("service_plan_items").update({
+            set("notes", normalizedNotes)
+        }) {
+            filter {
+                eq("id", itemId)
+                eq("service_plan_id", planId)
+                eq("organization_id", organizationId)
+            }
+        }
+    }
+
     suspend fun updateItemDuration(
         itemId: String,
         planId: String,
