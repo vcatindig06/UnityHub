@@ -22,21 +22,29 @@ data class UnityHubPushNavigation(
 
 object UnityHubNotificationManager {
     const val CHANNEL_ID = "team_updates"
+    const val REHEARSAL_REMINDER_CHANNEL_ID = "rehearsal_reminders"
     const val EXTRA_NOTIFICATION_ID = "unityhub.notification_id"
     const val EXTRA_SERVICE_PLAN_ID = "unityhub.service_plan_id"
     const val EXTRA_REHEARSAL_ID = "unityhub.rehearsal_id"
 
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val teamChannel = NotificationChannel(
             CHANNEL_ID,
             context.getString(R.string.notification_channel_name),
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = context.getString(R.string.notification_channel_description)
         }
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.createNotificationChannel(channel)
+        val rehearsalReminderChannel = NotificationChannel(
+            REHEARSAL_REMINDER_CHANNEL_ID,
+            context.getString(R.string.rehearsal_reminder_channel_name),
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = context.getString(R.string.rehearsal_reminder_channel_description)
+        }
+        manager.createNotificationChannels(listOf(teamChannel, rehearsalReminderChannel))
     }
 
     fun show(
@@ -45,7 +53,9 @@ object UnityHubNotificationManager {
         message: String,
         notificationId: String? = null,
         servicePlanId: String? = null,
-        rehearsalId: String? = null
+        rehearsalId: String? = null,
+        channelId: String = CHANNEL_ID,
+        category: String = NotificationCompat.CATEGORY_MESSAGE
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
@@ -68,7 +78,7 @@ object UnityHubNotificationManager {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_stat_unityhub)
             .setContentTitle(title.ifBlank { "UnityHub" })
             .setContentText(message)
@@ -76,7 +86,7 @@ object UnityHubNotificationManager {
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setCategory(category)
             .build()
 
         val id = notificationId?.hashCode()
