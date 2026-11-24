@@ -14,6 +14,17 @@ class ChordProPreviewRulesTest {
     }
 
     @Test
+    fun renderedChordRowsHaveAResourceLimit() {
+        val crowded = ChordProLine(
+            lyrics = "many chords",
+            chords = (0..2_000).map { ChordPosition(it, "Cmaj7") }
+        )
+        val row = buildChordRow(crowded, transpose = 0)
+
+        assertTrue(row.length <= MAX_RENDERED_CHORD_ROW_CHARACTERS)
+    }
+
+    @Test
     fun previewBoundsLargeChartsWithoutChangingTheOriginalText() {
         val source = "Line\n".repeat(10_000)
         val preview = ChordProPreviewRules.previewSource(source)

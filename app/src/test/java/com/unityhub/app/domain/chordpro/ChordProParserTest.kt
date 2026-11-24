@@ -67,6 +67,18 @@ class ChordProParserTest {
     }
 
     @Test
+    fun removesUnsupportedControlCharactersAndBoundsChordPositions() {
+        val plain = ChordProParser.parse("Amazing\u0000 grace\u0001\n")
+        assertEquals("Amazing grace", plain.lines.first().lyrics)
+
+        val crowdedLine = (1..(ChordProParser.MAX_CHORDS_PER_LINE + 50))
+            .joinToString("") { "[C]word " }
+        val crowded = ChordProParser.parse(crowdedLine).lines.single()
+        assertEquals(ChordProParser.MAX_CHORDS_PER_LINE, crowded.chords.size)
+        assertFalse(crowded.lyrics.contains("["))
+    }
+
+    @Test
     fun parsesTempoAndTimeSignatureMetadataForImport() {
         val document = ChordProParser.parse(
             """

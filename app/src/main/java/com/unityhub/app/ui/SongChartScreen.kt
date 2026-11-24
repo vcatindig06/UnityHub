@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.domain.chordpro.ChordProLine
 import com.unityhub.app.domain.chordpro.ChordProParser
@@ -158,7 +159,7 @@ fun SongChartScreen(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
+        item(key = "${song.id}:chart-header") {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back to song library")
@@ -182,7 +183,7 @@ fun SongChartScreen(
                 }
             }
         }
-        item {
+        item(key = "${song.id}:performance-settings") {
             Card {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Performance settings", modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -250,7 +251,7 @@ fun SongChartScreen(
             }
         }
         when {
-            isParsingDocument -> item {
+            isParsingDocument -> item(key = "${song.id}:chart-loading") {
                 Column(Modifier.fillMaxWidth().padding(vertical = 28.dp)) {
                     CircularProgressIndicator()
                     Text(
@@ -260,23 +261,26 @@ fun SongChartScreen(
                     )
                 }
             }
-            documentParseFailed -> item {
+            documentParseFailed -> item(key = "${song.id}:chart-error") {
                 Text(
                     "The saved ChordPro chart could not be opened. Return to the song library and try again.",
                     color = MaterialTheme.colorScheme.error
                 )
             }
-            document?.lines.isNullOrEmpty() -> item {
+            document?.lines.isNullOrEmpty() -> item(key = "${song.id}:chart-empty") {
                 Text(
                     "No ChordPro content has been added to this song.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            else -> itemsIndexed(document?.lines.orEmpty()) { _, line ->
+            else -> itemsIndexed(
+                items = document?.lines.orEmpty(),
+                key = { index, _ -> "${song.id}:chart-line:$index" }
+            ) { _, line ->
                 ChordProChartLine(line = line, transpose = transpose, scale = chartScale)
             }
         }
-        item { Spacer(Modifier.height(24.dp)) }
+        item(key = "${song.id}:chart-bottom-space") { Spacer(Modifier.height(24.dp)) }
         }
         Card(
             modifier = Modifier
@@ -367,54 +371,74 @@ internal object ChordProPreviewRules {
         source.length > MAX_PREVIEW_SOURCE_CHARACTERS
 }
 
+private data class ChordProPreviewResult(
+    val loading: Boolean,
+    val document: ChordProDocument? = null,
+    val failed: Boolean = false
+)
+
 @Composable
 internal fun ChordProPreview(source: String, maxLines: Int = 8) {
-    var document by remember { mutableStateOf<ChordProDocument?>(null) }
-    var parsedAtLeastOnce by remember { mutableStateOf(false) }
     val previewSource = remember(source) { ChordProPreviewRules.previewSource(source) }
     val previewIsTruncated = ChordProPreviewRules.isTruncated(source)
-
-    LaunchedEffect(previewSource) {
-        document = null
-        parsedAtLeastOnce = false
-        if (previewSource.isBlank()) return@LaunchedEffect
-        delay(250)
-        val parsed = withContext(Dispatchers.Default) {
-            runCatching { ChordProParser.parse(previewSource) }.getOrNull()
+    val result by produceState(
+        initialValue = ChordProPreviewResult(loading = previewSource.isNotBlank()),
+        key1 = previewSource
+    ) {
+        if (previewSource.isBlank()) {
+            value = ChordProPreviewResult(loading = false)
+        } else {
+            // A short debounce avoids reparsing every keystroke. produceState is
+            // keyed by the exact preview text, so stale parses are cancelled.
+            delay(120)
+            value = withContext(Dispatchers.Default) {
+                runCatching { ChordProParser.parse(previewSource) }
+                    .fold(
+                        onSuccess = { ChordProPreviewResult(loading = false, document = it) },
+                        onFailure = { ChordProPreviewResult(loading = false, failed = true) }
+                    )
+            }
         }
-        document = parsed
-        parsedAtLeastOnce = true
     }
 
-    val currentDocument = document
-    if (previewSource.isBlank()) {
-        Text(
+    val currentDocument = result.document
+    when {
+        previewSource.isBlank() -> Text(
             "Enter lyrics or add chords to see the chart here.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
         )
-    } else if (currentDocument == null) {
-        Text(
-            if (parsedAtLeastOnce) "The chart preview could not be generated."
-            else "Updating chart preview…",
+        result.loading -> Text(
+            "Updating chart preview…",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
         )
-    } else if (currentDocument.lines.isEmpty()) {
-        Text("No chart lines to preview yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-    } else {
-        currentDocument.lines.take(maxLines).forEach { line ->
-            ChordProChartLine(line = line, transpose = 0, scale = 0.9f)
-        }
-        if (currentDocument.lines.size > maxLines || previewIsTruncated) {
-            Text(
-                when {
-                    previewIsTruncated -> "Preview sample only · the complete chart text is retained"
-                    else -> "Preview only · ${currentDocument.lines.size - maxLines} more lines in the full chart"
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        result.failed -> Text(
+            "The chart preview could not be generated. Check the ChordPro text and try again.",
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall
+        )
+        currentDocument == null || currentDocument.lines.isEmpty() -> Text(
+            "No chart lines to preview yet.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+        else -> {
+            currentDocument.lines.take(maxLines.coerceAtLeast(1)).forEachIndexed { index, line ->
+                key("preview-line-$index") {
+                    ChordProChartLine(line = line, transpose = 0, scale = 0.9f)
+                }
+            }
+            if (currentDocument.lines.size > maxLines || previewIsTruncated) {
+                Text(
+                    when {
+                        previewIsTruncated -> "Preview sample only · the complete chart text is retained"
+                        else -> "Preview only · ${currentDocument.lines.size - maxLines.coerceAtLeast(1)} more lines in the full chart"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -471,15 +495,22 @@ internal fun ChordProChartLine(line: ChordProLine, transpose: Int, scale: Float 
     }
 }
 
+internal const val MAX_RENDERED_CHORDS_PER_LINE = 256
+internal const val MAX_RENDERED_CHORD_ROW_CHARACTERS = 8_192
+
 internal fun buildChordRow(line: ChordProLine, transpose: Int): String {
     val output = StringBuilder()
     var cursor = 0
-    line.chords.forEach { chord ->
+    line.chords.take(MAX_RENDERED_CHORDS_PER_LINE).forEach { chord ->
+        if (output.length >= MAX_RENDERED_CHORD_ROW_CHARACTERS) return@forEach
         val target = chord.position.coerceAtLeast(cursor)
-        repeat((target - cursor).coerceAtMost(120)) { output.append(' ') }
+        val spaces = (target - cursor).coerceIn(0, 120)
+            .coerceAtMost(MAX_RENDERED_CHORD_ROW_CHARACTERS - output.length)
+        repeat(spaces) { output.append(' ') }
         cursor = target
-        val value = ChordTransposer.transposeChord(chord.chord, transpose)
-        output.append(value)
+        val value = ChordTransposer.transposeChord(chord.chord, transpose).take(64)
+        val remaining = MAX_RENDERED_CHORD_ROW_CHARACTERS - output.length
+        output.append(value.take(remaining))
         cursor += value.length
     }
     return output.toString()

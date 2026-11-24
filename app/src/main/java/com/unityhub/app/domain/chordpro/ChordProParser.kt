@@ -22,6 +22,8 @@ data class ChordProDocument(
 )
 
 object ChordProParser {
+    const val MAX_CHORDS_PER_LINE = 256
+    private const val MAX_CHORD_LABEL_CHARACTERS = 64
     private val inlineChord = Regex("\\[([^\\]]+)]")
     private val directive = Regex("^\\{\\s*([a-zA-Z0-9_]+)\\s*(?::\\s*(.*?))?\\s*}$")
     private val timeSignaturePattern = Regex("^\\d{1,2}/\\d{1,2}$")
@@ -35,7 +37,10 @@ object ChordProParser {
         var activeSection: String? = null
         val lines = mutableListOf<ChordProLine>()
 
-        source.replace("\r\n", "\n").replace('\r', '\n').lines().forEach { rawLine ->
+        source.replace("\r\n", "\n").replace('\r', '\n').lines().forEach { sourceLine ->
+            // Keep tabs and printable characters, but remove NUL and other control
+            // bytes that can cause platform text renderers to behave unpredictably.
+            val rawLine = sourceLine.filter { it == '\t' || it >= ' ' }
             val trimmed = rawLine.trim()
             val match = directive.matchEntire(trimmed)
             if (match != null) {
@@ -105,8 +110,10 @@ object ChordProParser {
                 inlineChord.findAll(rawLine).forEach { token ->
                     val before = rawLine.substring(cursor, token.range.first)
                     lyrics.append(before)
-                    val chord = token.groupValues[1].trim()
-                    if (chord.isNotEmpty()) chords += ChordPosition(lyrics.length, chord)
+                    val chord = token.groupValues[1].trim().take(MAX_CHORD_LABEL_CHARACTERS)
+                    if (chord.isNotEmpty() && chords.size < MAX_CHORDS_PER_LINE) {
+                        chords += ChordPosition(lyrics.length, chord)
+                    }
                     cursor = token.range.last + 1
                 }
                 lyrics.append(rawLine.substring(cursor))
