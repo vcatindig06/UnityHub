@@ -52,6 +52,24 @@ class NotificationRulesTest {
     }
 
     @Test
+    fun teamMessageNotificationsCanOpenTeamChat() {
+        val chatNotification = notification().copy(
+            notificationType = "team_message",
+            teamMessageId = "team-message-id"
+        )
+
+        assertTrue(NotificationRules.hasTeamChatMessage(chatNotification))
+        assertEquals("Team Chat message", NotificationRules.typeLabel(chatNotification.notificationType))
+    }
+
+    @Test
+    fun teamMessageNotificationWithoutMessageReferenceCannotOpenChat() {
+        val chatNotification = notification().copy(notificationType = "team_message")
+
+        assertFalse(NotificationRules.hasTeamChatMessage(chatNotification))
+    }
+
+    @Test
     fun notificationsWithAServicePlanCanOpenThatService() {
         assertTrue(NotificationRules.hasServicePlan(notification()))
     }

@@ -47,8 +47,10 @@ import java.time.Instant
 @Composable
 fun NotificationsScreen(
     userId: String,
+    currentOrganizationId: String? = null,
     onOpenServicePlan: (NotificationDto) -> Unit = {},
     onOpenRehearsal: (NotificationDto) -> Unit = {},
+    onOpenTeamChat: (NotificationDto) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val repository = remember { NotificationsRepository(SupabaseClientProvider.client) }
@@ -222,7 +224,9 @@ fun NotificationsScreen(
                     bulkSaving = savingAll,
                     onMarkRead = { markRead(notification) },
                     onOpenServicePlan = { onOpenServicePlan(notification) },
-                    onOpenRehearsal = { onOpenRehearsal(notification) }
+                    onOpenRehearsal = { onOpenRehearsal(notification) },
+                    canOpenTeamChat = notification.organizationId == currentOrganizationId,
+                    onOpenTeamChat = { onOpenTeamChat(notification) }
                 )
             }
         }
@@ -237,7 +241,9 @@ private fun NotificationCard(
     bulkSaving: Boolean,
     onMarkRead: () -> Unit,
     onOpenServicePlan: () -> Unit,
-    onOpenRehearsal: () -> Unit
+    onOpenRehearsal: () -> Unit,
+    canOpenTeamChat: Boolean,
+    onOpenTeamChat: () -> Unit
 ) {
     val unread = NotificationRules.isUnread(notification)
     Card(
@@ -307,6 +313,11 @@ private fun NotificationCard(
             if (NotificationRules.hasRehearsal(notification)) {
                 TextButton(onClick = onOpenRehearsal, enabled = !saving) {
                     Text("View rehearsal")
+                }
+            }
+            if (NotificationRules.hasTeamChatMessage(notification) && canOpenTeamChat) {
+                TextButton(onClick = onOpenTeamChat, enabled = !saving && !bulkSaving) {
+                    Text("Open Team Chat")
                 }
             }
         }
