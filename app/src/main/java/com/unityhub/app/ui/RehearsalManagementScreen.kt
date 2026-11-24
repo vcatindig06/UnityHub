@@ -529,9 +529,23 @@ fun RehearsalManagementScreen(
             }
         }
 
+        if (offlineSnapshot) {
+            item {
+                Text(
+                    "Offline copy · schedule and roster changes are read-only. Member availability can be saved on this device.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         if (canManage) {
             item {
-                Button(onClick = ::startCreate, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = ::startCreate,
+                    enabled = !saving && !offlineSnapshot,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Icon(Icons.Default.CalendarMonth, contentDescription = null)
                     Spacer(Modifier.size(8.dp))
                     Text("Schedule rehearsal")
@@ -756,22 +770,22 @@ private fun RehearsalDetailContent(
                     if (canManage) {
                         if (rehearsal.status == "scheduled") {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = onEdit, enabled = !saving && !loading, modifier = Modifier.weight(1f)) {
+                                OutlinedButton(onClick = onEdit, enabled = !saving && !loading && !offlineSnapshot, modifier = Modifier.weight(1f)) {
                                     Icon(Icons.Default.Edit, contentDescription = null)
                                     Text("Edit")
                                 }
-                                Button(onClick = { onStatusChange("completed") }, enabled = !saving, modifier = Modifier.weight(1f)) {
+                                Button(onClick = { onStatusChange("completed") }, enabled = !saving && !offlineSnapshot, modifier = Modifier.weight(1f)) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null)
                                     Text("Complete")
                                 }
                             }
                         }
                         if (rehearsal.status == "scheduled") {
-                            TextButton(onClick = { onStatusChange("cancelled") }, enabled = !saving) {
+                            TextButton(onClick = { onStatusChange("cancelled") }, enabled = !saving && !offlineSnapshot) {
                                 Text("Cancel rehearsal", color = MaterialTheme.colorScheme.error)
                             }
                         }
-                        TextButton(onClick = { confirmDeleteOpen = true }, enabled = !saving) {
+                        TextButton(onClick = { confirmDeleteOpen = true }, enabled = !saving && !offlineSnapshot) {
                             Icon(Icons.Default.DeleteOutline, contentDescription = null)
                             Text("Delete rehearsal")
                         }
@@ -929,7 +943,7 @@ private fun RehearsalDetailContent(
             RehearsalAssignmentCard(
                 assignment = assignment,
                 memberName = memberName,
-                canManage = canManage,
+                canManage = canManage && !offlineSnapshot,
                 attendanceEnabled = rehearsal.status == "completed",
                 busy = respondingId == assignment.id,
                 onMarkAttendance = { status -> onMarkAttendance(assignment, status) }
