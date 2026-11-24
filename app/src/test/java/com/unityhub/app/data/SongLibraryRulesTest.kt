@@ -123,6 +123,68 @@ class SongLibraryRulesTest {
         )
     }
 
+    @Test
+    fun songsCanBeSortedByTitleOrArtist() {
+        val songs = listOf(
+            testSong("2", "Build My Life", "Pat Barrett", "E", "6/8"),
+            testSong("1", "Amazing Grace", "Chris Tomlin", "G", "4/4"),
+            testSong("3", "Holy Forever", "Chris Tomlin", "A", "4/4")
+        )
+
+        assertEquals(
+            listOf("1", "2", "3"),
+            SongLibraryRules.filterSongs(
+                songs, "", favoritesOnly = false, favoriteSongIds = emptySet(),
+                sortOption = SongSortOption.TITLE
+            ).map { it.id }
+        )
+        assertEquals(
+            listOf("1", "3", "2"),
+            SongLibraryRules.filterSongs(
+                songs, "", favoritesOnly = false, favoriteSongIds = emptySet(),
+                sortOption = SongSortOption.ARTIST
+            ).map { it.id }
+        )
+    }
+
+    @Test
+    fun recentlyUpdatedSortUsesNewestFirstAndFallsBackSafelyForInvalidDates() {
+        val songs = listOf(
+            testSong("old", "Old Song", "Artist B", "C", "4/4", updatedAt = "2026-01-01T00:00:00Z"),
+            testSong("newest", "Newest Song", "Artist A", "D", "4/4", updatedAt = "2026-11-20T10:00:00Z"),
+            testSong("middle", "Middle Song", "Artist C", "E", "4/4", updatedAt = "2026-06-15T12:30:00Z"),
+            testSong("invalid", "Invalid Timestamp", "Artist D", "F", "4/4", updatedAt = "not-a-date")
+        )
+
+        assertEquals(
+            listOf("newest", "middle", "old", "invalid"),
+            SongLibraryRules.filterSongs(
+                songs, "", favoritesOnly = false, favoriteSongIds = emptySet(),
+                sortOption = SongSortOption.RECENTLY_UPDATED
+            ).map { it.id }
+        )
+    }
+
+    @Test
+    fun sortingIsAppliedAfterSearchAndFavoritesFilters() {
+        val songs = listOf(
+            testSong("a", "Worship Song", "Zulu Band", "A", "4/4"),
+            testSong("b", "Worship Song", "Alpha Band", "A", "4/4"),
+            testSong("c", "Other Song", "Able Band", "A", "4/4")
+        )
+
+        assertEquals(
+            listOf("b"),
+            SongLibraryRules.filterSongs(
+                songs,
+                searchQuery = "worship",
+                favoritesOnly = true,
+                favoriteSongIds = setOf("b", "c"),
+                sortOption = SongSortOption.ARTIST
+            ).map { it.id }
+        )
+    }
+
     private fun testSong(
         id: String,
         title: String,
@@ -130,7 +192,8 @@ class SongLibraryRulesTest {
         key: String,
         time: String,
         chordpro: String = "",
-        notes: String = ""
+        notes: String = "",
+        updatedAt: String = "2026-01-01T00:00:00Z"
     ) = SongDto(
         id = id,
         organizationId = "org-1",
@@ -144,6 +207,6 @@ class SongLibraryRulesTest {
         createdBy = "member-1",
         updatedBy = "member-1",
         createdAt = "2026-01-01T00:00:00Z",
-        updatedAt = "2026-01-01T00:00:00Z"
+        updatedAt = updatedAt
     )
 }

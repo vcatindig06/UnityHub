@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -63,6 +66,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.data.SongEditorInputLimits
 import com.unityhub.app.data.SongLibraryRules
+import com.unityhub.app.data.SongSortOption
 import com.unityhub.app.data.SongRepository
 import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.SupabaseClientProvider
@@ -98,6 +102,8 @@ fun SongLibraryScreen(
     var filteringSongs by remember { mutableStateOf(true) }
     var favoriteSongIds by remember(organizationId, userId) { mutableStateOf<Set<String>>(emptySet()) }
     var favoriteFilter by rememberSaveable { mutableStateOf(false) }
+    var songSortOption by rememberSaveable { mutableStateOf(SongSortOption.TITLE) }
+    var sortMenuExpanded by remember { mutableStateOf(false) }
     var favoriteSavingIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var favoriteError by remember { mutableStateOf("") }
     var selectedSong by remember { mutableStateOf<SongDto?>(null) }
@@ -283,7 +289,7 @@ fun SongLibraryScreen(
 
     LaunchedEffect(organizationId, userId, offlineOnly) { reload() }
 
-    LaunchedEffect(songs, search, favoriteFilter, favoriteSongIds) {
+    LaunchedEffect(songs, search, favoriteFilter, favoriteSongIds, songSortOption) {
         filteringSongs = true
         try {
             filteredSongs = withContext(Dispatchers.Default) {
@@ -291,7 +297,8 @@ fun SongLibraryScreen(
                     songs = songs,
                     searchQuery = search,
                     favoritesOnly = favoriteFilter,
-                    favoriteSongIds = favoriteSongIds
+                    favoriteSongIds = favoriteSongIds,
+                    sortOption = songSortOption
                 )
             }
         } finally {
@@ -498,6 +505,30 @@ fun SongLibraryScreen(
                             enabled = !usingOfflineCopy,
                             label = { Text("Favorites (" + favoriteCount + ")") }
                         )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Box {
+                            TextButton(onClick = { sortMenuExpanded = true }) {
+                                Text("Sort: ${songSortOption.label}")
+                            }
+                            DropdownMenu(
+                                expanded = sortMenuExpanded,
+                                onDismissRequest = { sortMenuExpanded = false }
+                            ) {
+                                SongSortOption.values().forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option.label) },
+                                        onClick = {
+                                            songSortOption = option
+                                            sortMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                     if (favoriteError.isNotBlank()) {
                         Spacer(Modifier.height(6.dp))
