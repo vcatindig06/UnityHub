@@ -765,6 +765,7 @@ private fun ServicePlanDetailScreen(
     var songPickerOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
     var customItemOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
     var durationEditingItem by remember(plan.id) { mutableStateOf<ServicePlanItemDto?>(null) }
+    var notesEditingItem by remember(plan.id) { mutableStateOf<ServicePlanItemDto?>(null) }
     var copySourceDialogOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
     var copySourceCandidate by remember(plan.id) { mutableStateOf<ServicePlanDto?>(null) }
     var copySuccessMessage by remember(plan.id) { mutableStateOf("") }
@@ -926,6 +927,27 @@ private fun ServicePlanDetailScreen(
                         durationMinutes = duration
                     )
                     durationEditingItem = null
+                }
+            }
+        )
+    }
+
+    if (notesEditingItem != null) {
+        val itemToEdit = notesEditingItem!!
+        EditServiceItemNotesDialog(
+            item = itemToEdit,
+            saving = saving,
+            errorMessage = error,
+            onDismiss = { if (!saving) notesEditingItem = null },
+            onSave = { notes ->
+                runAction {
+                    repository.updateItemNotes(
+                        itemId = itemToEdit.id,
+                        planId = plan.id,
+                        organizationId = organizationId,
+                        notes = notes
+                    )
+                    notesEditingItem = null
                 }
             }
         )
@@ -1218,7 +1240,8 @@ private fun ServicePlanDetailScreen(
                     onRemove = {
                         runAction { repository.removeItem(serviceItem.id, plan.id, organizationId) }
                     },
-                    onEditDuration = { durationEditingItem = serviceItem }
+                    onEditDuration = { durationEditingItem = serviceItem },
+                    onEditNotes = { notesEditingItem = serviceItem }
                 )
             }
         }
@@ -1317,7 +1340,8 @@ private fun ServicePlanItemCard(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onRemove: () -> Unit,
-    onEditDuration: () -> Unit
+    onEditDuration: () -> Unit,
+    onEditNotes: () -> Unit
 ) {
     Card(shape = RoundedCornerShape(14.dp)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1335,8 +1359,13 @@ private fun ServicePlanItemCard(
                     Text(item.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (canManage) {
-                    TextButton(onClick = onEditDuration, enabled = !saving) {
-                        Text(if (item.durationMinutes == null) "Set duration" else "Edit duration")
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = onEditDuration, enabled = !saving) {
+                            Text(if (item.durationMinutes == null) "Set duration" else "Edit duration")
+                        }
+                        TextButton(onClick = onEditNotes, enabled = !saving) {
+                            Text(if (item.notes.isBlank()) "Add notes" else "Edit notes")
+                        }
                     }
                 }
             }
@@ -1404,6 +1433,55 @@ private fun ServiceRunSheetSummaryCard(
             }
         }
     }
+}
+
+@Composable
+private fun EditServiceItemNotesDialog(
+    item: ServicePlanItemDto,
+    saving: Boolean,
+    errorMessage: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var notes by rememberSaveable(item.id) { mutableStateOf(item.notes) }
+    val validNotes = notes.length <= 500
+
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Set item notes") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(item.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it.take(501) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Notes and cues") },
+                    placeholder = { Text("e.g. Scripture reference, transition cue, or leader reminder") },
+                    supportingText = { Text("${notes.length}/500 characters") },
+                    minLines = 3,
+                    maxLines = 6,
+                    enabled = !saving,
+                    isError = !validNotes
+                )
+                if (!validNotes) {
+                    Text("Item notes must be 500 characters or fewer.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                if (errorMessage.isNotBlank()) {
+                    Text(errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(notes) }, enabled = !saving && validNotes) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Save notes")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable

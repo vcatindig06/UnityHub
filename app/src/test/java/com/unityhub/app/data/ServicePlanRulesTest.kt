@@ -41,6 +41,14 @@ class ServicePlanRulesTest {
     }
 
     @Test
+    fun itemNotesAreTrimmedAndLimitedTo500Characters() {
+        assertEquals("Scripture reference: Psalm 96:1", ServicePlanRules.normalizeItemNotes("  Scripture reference: Psalm 96:1  "))
+        assertEquals("", ServicePlanRules.normalizeItemNotes("   "))
+        assertEquals("N".repeat(500), ServicePlanRules.normalizeItemNotes("N".repeat(500)))
+        assertTrue(runCatching { ServicePlanRules.normalizeItemNotes("N".repeat(501)) }.isFailure)
+    }
+
+    @Test
     fun secondsArePreservedAndInvalidTimesAreRejected() {
         assertEquals("21:05:17", ServicePlanRules.normalizeTime("21:05:17"))
         assertTrue(runCatching { ServicePlanRules.normalizeTime("25:00") }.isFailure)
