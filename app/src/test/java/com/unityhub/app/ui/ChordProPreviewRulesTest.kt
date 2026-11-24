@@ -1,5 +1,8 @@
 package com.unityhub.app.ui
 
+import com.unityhub.app.domain.chordpro.ChordPosition
+import com.unityhub.app.domain.chordpro.ChordProLine
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
