@@ -52,6 +52,26 @@ class NotificationRulesTest {
     }
 
     @Test
+    fun unreadCountCountsOnlyNotificationsWithoutReadTimestamps() {
+        val unread = notification()
+        val read = notification("2026-11-04T05:00:00Z").copy(id = "read-notification")
+
+        assertEquals(1, NotificationRules.unreadCount(listOf(unread, read)))
+        assertEquals(0, NotificationRules.unreadCount(listOf(read)))
+    }
+
+    @Test
+    fun newestFirstOrdersNotificationsByCreatedTimestamp() {
+        val older = notification().copy(id = "older")
+        val newer = notification().copy(id = "newer", createdAt = "2026-11-05T04:00:00Z")
+
+        assertEquals(
+            listOf(newer.id, older.id),
+            NotificationRules.newestFirst(listOf(older, newer)).map { it.id }
+        )
+    }
+
+    @Test
     fun teamMessageNotificationsCanOpenTeamChat() {
         val chatNotification = notification().copy(
             notificationType = "team_message",

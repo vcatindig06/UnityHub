@@ -26,6 +26,8 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -67,6 +69,8 @@ import com.unityhub.app.data.OrganizationDirectoryDto
 import com.unityhub.app.data.OrganizationJoinRequestDto
 import com.unityhub.app.data.OrganizationRepository
 import com.unityhub.app.data.OrganizationWorkspace
+import com.unityhub.app.data.NotificationRules
+import com.unityhub.app.data.NotificationsRepository
 import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.sync.OfflineSyncScheduler
 import com.unityhub.app.push.UnityHubPushNavigation
@@ -77,6 +81,8 @@ private data class AppDestination(
     val label: String,
     val icon: ImageVector
 )
+
+private const val NOTIFICATIONS_TAB_INDEX = 3
 
 private val destinations = listOf(
     AppDestination("Home", Icons.Default.Home),
@@ -707,7 +713,23 @@ private fun WorkspaceDashboard(
     var serviceNavigationRequestId by remember { mutableStateOf<String?>(null) }
     var requestedRehearsalId by remember { mutableStateOf<String?>(null) }
     var rehearsalNavigationRequestId by remember { mutableStateOf<String?>(null) }
+    val notificationsRepository = remember { NotificationsRepository(SupabaseClientProvider.client) }
+    var unreadNotificationCount by remember(userId) { mutableStateOf(0) }
     val organization = workspace.organization ?: return
+
+    LaunchedEffect(userId) {
+        if (userId.isBlank()) return@LaunchedEffect
+        try {
+            notificationsRepository.observeNotifications(userId).collect { incoming ->
+                unreadNotificationCount = NotificationRules.unreadCount(incoming)
+            }
+        } catch (_: Exception) {
+            runCatching { notificationsRepository.loadNotifications(userId) }
+                .onSuccess { incoming ->
+                    unreadNotificationCount = NotificationRules.unreadCount(incoming)
+                }
+        }
+    }
 
     fun navigateToTab(destination: Int) {
         tabHistory = AppBackNavigationRules.recordTabChange(tabHistory, selectedTab, destination)
@@ -823,7 +845,27 @@ private fun WorkspaceDashboard(
                         NavigationBarItem(
                             selected = selectedTab == index,
                             onClick = { navigateToTab(index) },
-                            icon = { Icon(destination.icon, contentDescription = null) },
+                            icon = {
+                                if (index == NOTIFICATIONS_TAB_INDEX && unreadNotificationCount > 0) {
+                                    BadgedBox(
+                                        badge = {
+                                            Badge {
+                                                Text(if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString())
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            destination.icon,
+                                            contentDescription = "$unreadNotificationCount unread notifications"
+                                        )
+                                    }
+                                } else {
+                                    Icon(
+                                        destination.icon,
+                                        contentDescription = if (index == NOTIFICATIONS_TAB_INDEX) "Notifications" else null
+                                    )
+                                }
+                            },
                             label = { Text(destination.label) },
                             alwaysShowLabel = true,
                             colors = NavigationBarItemDefaults.colors(

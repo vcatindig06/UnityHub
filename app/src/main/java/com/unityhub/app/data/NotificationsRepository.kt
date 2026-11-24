@@ -1,7 +1,11 @@
 package com.unityhub.app.data
 
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.annotations.SupabaseExperimental
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.realtime.selectAsFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.Instant
@@ -42,6 +46,12 @@ internal object NotificationRules {
     ): List<NotificationDto> =
         if (unreadOnly) notifications.filter(::isUnread) else notifications
 
+    fun unreadCount(notifications: List<NotificationDto>): Int =
+        notifications.count(::isUnread)
+
+    fun newestFirst(notifications: List<NotificationDto>): List<NotificationDto> =
+        notifications.sortedByDescending { it.createdAt }
+
     fun typeLabel(type: String): String = when (type) {
         "assignment_created" -> "New assignment"
         "assignment_reminder" -> "Response reminder"
@@ -63,12 +73,21 @@ internal object NotificationRules {
 
 class NotificationsRepository(private val client: SupabaseClient) {
 
+    @OptIn(SupabaseExperimental::class)
+    fun observeNotifications(userId: String): Flow<List<NotificationDto>> {
+        require(userId.isNotBlank()) { "No signed-in user was found." }
+        return client.from("notifications").selectAsFlow(
+            NotificationDto::id,
+            filter = { eq("recipient_user_id", userId) }
+        ).map(NotificationRules::newestFirst)
+    }
+
     suspend fun loadNotifications(userId: String): List<NotificationDto> {
         require(userId.isNotBlank()) { "No signed-in user was found." }
         return client.from("notifications").select {
             filter { eq("recipient_user_id", userId) }
         }.decodeList<NotificationDto>()
-            .sortedByDescending { it.createdAt }
+            .let(NotificationRules::newestFirst)
     }
 
     suspend fun markAsRead(notificationId: String, userId: String) {
