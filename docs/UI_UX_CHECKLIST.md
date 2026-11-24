@@ -49,6 +49,13 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Keep the original ChordPro text unchanged when showing a preview sample or transposed chart.
 - [ ] Manually test a long imported chart, rapid song/setlist switching, and auto-scroll on a physical Android device.
 
+## Team Chat
+
+- [x] Open a conversation at the latest message and preserve the reading position when realtime messages arrive while the reader is scrolled up.
+- [x] Support the Android keyboard Send action as well as the visible Send button.
+- [x] Retain an unsent draft after a message-send failure and keep the Send action at least 48 dp high.
+- [ ] Manually verify keyboard behavior, TalkBack announcements, and incoming-message scrolling on a physical Android device.
+
 ## Release validation
 
 - [x] Automated unit tests and the debug APK build run in GitHub Actions.

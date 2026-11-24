@@ -41,6 +41,21 @@ internal object TeamChatRules {
         messages.distinctBy { it.id }
             .sortedWith(compareBy<TeamChatMessageDto> { it.createdAt }.thenBy { it.id })
             .takeLast(MESSAGE_HISTORY_LIMIT)
+
+    /**
+     * Follow new messages only when the reader is already at (or very near)
+     * the latest message. The first non-empty load always positions the list
+     * at the newest message.
+     */
+    fun shouldFollowLatest(
+        lastVisibleItemIndex: Int,
+        totalItemCount: Int,
+        hasPositionedList: Boolean
+    ): Boolean {
+        if (totalItemCount <= 0) return false
+        if (!hasPositionedList) return true
+        return lastVisibleItemIndex >= totalItemCount - 2
+    }
 }
 
 class TeamChatRepository(private val client: SupabaseClient) {

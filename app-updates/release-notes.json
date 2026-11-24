@@ -1,9 +1,21 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 45,
-  "latestVersionName": "0.45.0",
+  "latestVersionCode": 46,
+  "latestVersionName": "0.46.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 46,
+      "versionName": "0.46.0",
+      "releasedAt": "2026-11-24",
+      "summary": "Team Chat keeps your place while you read and supports the keyboard Send action.",
+      "changes": [
+        "Keep your reading position when new team messages arrive; the conversation follows live messages only when you are already near the latest message.",
+        "Start with the newest messages when opening a conversation.",
+        "Send a message directly from the Android keyboard while keeping the on-screen Send button available.",
+        "Keep your draft when a send fails, and avoid reporting a false send failure when only the optional refresh fails."
+      ]
+    },
     {
       "versionCode": 45,
       "versionName": "0.45.0",
