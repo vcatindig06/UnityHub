@@ -79,7 +79,7 @@ import com.unityhub.app.data.OfflineRehearsalCache
 import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.PendingRehearsalAvailabilityResponseQueue
 import com.unityhub.app.data.RehearsalAssignmentDto
-import com.unityhub.app.data.RehearsalCalendarRules
+import com.unityhub.app.data.RehearsalMonthCalendarRules
 import com.unityhub.app.data.RehearsalTimeFilter
 import com.unityhub.app.sync.RehearsalReminderScheduler
 import com.unityhub.app.data.RehearsalDto
@@ -166,7 +166,7 @@ fun RehearsalManagementScreen(
 
     fun updateTimeFilter(filter: RehearsalTimeFilter) {
         timeFilter = filter
-        val matching = RehearsalCalendarRules.filter(rehearsals, filter)
+        val matching = RehearsalMonthCalendarRules.filter(rehearsals, filter)
         val targetDateText = if (filter == RehearsalTimeFilter.ALL) {
             matching.firstOrNull {
                 it.status == "scheduled" && it.rehearsalDate >= LocalDate.now().toString()
@@ -646,7 +646,7 @@ fun RehearsalManagementScreen(
                 }
             }
         } else {
-            val filteredRehearsals = RehearsalCalendarRules.filter(rehearsals, timeFilter)
+            val filteredRehearsals = RehearsalMonthCalendarRules.filter(rehearsals, timeFilter)
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

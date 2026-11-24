@@ -23,7 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.unityhub.app.data.RehearsalCalendarRules
+import com.unityhub.app.data.RehearsalMonthCalendarRules
 import com.unityhub.app.data.RehearsalDto
 import com.unityhub.app.data.RehearsalTimeFilter
 import com.unityhub.app.data.ServicePlanDto
@@ -47,10 +47,10 @@ fun RehearsalCalendarContent(
     val displayedMonth = runCatching { YearMonth.parse(displayedMonthText) }
         .getOrElse { YearMonth.from(selectedDate) }
     val days = remember(displayedMonth, rehearsals) {
-        RehearsalCalendarRules.monthGrid(displayedMonth, rehearsals)
+        RehearsalMonthCalendarRules.monthGrid(displayedMonth, rehearsals)
     }
     val selectedRehearsals = remember(selectedDate, rehearsals) {
-        RehearsalCalendarRules.rehearsalsOn(selectedDate, rehearsals)
+        RehearsalMonthCalendarRules.rehearsalsOn(selectedDate, rehearsals)
     }
     val monthRehearsalCount = days
         .filter { it.isInDisplayedMonth }
@@ -115,7 +115,7 @@ fun RehearsalCalendarContent(
         days.chunked(7).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 week.forEach { day ->
-                    RehearsalCalendarDayCell(
+                    RehearsalMonthCalendarDayCell(
                         day = day,
                         selected = day.date == selectedDate,
                         today = day.date == LocalDate.now(),
@@ -181,8 +181,8 @@ fun RehearsalCalendarContent(
 }
 
 @Composable
-private fun RehearsalCalendarDayCell(
-    day: com.unityhub.app.data.RehearsalCalendarDay,
+private fun RehearsalMonthCalendarDayCell(
+    day: com.unityhub.app.data.RehearsalMonthCalendarDay,
     selected: Boolean,
     today: Boolean,
     modifier: Modifier,

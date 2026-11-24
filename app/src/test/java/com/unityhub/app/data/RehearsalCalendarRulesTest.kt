@@ -1,109 +1,78 @@
 package com.unityhub.app.data
 
-import java.time.LocalDate
-import java.time.YearMonth
+import java.time.Instant
+import java.time.ZoneId
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RehearsalCalendarRulesTest {
 
     private fun rehearsal(
-        id: String,
-        date: String,
-        time: String = "18:00:00",
-        status: String = "scheduled",
-        title: String = id
+        endTime: String? = "20:00:00",
+        notes: String = "Bring charts"
     ) = RehearsalDto(
-        id = id,
+        id = "rehearsal-1",
         organizationId = "org-1",
-        title = title,
-        rehearsalDate = date,
-        startTime = time,
-        endTime = null,
-        location = "",
-        notes = "",
-        status = status,
+        title = "Sunday worship rehearsal",
+        rehearsalDate = "2026-12-03",
+        startTime = "18:30:00",
+        endTime = endTime,
+        location = "Main hall",
+        notes = notes,
+        status = "scheduled",
         servicePlanId = null,
         createdBy = "user-1",
-        createdAt = "2026-11-01T00:00:00Z",
-        updatedAt = "2026-11-01T00:00:00Z"
+        createdAt = "2026-11-24T09:00:00Z",
+        updatedAt = "2026-11-24T09:00:00Z"
     )
 
     @Test
-    fun monthGridStartsOnMondayAndIncludesWholeWeeks() {
-        val grid = RehearsalCalendarRules.monthGrid(
-            YearMonth.of(2026, 11),
-            emptyList()
-        )
+    fun buildsCalendarEventWithLocalZoneAndExistingTimes() {
+        val zone = ZoneId.of("Asia/Manila")
+        val draft = RehearsalCalendarRules.buildEvent(rehearsal(), zone)
 
-        assertEquals(42, grid.size)
-        assertEquals(LocalDate.parse("2026-10-26"), grid.first().date)
-        assertEquals(LocalDate.parse("2026-12-06"), grid.last().date)
-        assertFalse(grid.first().isInDisplayedMonth)
-        assertTrue(grid.first { it.date == LocalDate.parse("2026-11-01") }.isInDisplayedMonth)
-        assertFalse(grid.last().isInDisplayedMonth)
-    }
-
-    @Test
-    fun calendarMarksDatesAndSortsSameDayEventsByStartTime() {
-        val later = rehearsal("later", "2026-11-25", time = "19:00:00")
-        val earlier = rehearsal("earlier", "2026-11-25", time = "18:00:00")
-        val grid = RehearsalCalendarRules.monthGrid(
-            YearMonth.of(2026, 11),
-            listOf(later, earlier)
-        )
-        val day = grid.first { it.date == LocalDate.parse("2026-11-25") }
-
-        assertTrue(day.isInDisplayedMonth)
-        assertEquals(listOf("earlier", "later"), day.rehearsals.map { it.id })
-    }
-
-    @Test
-    fun upcomingAndPastFiltersSeparateScheduledAndInactiveRehearsals() {
-        val rehearsals = listOf(
-            rehearsal("yesterday", "2026-11-23"),
-            rehearsal("today", "2026-11-24"),
-            rehearsal("tomorrow", "2026-11-25"),
-            rehearsal("completed-future", "2026-11-26", status = "completed"),
-            rehearsal("cancelled-future", "2026-11-27", status = "cancelled")
-        )
-
-        val upcoming = RehearsalCalendarRules.filter(
-            rehearsals,
-            RehearsalTimeFilter.UPCOMING,
-            LocalDate.parse("2026-11-24")
-        )
-        val past = RehearsalCalendarRules.filter(
-            rehearsals,
-            RehearsalTimeFilter.PAST,
-            LocalDate.parse("2026-11-24")
-        )
-        val all = RehearsalCalendarRules.filter(
-            rehearsals,
-            RehearsalTimeFilter.ALL,
-            LocalDate.parse("2026-11-24")
-        )
-
-        assertEquals(listOf("today", "tomorrow"), upcoming.map { it.id })
+        assertEquals("UnityHub · Sunday worship rehearsal", draft.title)
+        assertEquals("Main hall", draft.location)
+        assertTrue(draft.description.contains("Bring charts"))
+        assertEquals(zone.id, draft.timeZoneId)
         assertEquals(
-            listOf("cancelled-future", "completed-future", "yesterday"),
-            past.map { it.id }
+            Instant.parse("2026-12-03T10:30:00Z").toEpochMilli(),
+            draft.beginAtMillis
         )
-        assertEquals(5, all.size)
+        assertEquals(
+            Instant.parse("2026-12-03T12:00:00Z").toEpochMilli(),
+            draft.endAtMillis
+        )
     }
 
     @Test
-    fun invalidDatesAreExcludedFromCalendarFiltering() {
-        val malformed = rehearsal("bad", "not-a-date")
-        val valid = rehearsal("valid", "2026-11-25")
-        val result = RehearsalCalendarRules.filter(
-            listOf(malformed, valid),
-            RehearsalTimeFilter.ALL,
-            LocalDate.parse("2026-11-24")
+    fun usesOneHourEndTimeWhenNoEndTimeWasScheduled() {
+        val draft = RehearsalCalendarRules.buildEvent(
+            rehearsal(endTime = null, notes = ""),
+            ZoneId.of("Asia/Manila")
         )
 
-        assertEquals(listOf("valid"), result.map { it.id })
+        assertEquals(
+            60L * 60L * 1000L,
+            draft.endAtMillis - draft.beginAtMillis
+        )
+        assertFalseDescriptionNotes(draft.description)
+    }
+
+    @Test
+    fun rejectsAnEndTimeThatIsNotAfterTheStart() {
+        assertTrue(
+            runCatching {
+                RehearsalCalendarRules.buildEvent(
+                    rehearsal(endTime = "18:00:00"),
+                    ZoneId.of("Asia/Manila")
+                )
+            }.isFailure
+        )
+    }
+
+    private fun assertFalseDescriptionNotes(description: String) {
+        assertEquals("Added from UnityHub", description)
     }
 }

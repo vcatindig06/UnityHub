@@ -14,7 +14,6 @@ Each selected member receives an in-app notification and, when their Android pus
 
 Only administrators and worship leaders can schedule, edit, cancel, complete, or delete rehearsals and manage the invited roster.
 
-
 ## Monthly calendar and filters
 
 The rehearsal screen opens in **Calendar** view and shows a Monday-first month grid. Use the month arrows to move between months, select **Today** to return to the current date, and tap a day to see its rehearsals. A small count marks dates with matching rehearsals. Switch to **List** to browse the same filtered results as cards. The **Upcoming**, **Past**, and **All** filters are available in either view. Upcoming includes scheduled rehearsals today or later; Past includes earlier dates and rehearsals that have already been completed or cancelled.
