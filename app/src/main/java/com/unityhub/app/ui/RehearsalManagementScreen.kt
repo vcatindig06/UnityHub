@@ -164,7 +164,7 @@ fun RehearsalManagementScreen(
                 rehearsals = loadedRehearsals
                 members = loadedMembers
                 servicePlans = loadedPlans
-                offlineCache.saveRehearsals(userId, organizationId, loadedRehearsals)
+                runCatching { offlineCache.saveRehearsals(userId, organizationId, loadedRehearsals) }
                 offlineSnapshot = false
             } catch (_: Exception) {
                 pendingResponseStatuses = runCatching {
@@ -207,13 +207,15 @@ fun RehearsalManagementScreen(
                     loadedAssignments,
                     pendingResponseStatuses
                 )
-                offlineCache.saveRoster(
-                    userId = userId,
-                    organizationId = organizationId,
-                    rehearsalId = rehearsal.id,
-                    assignments = loadedAssignments,
-                    members = loadedMembers
-                )
+                runCatching {
+                    offlineCache.saveRoster(
+                        userId = userId,
+                        organizationId = organizationId,
+                        rehearsalId = rehearsal.id,
+                        assignments = loadedAssignments,
+                        members = loadedMembers
+                    )
+                }
                 offlineSnapshot = false
             } catch (_: Exception) {
                 val cachedRoster = runCatching {
@@ -283,6 +285,7 @@ fun RehearsalManagementScreen(
                         memberIds = editorMemberIds
                     )
                     rehearsals = repository.loadRehearsals(organizationId)
+                    runCatching { offlineCache.saveRehearsals(userId, organizationId, rehearsals) }
                     editorOpen = false
                     openDetails(created)
                 } else {
@@ -302,6 +305,7 @@ fun RehearsalManagementScreen(
                     editorOpen = false
                     val updated = repository.loadRehearsals(organizationId)
                     rehearsals = updated
+                    runCatching { offlineCache.saveRehearsals(userId, organizationId, updated) }
                     updated.firstOrNull { it.id == existing.id }?.let(::openDetails)
                 }
             } catch (exception: Exception) {
@@ -320,6 +324,7 @@ fun RehearsalManagementScreen(
                 repository.updateStatus(rehearsal.id, organizationId, status)
                 val updated = repository.loadRehearsals(organizationId)
                 rehearsals = updated
+                runCatching { offlineCache.saveRehearsals(userId, organizationId, updated) }
                 selected = updated.firstOrNull { it.id == rehearsal.id }
                 selected?.let(::loadAssignments)
             } catch (exception: Exception) {
@@ -339,6 +344,7 @@ fun RehearsalManagementScreen(
                 selected = null
                 assignments = emptyList()
                 rehearsals = repository.loadRehearsals(organizationId)
+                runCatching { offlineCache.saveRehearsals(userId, organizationId, rehearsals) }
             } catch (exception: Exception) {
                 error = exception.message ?: "The rehearsal could not be deleted."
             } finally {
@@ -389,13 +395,15 @@ fun RehearsalManagementScreen(
                     val refreshedAssignments =
                         repository.loadAssignments(rehearsal.id, organizationId)
                     assignments = refreshedAssignments
-                    offlineCache.saveRoster(
-                        userId = userId,
-                        organizationId = organizationId,
-                        rehearsalId = rehearsal.id,
-                        assignments = refreshedAssignments,
-                        members = members
-                    )
+                    runCatching {
+                        offlineCache.saveRoster(
+                            userId = userId,
+                            organizationId = organizationId,
+                            rehearsalId = rehearsal.id,
+                            assignments = refreshedAssignments,
+                            members = members
+                        )
+                    }
                     offlineSnapshot = false
                 }
             } catch (exception: Exception) {
@@ -417,6 +425,15 @@ fun RehearsalManagementScreen(
                     status = attendance
                 )
                 assignments = repository.loadAssignments(assignment.rehearsalId, organizationId)
+                runCatching {
+                    offlineCache.saveRoster(
+                        userId = userId,
+                        organizationId = organizationId,
+                        rehearsalId = assignment.rehearsalId,
+                        assignments = assignments,
+                        members = members
+                    )
+                }
             } catch (exception: Exception) {
                 error = exception.message ?: "Attendance could not be saved."
             } finally {
