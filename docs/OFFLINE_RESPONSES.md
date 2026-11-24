@@ -1,33 +1,41 @@
-# Offline service responses
+# Offline member responses
 
-UnityHub supports a deliberately narrow offline-first interaction: a team member can confirm or decline their own service assignment even when the device has no validated internet connection. When declining, the member may include an optional explanation of up to 300 characters.
+UnityHub supports two narrowly scoped offline-first member actions: confirming or declining an assigned service role, and marking availability for an invited rehearsal. These are member responses only; they do not grant offline editing or administration access.
 
-## Member workflow
+## Service assignment responses
 
-1. The dashboard displays the member's upcoming assignments from the server or the last user-scoped offline snapshot.
-2. When the member chooses Confirm or Can't serve offline, UnityHub stores that selected response in the local Room database. A decline may include a short note explaining the conflict.
-3. The assignment card changes to **Saved · waiting to sync**. This describes a local save, not a server-confirmed response. The note is also shown on the member's own assignment card.
-4. UnityHub schedules the existing network-constrained WorkManager sync. When connectivity returns, the worker submits the response and its optional note before downloading fresh assignment snapshots.
-5. After Supabase returns the updated assignment, UnityHub removes the queue entry and refreshes the offline snapshot. Worship leaders can see the member's note in the assignment list and assignment overview.
+1. The Home dashboard displays upcoming assignments from Supabase or the user's last saved offline snapshot.
+2. When a member chooses **Confirm** or **Can't serve** while offline, UnityHub stores that response in the local Room database. A decline may include an explanation of up to 300 characters.
+3. The assignment card shows **Saved · waiting to sync**. This is a local save, not a server-confirmed response.
+4. WorkManager submits queued service responses before downloading fresh offline snapshots.
+5. The queue entry is removed after Supabase confirms the update. A leader can then see the response and any decline note.
 
-If the member changes their choice again before synchronization, the local queue replaces the earlier choice. The most recent response is the one submitted.
+## Rehearsal availability
+
+1. Rehearsal schedules and invited rosters are saved in the signed-in user's organization-scoped Room cache when they are loaded online or refreshed by background sync.
+2. An invited member can open the last synced rehearsal details and choose **Available** or **Can't attend** when there is no validated internet connection.
+3. UnityHub stores the choice locally and overlays it on the cached roster. The member sees **Saved on this device · waiting to sync**; other members and leaders do not see it until Supabase accepts it.
+4. WorkManager submits the response when a network connection is available, before refreshing rehearsal snapshots. Choosing another response before sync replaces the earlier queued choice for that invitation.
+5. If the invitation was deleted, the member no longer belongs to the organization, or the rehearsal was completed/cancelled before sync, the existing database policy rejects the update. UnityHub discards that stale queue entry and reports that a saved response could not be sent.
+
+Offline rehearsal availability is limited to invitations and rehearsal details that were previously synced to this device. A response note is not collected in this offline flow. Scheduling, editing, cancelling, completing, inviting members, changing the roster, and recording attendance remain online-only.
 
 ## Authorization and data scope
 
-Each queued record stores the signed-in user ID, organization ID, assignment ID, member-membership ID, response, optional response note, and queue timestamp. Before submission, the worker checks that the active Supabase user is the original user, that the requested organization still matches the active membership, and that the assignment's member ID matches that membership. The update also filters by assignment ID, organization ID, and member ID.
+Every queued response stores its owner user ID, organization ID, assignment ID, member-membership ID, response value, and queue timestamp. Rehearsal responses also store the rehearsal ID.
 
-The existing Supabase Row Level Security policies remain the authorization boundary. Local queue contents or hidden UI controls do not grant permission to change another member's assignment. An update that affects no row is treated as stale and discarded; the sync status card reports that the assignment or team access changed. If the account no longer belongs to the organization, unsent responses for that organization are discarded.
+Before an upload, the worker confirms that the active Supabase account is the queue owner, that the active membership is still in the requested organization, and that the stored membership ID matches the live membership. The rehearsal update is filtered by assignment ID, rehearsal ID, organization ID, and membership ID.
 
-## Local database upgrade
+Supabase Row Level Security remains the authorization boundary. Its rehearsal self-response policy requires the assignment to belong to the authenticated member in the same organization, the rehearsal to remain scheduled, and the new response to be Available or Can't attend. Local queue contents and hidden UI controls do not grant permission to update another member's response. A zero-row update is treated as stale and is discarded, not retried indefinitely.
 
-Room database version 5 adds a `response_note` column to the cached assignment and pending-response tables. Existing records are preserved and receive an empty note by default.
+## Local database and sign-out
 
-## Sign-out behavior
+Room database version 6 adds user-scoped rehearsal and invitation snapshots plus a separate pending rehearsal availability queue. The migration is additive and preserves all existing cached songs, services, assignments, and pending service responses.
 
-Signing out deletes the current user's unsent response queue along with the existing user-scoped offline copies. The Account screen explicitly warns about this before the user confirms sign-out. Another account on the same device cannot submit the previous user's queue.
+Signing out clears the current user's queued service and rehearsal responses, cached rehearsal details and rosters, and the existing offline copies. Another account on the same device cannot submit the previous user's queue.
 
-## Scope and limitations
+## Sync behavior and limitations
 
-This release queues only member responses (confirmed / declined) to service assignments. It does not enable offline song editing, service-plan editing, assignment creation/removal, rehearsal changes, attendance recording, member administration, or other writes. Those actions continue to require an online request.
+WorkManager requires a validated network connection and retries temporary upload or download failures. The worker submits queued service and rehearsal responses before refreshing songs, service plans, setlists, assignments, rehearsals, and rehearsal rosters.
 
-A queued response and its note are not visible to worship leaders until the server accepts them. Users should treat the waiting-to-sync label as local confirmation only. WorkManager requires a network connection and retries temporary upload or download failures. If a saved assignment was deleted or the member's access changed before synchronization, the stale response is discarded rather than replayed later.
+Offline response status is local until the server accepts it. If access or the underlying assignment changes before synchronization, UnityHub discards the stale response rather than replaying it later. Offline song editing, service-plan editing, assignment creation/removal, rehearsal management, attendance recording, member administration, and other writes are not enabled.
