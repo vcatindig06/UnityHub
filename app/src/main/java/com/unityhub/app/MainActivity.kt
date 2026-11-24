@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
@@ -66,6 +67,15 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             UnityHubTheme {
+                BackHandler {
+                    if (passwordRecoveryMode) {
+                        passwordRecoveryMode = false
+                        passwordRecoverySessionReady = false
+                        passwordRecoveryFailed = false
+                    } else {
+                        moveTaskToBack(true)
+                    }
+                }
                 AppUpdateController()
                 var authenticated by rememberSaveable { mutableStateOf(false) }
                 var authenticationReady by rememberSaveable { mutableStateOf(false) }
