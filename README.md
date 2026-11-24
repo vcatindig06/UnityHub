@@ -98,6 +98,12 @@ The migration `supabase/migrations/20261106090000_secure_member_administration.s
 
 Only the authenticated organization owner can transfer ownership. Only authenticated administrators can change member roles or remove non-owner members. The Android UI mirrors these restrictions, while the database functions remain the authorization boundary.
 
+### Member profiles and participation
+
+Team members can open a read-only profile from the Team directory. The profile shows the member's organization role, membership date, assigned ministry positions, recent service assignments, rehearsal invitations, and recorded attendance. A participation summary separates upcoming service roles, service responses, upcoming rehearsals, and completed rehearsal attendance. The profile uses existing organization-scoped membership and activity records; it does not expose email addresses or private service/rehearsal response notes. No additional database tables or client permissions are required.
+
+See [Member Profiles](docs/MEMBER_PROFILES.md) for the data scope and behavior.
+
 ### In-app updates
 
 UnityHub checks a version manifest and downloads verified APK updates from its own Supabase Storage bucket. The Account screen tracks the installed/latest version, offers automatic background downloading, and lists all published release notes. After an update, a What's New prompt lists every release since the user last viewed the notes. Downloads are checked against their SHA-256, file size, package identity, version, and installed signing certificate before Android's installer is launched. Android always retains the final installation approval; the app does not silently install APKs or redirect users to GitHub. See [In-app Updates](docs/APP_UPDATES.md) for setup, signing, and publishing requirements.

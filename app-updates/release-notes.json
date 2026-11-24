@@ -1,9 +1,22 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 31,
-  "latestVersionName": "0.31.0",
+  "latestVersionCode": 32,
+  "latestVersionName": "0.32.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 32,
+      "versionName": "0.32.0",
+      "releasedAt": "2026-11-23",
+      "summary": "Member profiles bring team roles and participation history together.",
+      "changes": [
+        "Open a team member's read-only profile directly from the Team directory.",
+        "Review the member's organization role, membership date, and assigned ministry positions.",
+        "See recent service assignments and response statuses without opening each service.",
+        "Review rehearsal invitations and recorded attendance, with separate counts for upcoming and completed rehearsals.",
+        "Profile activity stays scoped to the active worship team and does not expose email addresses or private response notes."
+      ]
+    },
     {
       "versionCode": 31,
       "versionName": "0.31.0",
