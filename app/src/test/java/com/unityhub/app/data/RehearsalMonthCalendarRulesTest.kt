@@ -50,7 +50,7 @@ class RehearsalMonthCalendarRulesTest {
     fun calendarMarksDatesAndSortsSameDayEventsByStartTime() {
         val later = rehearsal("later", "2026-11-25", time = "19:00:00")
         val earlier = rehearsal("earlier", "2026-11-25", time = "18:00:00")
-        val grid = RehearsalCalendarRules.monthGrid(
+        val grid = RehearsalMonthCalendarRules.monthGrid(
             YearMonth.of(2026, 11),
             listOf(later, earlier)
         )
@@ -70,17 +70,17 @@ class RehearsalMonthCalendarRulesTest {
             rehearsal("cancelled-future", "2026-11-27", status = "cancelled")
         )
 
-        val upcoming = RehearsalCalendarRules.filter(
+        val upcoming = RehearsalMonthCalendarRules.filter(
             rehearsals,
             RehearsalTimeFilter.UPCOMING,
             LocalDate.parse("2026-11-24")
         )
-        val past = RehearsalCalendarRules.filter(
+        val past = RehearsalMonthCalendarRules.filter(
             rehearsals,
             RehearsalTimeFilter.PAST,
             LocalDate.parse("2026-11-24")
         )
-        val all = RehearsalCalendarRules.filter(
+        val all = RehearsalMonthCalendarRules.filter(
             rehearsals,
             RehearsalTimeFilter.ALL,
             LocalDate.parse("2026-11-24")
@@ -98,7 +98,7 @@ class RehearsalMonthCalendarRulesTest {
     fun invalidDatesAreExcludedFromCalendarFiltering() {
         val malformed = rehearsal("bad", "not-a-date")
         val valid = rehearsal("valid", "2026-11-25")
-        val result = RehearsalCalendarRules.filter(
+        val result = RehearsalMonthCalendarRules.filter(
             listOf(malformed, valid),
             RehearsalTimeFilter.ALL,
             LocalDate.parse("2026-11-24")
