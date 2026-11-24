@@ -5,8 +5,12 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.unityhub.app.data.OfflineServiceCache
+import com.unityhub.app.data.OfflineRehearsalCache
 import com.unityhub.app.data.PendingServiceAssignmentResponseQueue
 import com.unityhub.app.data.PendingServiceAssignmentResponseRules
+import com.unityhub.app.data.PendingRehearsalAvailabilityResponseQueue
+import com.unityhub.app.data.PendingRehearsalAvailabilityResponseRules
+import com.unityhub.app.data.RehearsalRepository
 import com.unityhub.app.data.OfflineSongCache
 import com.unityhub.app.data.OfflineWorkspaceCache
 import com.unityhub.app.data.OrganizationDto
@@ -50,6 +54,10 @@ class OfflineSyncWorker(
             ) {
                 PendingServiceAssignmentResponseQueue(applicationContext)
                     .clearOrganization(requestedUserId, requestedOrganizationId)
+                PendingRehearsalAvailabilityResponseQueue(applicationContext)
+                    .clearOrganization(requestedUserId, requestedOrganizationId)
+                OfflineRehearsalCache(applicationContext)
+                    .clearOrganization(requestedUserId, requestedOrganizationId)
                 OfflineSyncStatusStore.markFailure(
                     applicationContext,
                     requestedUserId,
@@ -66,6 +74,8 @@ class OfflineSyncWorker(
             val servicePlanRepository = ServicePlanRepository(client)
             val assignmentRepository = ServiceAssignmentRepository(client)
             val responseQueue = PendingServiceAssignmentResponseQueue(applicationContext)
+            val rehearsalRepository = RehearsalRepository(client)
+            val rehearsalResponseQueue = PendingRehearsalAvailabilityResponseQueue(applicationContext)
             var discardedPendingResponses = 0
 
             // Send member responses saved offline before refreshing the cached snapshot.
@@ -107,6 +117,44 @@ class OfflineSyncWorker(
                 }
             }
 
+            // Rehearsal availability uses the same authenticated membership scope.
+            // The database RLS policy additionally requires the rehearsal to remain scheduled.
+            val queuedRehearsalResponses = rehearsalResponseQueue.loadPending(
+                requestedUserId,
+                requestedOrganizationId
+            )
+            for (pending in queuedRehearsalResponses) {
+                val liveUserId = client.auth.currentUserOrNull()?.id
+                if (liveUserId != requestedUserId) return Result.success()
+
+                if (!PendingRehearsalAvailabilityResponseRules.maySync(
+                        authenticatedUserId = liveUserId,
+                        requestedUserId = requestedUserId,
+                        requestedOrganizationId = requestedOrganizationId,
+                        membershipOrganizationId = initialMembership?.organizationId,
+                        membershipId = initialMembership?.id,
+                        pending = pending
+                    )
+                ) {
+                    rehearsalResponseQueue.remove(requestedUserId, pending.assignmentId)
+                    discardedPendingResponses += 1
+                    continue
+                }
+
+                setProgress(workDataOf(PROGRESS_STAGE_KEY to "uploading_rehearsal_responses"))
+                val submitted = rehearsalRepository.respond(
+                    assignmentId = pending.assignmentId,
+                    rehearsalId = pending.rehearsalId,
+                    organizationId = pending.organizationId,
+                    memberId = pending.memberId,
+                    response = pending.responseStatus
+                )
+                // A zero-row update is stale or no longer permitted (for example, the
+                // rehearsal was completed/cancelled). Never replay that response later.
+                rehearsalResponseQueue.remove(requestedUserId, pending.assignmentId)
+                if (!submitted) discardedPendingResponses += 1
+            }
+
             // Read the full remote snapshot before replacing any local cache.
             val songs = songRepository.loadSongs(requestedOrganizationId)
             setProgress(workDataOf(PROGRESS_STAGE_KEY to "downloading_services"))
@@ -130,6 +178,23 @@ class OfflineSyncWorker(
             }
 
             val organizationName = loadOrganizationName(client, requestedOrganizationId)
+
+            setProgress(workDataOf(PROGRESS_STAGE_KEY to "downloading_rehearsals"))
+            val rehearsals = rehearsalRepository.loadRehearsals(requestedOrganizationId)
+            val rehearsalMembers = if (rehearsals.isEmpty()) {
+                emptyList()
+            } else if (members.isNotEmpty()) {
+                members
+            } else {
+                rehearsalRepository.loadTeamMembers(requestedOrganizationId)
+            }
+            val rehearsalAssignments = linkedMapOf<String, List<com.unityhub.app.data.RehearsalAssignmentDto>>()
+            for (rehearsal in rehearsals) {
+                rehearsalAssignments[rehearsal.id] = rehearsalRepository.loadAssignments(
+                    rehearsalId = rehearsal.id,
+                    organizationId = requestedOrganizationId
+                )
+            }
 
             // Re-check both the live session and membership after network reads.
             // A sign-out or membership change must never write data to another account's cache.
@@ -182,6 +247,22 @@ class OfflineSyncWorker(
                 )
             }
 
+            val rehearsalCache = OfflineRehearsalCache(applicationContext)
+            rehearsalCache.saveRehearsals(
+                userId = requestedUserId,
+                organizationId = requestedOrganizationId,
+                rehearsals = rehearsals
+            )
+            for (rehearsal in rehearsals) {
+                rehearsalCache.saveRoster(
+                    userId = requestedUserId,
+                    organizationId = requestedOrganizationId,
+                    rehearsalId = rehearsal.id,
+                    assignments = rehearsalAssignments[rehearsal.id].orEmpty(),
+                    members = rehearsalMembers
+                )
+            }
+
             OfflineWorkspaceCache(applicationContext).save(
                 userId = requestedUserId,
                 organizationId = requestedOrganizationId,
@@ -198,7 +279,7 @@ class OfflineSyncWorker(
                     applicationContext,
                     requestedUserId,
                     requestedOrganizationId,
-                    "$discardedPendingResponses saved response(s) could not be sent because the assignment or team access changed. Review your service assignments."
+                    "$discardedPendingResponses saved response(s) could not be sent because an assignment, rehearsal, or team access changed. Refresh your service and rehearsal details."
                 )
             }
             setProgress(workDataOf(PROGRESS_STAGE_KEY to "completed"))
