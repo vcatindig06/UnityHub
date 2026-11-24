@@ -71,8 +71,8 @@ android {
         applicationId = "com.unityhub.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 35
-        versionName = "0.35.0"
+        versionCode = 36
+        versionName = "0.36.0"
 
         buildConfigField("String", "SUPABASE_URL", supabaseUrl.asBuildConfigString())
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", supabasePublishableKey.asBuildConfigString())

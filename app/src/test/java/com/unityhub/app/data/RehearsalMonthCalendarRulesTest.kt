@@ -14,7 +14,9 @@ class RehearsalMonthCalendarRulesTest {
         date: String,
         time: String = "18:00:00",
         status: String = "scheduled",
-        title: String = id
+        title: String = id,
+        location: String = "",
+        notes: String = ""
     ) = RehearsalDto(
         id = id,
         organizationId = "org-1",
@@ -22,8 +24,8 @@ class RehearsalMonthCalendarRulesTest {
         rehearsalDate = date,
         startTime = time,
         endTime = null,
-        location = "",
-        notes = "",
+        location = location,
+        notes = notes,
         status = status,
         servicePlanId = null,
         createdBy = "user-1",
@@ -92,6 +94,114 @@ class RehearsalMonthCalendarRulesTest {
             past.map { it.id }
         )
         assertEquals(5, all.size)
+    }
+
+    @Test
+    fun statusFilterReturnsOnlyTheRequestedRehearsalState() {
+        val rehearsals = listOf(
+            rehearsal("scheduled", "2026-11-25"),
+            rehearsal("completed", "2026-11-23", status = "completed"),
+            rehearsal("cancelled", "2026-11-27", status = "cancelled")
+        )
+
+        assertEquals(
+            listOf("scheduled"),
+            RehearsalMonthCalendarRules.filter(
+                rehearsals,
+                RehearsalTimeFilter.ALL,
+                today = LocalDate.parse("2026-11-24"),
+                statusFilter = RehearsalStatusFilter.SCHEDULED
+            ).map { it.id }
+        )
+        assertEquals(
+            listOf("completed"),
+            RehearsalMonthCalendarRules.filter(
+                rehearsals,
+                RehearsalTimeFilter.ALL,
+                today = LocalDate.parse("2026-11-24"),
+                statusFilter = RehearsalStatusFilter.COMPLETED
+            ).map { it.id }
+        )
+        assertEquals(
+            listOf("cancelled"),
+            RehearsalMonthCalendarRules.filter(
+                rehearsals,
+                RehearsalTimeFilter.ALL,
+                today = LocalDate.parse("2026-11-24"),
+                statusFilter = RehearsalStatusFilter.CANCELLED
+            ).map { it.id }
+        )
+    }
+
+    @Test
+    fun searchMatchesTitleLocationAndNotesIgnoringCaseAndExtraSpaces() {
+        val rehearsals = listOf(
+            rehearsal(
+                "title-match",
+                "2026-11-25",
+                title = "Sunday Worship Practice"
+            ),
+            rehearsal(
+                "location-match",
+                "2026-11-25",
+                title = "Midweek",
+                location = "Main Sanctuary"
+            ),
+            rehearsal(
+                "notes-match",
+                "2026-11-25",
+                title = "Choir Practice",
+                notes = "Bring the printed chord charts"
+            ),
+            rehearsal("no-match", "2026-11-25", title = "Band Practice")
+        )
+
+        assertEquals(
+            listOf("title-match"),
+            RehearsalMonthCalendarRules.filter(
+                rehearsals,
+                RehearsalTimeFilter.ALL,
+                today = LocalDate.parse("2026-11-24"),
+                searchQuery = "  WORSHIP  "
+            ).map { it.id }
+        )
+        assertEquals(
+            listOf("location-match"),
+            RehearsalMonthCalendarRules.filter(
+                rehearsals,
+                RehearsalTimeFilter.ALL,
+                today = LocalDate.parse("2026-11-24"),
+                searchQuery = "sanctuary"
+            ).map { it.id }
+        )
+        assertEquals(
+            listOf("notes-match"),
+            RehearsalMonthCalendarRules.filter(
+                rehearsals,
+                RehearsalTimeFilter.ALL,
+                today = LocalDate.parse("2026-11-24"),
+                searchQuery = "printed chord"
+            ).map { it.id }
+        )
+    }
+
+    @Test
+    fun searchAndStatusFiltersAreAppliedTogether() {
+        val rehearsals = listOf(
+            rehearsal("scheduled-band", "2026-11-25", title = "Band Practice"),
+            rehearsal("cancelled-band", "2026-11-23", status = "cancelled", title = "Band Practice"),
+            rehearsal("completed-choir", "2026-11-22", status = "completed", title = "Choir Practice")
+        )
+
+        val result = RehearsalMonthCalendarRules.filter(
+            rehearsals,
+            RehearsalTimeFilter.ALL,
+            today = LocalDate.parse("2026-11-24"),
+            statusFilter = RehearsalStatusFilter.CANCELLED,
+            searchQuery = "band"
+        )
+
+        assertEquals(listOf("cancelled-band"), result.map { it.id })
     }
 
     @Test

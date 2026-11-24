@@ -81,6 +81,7 @@ import com.unityhub.app.data.PendingRehearsalAvailabilityResponseQueue
 import com.unityhub.app.data.RehearsalAssignmentDto
 import com.unityhub.app.data.RehearsalMonthCalendarRules
 import com.unityhub.app.data.RehearsalTimeFilter
+import com.unityhub.app.data.RehearsalStatusFilter
 import com.unityhub.app.sync.RehearsalReminderScheduler
 import com.unityhub.app.data.RehearsalDto
 import com.unityhub.app.data.RehearsalRepository
@@ -156,6 +157,10 @@ fun RehearsalManagementScreen(
     var timeFilter by rememberSaveable(organizationId) {
         mutableStateOf(RehearsalTimeFilter.UPCOMING)
     }
+    var statusFilter by rememberSaveable(organizationId) {
+        mutableStateOf(RehearsalStatusFilter.ALL)
+    }
+    var rehearsalSearch by rememberSaveable(organizationId) { mutableStateOf("") }
     var calendarViewMode by rememberSaveable(organizationId) { mutableStateOf("calendar") }
     var selectedCalendarDate by rememberSaveable(organizationId) {
         mutableStateOf(LocalDate.now().toString())
@@ -166,7 +171,12 @@ fun RehearsalManagementScreen(
 
     fun updateTimeFilter(filter: RehearsalTimeFilter) {
         timeFilter = filter
-        val matching = RehearsalMonthCalendarRules.filter(rehearsals, filter)
+        val matching = RehearsalMonthCalendarRules.filter(
+            rehearsals = rehearsals,
+            filter = filter,
+            statusFilter = statusFilter,
+            searchQuery = rehearsalSearch
+        )
         val targetDateText = if (filter == RehearsalTimeFilter.ALL) {
             matching.firstOrNull {
                 it.status == "scheduled" && it.rehearsalDate >= LocalDate.now().toString()
@@ -646,7 +656,12 @@ fun RehearsalManagementScreen(
                 }
             }
         } else {
-            val filteredRehearsals = RehearsalMonthCalendarRules.filter(rehearsals, timeFilter)
+            val filteredRehearsals = RehearsalMonthCalendarRules.filter(
+                rehearsals = rehearsals,
+                filter = timeFilter,
+                statusFilter = statusFilter,
+                searchQuery = rehearsalSearch
+            )
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -656,6 +671,40 @@ fun RehearsalManagementScreen(
                         FilterChip(
                             selected = timeFilter == filter,
                             onClick = { updateTimeFilter(filter) },
+                            label = { Text(filter.label) }
+                        )
+                    }
+                }
+            }
+            item {
+                OutlinedTextField(
+                    value = rehearsalSearch,
+                    onValueChange = { rehearsalSearch = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Search rehearsals") },
+                    placeholder = { Text("Title, location, or notes") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = if (rehearsalSearch.isNotBlank()) {
+                        {
+                            IconButton(onClick = { rehearsalSearch = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    } else null
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    RehearsalStatusFilter.values().forEach { filter ->
+                        FilterChip(
+                            selected = statusFilter == filter,
+                            onClick = { statusFilter = filter },
                             label = { Text(filter.label) }
                         )
                     }
@@ -701,15 +750,39 @@ fun RehearsalManagementScreen(
             } else if (filteredRehearsals.isEmpty()) {
                 item {
                     Card(shape = RoundedCornerShape(16.dp)) {
-                        Text(
-                            when (timeFilter) {
-                                RehearsalTimeFilter.UPCOMING -> "No upcoming rehearsals."
-                                RehearsalTimeFilter.PAST -> "No past rehearsals yet."
-                                RehearsalTimeFilter.ALL -> "No rehearsals are available."
-                            },
+                        Column(
                             modifier = Modifier.fillMaxWidth().padding(18.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                if (rehearsalSearch.isNotBlank() ||
+                                    statusFilter != RehearsalStatusFilter.ALL
+                                ) {
+                                    "No rehearsals match these filters."
+                                } else {
+                                    when (timeFilter) {
+                                        RehearsalTimeFilter.UPCOMING -> "No upcoming rehearsals."
+                                        RehearsalTimeFilter.PAST -> "No past rehearsals yet."
+                                        RehearsalTimeFilter.ALL -> "No rehearsals are available."
+                                    }
+                                },
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (rehearsalSearch.isNotBlank() ||
+                                statusFilter != RehearsalStatusFilter.ALL ||
+                                timeFilter != RehearsalTimeFilter.ALL
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        rehearsalSearch = ""
+                                        statusFilter = RehearsalStatusFilter.ALL
+                                        timeFilter = RehearsalTimeFilter.ALL
+                                    }
+                                ) {
+                                    Text("Clear filters")
+                                }
+                            }
+                        }
                     }
                 }
             } else {
