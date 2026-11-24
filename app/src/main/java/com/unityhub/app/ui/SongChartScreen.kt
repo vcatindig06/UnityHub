@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -25,6 +27,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -52,6 +56,7 @@ import com.unityhub.app.domain.chordpro.ChordProDocument
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.withContext
 import com.unityhub.app.domain.chordpro.ChordTransposer
 import java.nio.charset.StandardCharsets
@@ -64,7 +69,31 @@ fun SongChartScreen(
 ) {
     var transpose by rememberSaveable(song.id) { mutableIntStateOf(0) }
     var chartScale by rememberSaveable(song.id) { mutableFloatStateOf(1f) }
+    var autoScrollEnabled by rememberSaveable(song.id) { mutableStateOf(false) }
+    var autoScrollSpeed by rememberSaveable(song.id) {
+        mutableFloatStateOf(ChartAutoScrollRules.DEFAULT_SPEED_DP_PER_SECOND)
+    }
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
     val context = LocalContext.current
+
+    LaunchedEffect(autoScrollEnabled, autoScrollSpeed, song.id) {
+        if (autoScrollEnabled) {
+            val pixelsPerSecond = with(density) { autoScrollSpeed.dp.toPx() }
+            var previousFrame = withFrameNanos { it }
+            while (true) {
+                val frame = withFrameNanos { it }
+                val elapsedSeconds = ((frame - previousFrame) / 1_000_000_000f)
+                    .coerceIn(0f, 0.05f)
+                listState.scrollBy(pixelsPerSecond * elapsedSeconds)
+                previousFrame = frame
+                if (!listState.canScrollForward) {
+                    autoScrollEnabled = false
+                    break
+                }
+            }
+        }
+    }
     var document by remember(song.id, song.chordpro) {
         mutableStateOf<ChordProDocument?>(null)
     }
@@ -123,6 +152,7 @@ fun SongChartScreen(
     }
 
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -208,6 +238,45 @@ fun SongChartScreen(
                             modifier = Modifier.semantics { contentDescription = "Increase chart text size" }
                         ) { Text("A+") }
                     }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Auto-scroll",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                if (autoScrollEnabled) "Scrolling · ${autoScrollSpeed.toInt()} dp/s"
+                                else "Paused",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        TextButton(
+                            onClick = { autoScrollEnabled = !autoScrollEnabled },
+                            enabled = document?.lines?.isNotEmpty() == true
+                        ) {
+                            Text(if (autoScrollEnabled) "Pause" else "Start")
+                        }
+                    }
+                    Text(
+                        "Scroll speed",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Slider(
+                        value = autoScrollSpeed,
+                        onValueChange = {
+                            autoScrollSpeed = ChartAutoScrollRules.clampSpeed(it)
+                        },
+                        valueRange = ChartAutoScrollRules.MIN_SPEED_DP_PER_SECOND..
+                            ChartAutoScrollRules.MAX_SPEED_DP_PER_SECOND,
+                        enabled = document?.lines?.isNotEmpty() == true
+                    )
                     if (transpose != 0) {
                         Text(
                             "Transposed for this view only. The saved song and service setlists remain unchanged.",
@@ -255,6 +324,16 @@ private fun ChartMetadata(label: String, value: String) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     }
+}
+
+
+internal object ChartAutoScrollRules {
+    const val MIN_SPEED_DP_PER_SECOND = 20f
+    const val MAX_SPEED_DP_PER_SECOND = 100f
+    const val DEFAULT_SPEED_DP_PER_SECOND = 36f
+
+    fun clampSpeed(speed: Float): Float =
+        speed.coerceIn(MIN_SPEED_DP_PER_SECOND, MAX_SPEED_DP_PER_SECOND)
 }
 
 internal object ChordProPreviewRules {
