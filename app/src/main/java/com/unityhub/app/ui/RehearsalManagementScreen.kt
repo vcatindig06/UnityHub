@@ -79,6 +79,8 @@ import com.unityhub.app.data.OfflineRehearsalCache
 import com.unityhub.app.data.OfflineServiceCache
 import com.unityhub.app.data.PendingRehearsalAvailabilityResponseQueue
 import com.unityhub.app.data.RehearsalAssignmentDto
+import com.unityhub.app.data.RehearsalCalendarRules
+import com.unityhub.app.data.RehearsalTimeFilter
 import com.unityhub.app.sync.RehearsalReminderScheduler
 import com.unityhub.app.data.RehearsalDto
 import com.unityhub.app.data.RehearsalRepository
@@ -92,6 +94,7 @@ import com.unityhub.app.sync.OfflineSyncScheduler
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.YearMonth
 import java.util.Locale
 
 private fun hasValidatedInternetConnection(context: Context): Boolean {
@@ -150,6 +153,31 @@ fun RehearsalManagementScreen(
     var offlineSnapshot by remember(userId, organizationId) { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var consumedRequestId by remember { mutableStateOf<String?>(null) }
+    var timeFilter by rememberSaveable(organizationId) {
+        mutableStateOf(RehearsalTimeFilter.UPCOMING)
+    }
+    var calendarViewMode by rememberSaveable(organizationId) { mutableStateOf("calendar") }
+    var selectedCalendarDate by rememberSaveable(organizationId) {
+        mutableStateOf(LocalDate.now().toString())
+    }
+    var displayedCalendarMonth by rememberSaveable(organizationId) {
+        mutableStateOf(YearMonth.now().toString())
+    }
+
+    fun updateTimeFilter(filter: RehearsalTimeFilter) {
+        timeFilter = filter
+        val matching = RehearsalCalendarRules.filter(rehearsals, filter)
+        val targetDateText = if (filter == RehearsalTimeFilter.ALL) {
+            matching.firstOrNull {
+                it.status == "scheduled" && it.rehearsalDate >= LocalDate.now().toString()
+            }?.rehearsalDate
+        } else {
+            matching.firstOrNull()?.rehearsalDate
+        } ?: LocalDate.now().toString()
+        val targetDate = runCatching { LocalDate.parse(targetDateText) }.getOrDefault(LocalDate.now())
+        selectedCalendarDate = targetDate.toString()
+        displayedCalendarMonth = YearMonth.from(targetDate).toString()
+    }
 
     BackHandler(enabled = selected != null) {
         selected = null
@@ -618,26 +646,89 @@ fun RehearsalManagementScreen(
                 }
             }
         } else {
-            val today = LocalDate.now().toString()
-            val upcoming = rehearsals.filter { it.rehearsalDate >= today && it.status != "cancelled" }
-            val past = rehearsals.filter { it.rehearsalDate < today || it.status != "scheduled" && it !in upcoming }
-
-            if (upcoming.isNotEmpty()) {
-                item {
-                    Text("Upcoming", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                }
-                items(upcoming, key = { it.id }) { rehearsal ->
-                    RehearsalListCard(rehearsal = rehearsal, servicePlan = servicePlans.firstOrNull { it.id == rehearsal.servicePlanId }) {
-                        openDetails(rehearsal)
+            val filteredRehearsals = RehearsalCalendarRules.filter(rehearsals, timeFilter)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    RehearsalTimeFilter.values().forEach { filter ->
+                        FilterChip(
+                            selected = timeFilter == filter,
+                            onClick = { updateTimeFilter(filter) },
+                            label = { Text(filter.label) }
+                        )
                     }
                 }
             }
-            if (past.isNotEmpty()) {
-                item {
-                    Text("Past and completed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = calendarViewMode == "calendar",
+                        onClick = { calendarViewMode = "calendar" },
+                        label = { Text("Calendar") },
+                        leadingIcon = if (calendarViewMode == "calendar") {
+                            { Icon(Icons.Default.CalendarMonth, contentDescription = null) }
+                        } else null
+                    )
+                    FilterChip(
+                        selected = calendarViewMode == "list",
+                        onClick = { calendarViewMode = "list" },
+                        label = { Text("List") },
+                        leadingIcon = if (calendarViewMode == "list") {
+                            { Icon(Icons.Default.Groups, contentDescription = null) }
+                        } else null
+                    )
                 }
-                items(past, key = { it.id }) { rehearsal ->
-                    RehearsalListCard(rehearsal = rehearsal, servicePlan = servicePlans.firstOrNull { it.id == rehearsal.servicePlanId }) {
+            }
+
+            if (calendarViewMode == "calendar") {
+                item {
+                    RehearsalCalendarContent(
+                        rehearsals = filteredRehearsals,
+                        servicePlans = servicePlans,
+                        timeFilter = timeFilter,
+                        selectedDateText = selectedCalendarDate,
+                        displayedMonthText = displayedCalendarMonth,
+                        onSelectedDateChange = { selectedCalendarDate = it },
+                        onDisplayedMonthChange = { displayedCalendarMonth = it },
+                        onOpenRehearsal = ::openDetails
+                    )
+                }
+            } else if (filteredRehearsals.isEmpty()) {
+                item {
+                    Card(shape = RoundedCornerShape(16.dp)) {
+                        Text(
+                            when (timeFilter) {
+                                RehearsalTimeFilter.UPCOMING -> "No upcoming rehearsals."
+                                RehearsalTimeFilter.PAST -> "No past rehearsals yet."
+                                RehearsalTimeFilter.ALL -> "No rehearsals are available."
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                item {
+                    Text(
+                        if (timeFilter == RehearsalTimeFilter.ALL) {
+                            "All rehearsals · ${filteredRehearsals.size}"
+                        } else {
+                            "${timeFilter.label} · ${filteredRehearsals.size}"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                items(filteredRehearsals, key = { it.id }) { rehearsal ->
+                    RehearsalListCard(
+                        rehearsal = rehearsal,
+                        servicePlan = servicePlans.firstOrNull { it.id == rehearsal.servicePlanId }
+                    ) {
                         openDetails(rehearsal)
                     }
                 }
@@ -650,11 +741,12 @@ fun RehearsalManagementScreen(
                 )
             }
         }
+        }
     }
 }
 
 @Composable
-private fun RehearsalListCard(
+internal fun RehearsalListCard(
     rehearsal: RehearsalDto,
     servicePlan: ServicePlanDto?,
     onClick: () -> Unit
