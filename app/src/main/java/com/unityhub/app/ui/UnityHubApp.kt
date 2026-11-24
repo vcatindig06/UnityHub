@@ -1,6 +1,7 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -263,6 +264,11 @@ private fun OrganizationOnboardingScreen(
     var selectedPath by rememberSaveable { mutableStateOf("") }
     var organizationName by rememberSaveable { mutableStateOf("") }
     var search by rememberSaveable { mutableStateOf("") }
+
+    BackHandler(enabled = step > 1) {
+        step = 1
+        selectedPath = ""
+    }
 
     val requestByOrganization = workspace.myRequests.associateBy { it.organizationId }
     val filteredOrganizations = workspace.directory
@@ -694,12 +700,32 @@ private fun WorkspaceDashboard(
     onPushNavigationHandled: () -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
+    var tabHistory by rememberSaveable { mutableStateOf(emptyList<Int>()) }
     var showAccountScreen by rememberSaveable { mutableStateOf(false) }
     var requestedServicePlanId by remember { mutableStateOf<String?>(null) }
     var serviceNavigationRequestId by remember { mutableStateOf<String?>(null) }
     var requestedRehearsalId by remember { mutableStateOf<String?>(null) }
     var rehearsalNavigationRequestId by remember { mutableStateOf<String?>(null) }
     val organization = workspace.organization ?: return
+
+    fun navigateToTab(destination: Int) {
+        tabHistory = AppBackNavigationRules.recordTabChange(tabHistory, selectedTab, destination)
+        selectedTab = destination
+    }
+
+    BackHandler(
+        enabled = showAccountScreen || tabHistory.isNotEmpty() || selectedTab != AppBackNavigationRules.HOME_TAB
+    ) {
+        if (showAccountScreen) {
+            showAccountScreen = false
+        } else {
+            val previousTab = AppBackNavigationRules.previousTab(selectedTab, tabHistory)
+            if (previousTab != null) {
+                selectedTab = previousTab
+                tabHistory = AppBackNavigationRules.popHistory(tabHistory)
+            }
+        }
+    }
 
     LaunchedEffect(
         pushNavigation?.notificationId,
@@ -712,14 +738,14 @@ private fun WorkspaceDashboard(
             !navigation.rehearsalId.isNullOrBlank() -> {
                 requestedRehearsalId = navigation.rehearsalId
                 rehearsalNavigationRequestId = navigation.notificationId ?: navigation.rehearsalId
-                selectedTab = 2
+                navigateToTab(2)
             }
             !navigation.servicePlanId.isNullOrBlank() -> {
                 requestedServicePlanId = navigation.servicePlanId
                 serviceNavigationRequestId = navigation.notificationId ?: navigation.servicePlanId
-                selectedTab = 2
+                navigateToTab(2)
             }
-            else -> selectedTab = 3
+            else -> navigateToTab(3)
         }
         onPushNavigationHandled()
     }
@@ -778,7 +804,7 @@ private fun WorkspaceDashboard(
                     destinations.forEachIndexed { index, destination ->
                         NavigationBarItem(
                             selected = selectedTab == index,
-                            onClick = { selectedTab = index },
+                            onClick = { navigateToTab(index) },
                             icon = { Icon(destination.icon, contentDescription = null) },
                             label = { Text(destination.label) },
                             alwaysShowLabel = true,
@@ -812,24 +838,24 @@ private fun WorkspaceDashboard(
                 role = workspace.role,
                 memberCount = workspace.members.size,
                 pendingCount = workspace.pendingRequests.size,
-                onOpenSongs = { selectedTab = 1 },
+                onOpenSongs = { navigateToTab(1) },
                 onOpenServices = {
                     requestedServicePlanId = null
                     serviceNavigationRequestId = null
-                    selectedTab = 2
+                    navigateToTab(2)
                 },
                 onOpenServicePlan = { planId ->
                     requestedServicePlanId = planId
                     serviceNavigationRequestId = "dashboard-$planId"
-                    selectedTab = 2
+                    navigateToTab(2)
                 },
-                onOpenTeam = { selectedTab = 4 },
+                onOpenTeam = { navigateToTab(4) },
                 onOpenRehearsal = { rehearsalId ->
                     requestedRehearsalId = rehearsalId
                     rehearsalNavigationRequestId = "dashboard-$rehearsalId"
                     requestedServicePlanId = null
                     serviceNavigationRequestId = null
-                    selectedTab = 2
+                    navigateToTab(2)
                 },
                 modifier = Modifier.padding(innerPadding)
             )
@@ -866,7 +892,7 @@ private fun WorkspaceDashboard(
                         serviceNavigationRequestId = notification.id
                         requestedRehearsalId = null
                         rehearsalNavigationRequestId = null
-                        selectedTab = 2
+                        navigateToTab(2)
                     }
                 },
                 onOpenRehearsal = { notification ->
@@ -876,7 +902,7 @@ private fun WorkspaceDashboard(
                         rehearsalNavigationRequestId = notification.id
                         requestedServicePlanId = null
                         serviceNavigationRequestId = null
-                        selectedTab = 2
+                        navigateToTab(2)
                     }
                 },
                 modifier = Modifier.padding(innerPadding)
