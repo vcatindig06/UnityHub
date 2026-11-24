@@ -38,6 +38,7 @@ import com.unityhub.app.data.PendingRehearsalAvailabilityResponseQueue
 import com.unityhub.app.data.SupabaseClientProvider
 import com.unityhub.app.push.UnityHubFirebase
 import com.unityhub.app.sync.OfflineSyncScheduler
+import com.unityhub.app.sync.RehearsalReminderScheduler
 import com.unityhub.app.sync.OfflineSyncStatusStore
 import com.unityhub.app.push.UnityHubFirebaseMessagingService
 import com.unityhub.app.push.UnityHubNotificationManager
@@ -167,6 +168,9 @@ class MainActivity : ComponentActivity() {
                                                 PendingRehearsalAvailabilityResponseQueue(applicationContext).clearUser(userId)
                                             }
                                             runCatching { OfflineRehearsalCache(applicationContext).clearUser(userId) }
+                                            runCatching {
+                                                RehearsalReminderScheduler.cancelAllForUser(applicationContext, userId)
+                                            }
                                             runCatching { OfflineSyncStatusStore.clearUser(applicationContext, userId) }
                                             runCatching { OfflineSongCache(applicationContext).clearUser(userId) }
                                             runCatching { OfflineServiceCache(applicationContext).clearUser(userId) }
