@@ -1,9 +1,9 @@
 package com.unityhub.app.data
 
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.annotations.ExperimentalSupabaseApi
+import io.github.jan.supabase.annotations.SupabaseExperimental
 import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.postgrest.query.selectAsFlow
+import io.github.jan.supabase.realtime.selectAsFlow
 import io.github.jan.supabase.postgrest.query.filter.FilterOperation
 import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import kotlinx.coroutines.flow.Flow
@@ -66,7 +66,7 @@ class TeamChatRepository(private val client: SupabaseClient) {
         )
     }
 
-    @OptIn(ExperimentalSupabaseApi::class)
+    @OptIn(SupabaseExperimental::class)
     fun observeMessages(organizationId: String): Flow<List<TeamChatMessageDto>> {
         require(organizationId.isNotBlank())
         return client.from("team_messages").selectAsFlow(
