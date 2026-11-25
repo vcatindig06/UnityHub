@@ -167,6 +167,53 @@ begin
 end;
 $$;
 
+-- Update the signed-in member's read cursor through a single SECURITY INVOKER
+-- function. RLS, column grants, the same-organization FK, and the monotonic
+-- trigger continue to enforce the row and cursor boundaries.
+create or replace function public.mark_team_chat_read(
+    p_organization_id uuid,
+    p_message_id uuid
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+begin
+    if auth.uid() is null or not private.is_org_member(p_organization_id) then
+        raise exception 'You must be a current member of this organization.'
+            using errcode = '42501';
+    end if;
+
+    if not exists (
+        select 1
+          from public.team_messages as message
+         where message.organization_id = p_organization_id
+           and message.id = p_message_id
+    ) then
+        raise exception 'The read cursor must point to a message in this organization.'
+            using errcode = '23503';
+    end if;
+
+    insert into public.team_chat_read_states (
+        organization_id,
+        user_id,
+        last_read_message_id
+    ) values (
+        p_organization_id,
+        (select auth.uid()),
+        p_message_id
+    )
+    on conflict (organization_id, user_id)
+    do update set last_read_message_id = excluded.last_read_message_id;
+end;
+$function$;
+
+revoke all on function public.mark_team_chat_read(uuid, uuid)
+    from public, anon;
+grant execute on function public.mark_team_chat_read(uuid, uuid)
+    to authenticated;
+
 -- Clear only the caller's private Team Chat notifications in one request.
 -- This invoker function uses the same recipient RLS policy and read_at-only
 -- UPDATE privilege as the existing Notifications screen.
