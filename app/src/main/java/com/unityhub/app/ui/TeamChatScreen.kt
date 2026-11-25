@@ -181,10 +181,11 @@ fun TeamChatScreen(
             throw cancelled
         } catch (_: Exception) {
             if (messages.isEmpty()) {
-                errorMessage = "Live updates are unavailable. Use Refresh to check for new messages."
+                errorMessage = "Live updates are unavailable. Loading messages once without the live connection."
             } else {
                 errorMessage = "Live updates are temporarily unavailable. Your loaded messages remain available."
             }
+            reload()
         }
     }
 
