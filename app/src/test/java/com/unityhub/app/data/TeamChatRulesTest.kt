@@ -73,6 +73,25 @@ class TeamChatRulesTest {
     }
 
     @Test
+    fun readCursorCoversOlderMessagesOutsideTheLoadedPage() {
+        val olderHistoryMessage = message(
+            "00000000-0000-0000-0000-000000000001",
+            "2026-11-25T06:00:00Z"
+        )
+        val visibleCursorMessage = message(
+            "00000000-0000-0000-0000-000000000002",
+            "2026-11-25T08:00:00Z"
+        )
+        val cursor = readState(
+            "reader",
+            visibleCursorMessage.id,
+            visibleCursorMessage.createdAt
+        )
+
+        assertTrue(TeamChatRules.hasReadMessage(cursor, olderHistoryMessage))
+    }
+
+    @Test
     fun equalTimestampsUseMessageIdAsStableCursorTieBreaker() {
         val first = message("00000000-0000-0000-0000-000000000001", "2026-11-25T08:00:00Z")
         val second = message("00000000-0000-0000-0000-000000000002", "2026-11-25T08:00:00Z")
