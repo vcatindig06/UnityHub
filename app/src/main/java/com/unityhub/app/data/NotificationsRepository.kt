@@ -13,6 +13,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.JsonPrimitive
 import java.time.Instant
 
 @Serializable
@@ -144,7 +145,7 @@ class NotificationsRepository(private val client: SupabaseClient) {
             "mark_team_chat_notifications_read",
             buildJsonObject {
                 put("p_team_message_ids", buildJsonArray {
-                    ids.forEach { messageId -> add(messageId) }
+                    ids.forEach { messageId -> add(JsonPrimitive(messageId)) }
                 })
             }
         )
