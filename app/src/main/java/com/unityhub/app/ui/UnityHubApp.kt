@@ -45,7 +45,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -288,8 +287,7 @@ private fun OrganizationOnboardingScreen(
         .filter { it.name.contains(search.trim(), ignoreCase = true) }
         .sortedBy { it.name.lowercase() }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
+    WorkspacePageScaffold(
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -811,8 +809,7 @@ private fun WorkspaceDashboard(
         onPushNavigationHandled()
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
+    WorkspacePageScaffold(
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
