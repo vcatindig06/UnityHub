@@ -51,10 +51,14 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 
 ## Team Chat
 
-- [x] Open a conversation at the latest message and preserve the reading position when realtime messages arrive while the reader is scrolled up.
+- [x] Load conversation history in stable 50-message pages using a timestamp-plus-ID cursor; retain the reader's position when older pages are prepended.
+- [x] Merge Realtime inserts into paginated history without duplicates and follow new messages only when the reader is already near the bottom.
+- [x] Show the unread Team Chat notification count on the Team tab and clear only notifications for messages that have entered the reader's viewport.
+- [x] Store one organization-scoped read cursor per member, prevent backward cursor movement, and show the current-member read count on each sent message.
+- [x] Restrict read-state visibility to current organization members and updates to the signed-in member's own cursor.
 - [x] Support the Android keyboard Send action as well as the visible Send button.
 - [x] Retain an unsent draft after a message-send failure and keep the Send action at least 48 dp high.
-- [ ] Manually verify keyboard behavior, TalkBack announcements, and incoming-message scrolling on a physical Android device.
+- [ ] Manually verify keyboard behavior, TalkBack announcements, read receipts between two accounts, and incoming-message scrolling on physical Android devices.
 
 ## Release validation
 
