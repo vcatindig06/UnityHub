@@ -715,10 +715,10 @@ private fun WorkspaceDashboard(
     var rehearsalNavigationRequestId by remember { mutableStateOf<String?>(null) }
     val notificationsRepository = remember { NotificationsRepository(SupabaseClientProvider.client) }
     var unreadNotificationCount by remember(userId) { mutableStateOf(0) }
-    var unreadTeamChatCount by remember(userId) { mutableStateOf(0) }
+    var unreadTeamChatCount by remember(userId, workspace.organization?.id) { mutableStateOf(0) }
     val organization = workspace.organization ?: return
 
-    LaunchedEffect(userId) {
+    LaunchedEffect(userId, organization.id) {
         if (userId.isBlank()) return@LaunchedEffect
         fun updateUnreadCounts(incoming: List<com.unityhub.app.data.NotificationDto>) {
             unreadNotificationCount = NotificationRules.unreadCount(incoming)
