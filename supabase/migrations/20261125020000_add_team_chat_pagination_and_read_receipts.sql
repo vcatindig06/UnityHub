@@ -23,8 +23,13 @@ create table public.team_chat_read_states (
         on delete cascade
 );
 
-create index team_chat_read_states_organization_idx
-    on public.team_chat_read_states (organization_id);
+-- The unique organization/user key already covers lookups by organization.
+-- These two indexes cover the message and auth-user foreign-key cascades.
+create index team_chat_read_states_message_idx
+    on public.team_chat_read_states (organization_id, last_read_message_id);
+
+create index team_chat_read_states_user_idx
+    on public.team_chat_read_states (user_id);
 
 alter table public.team_chat_read_states enable row level security;
 
