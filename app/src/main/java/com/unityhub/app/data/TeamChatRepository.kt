@@ -6,12 +6,11 @@ import io.github.jan.supabase.postgrest.rpc
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.selectAsFlow
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -207,9 +206,9 @@ class TeamChatRepository(private val client: SupabaseClient) {
             client.realtime.connect()
             channel.join(blockUntilJoined = true)
             send(TeamChatRealtimeEvent.Connected)
-            kotlinx.coroutines.awaitCancellation()
+            awaitCancellation()
         } finally {
-            collector.cancel()
+            collector.cancelAndJoin()
             runCatching { client.realtime.removeChannel(channel) }
         }
     }
