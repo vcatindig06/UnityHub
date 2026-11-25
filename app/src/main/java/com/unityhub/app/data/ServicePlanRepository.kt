@@ -82,14 +82,31 @@ class ServicePlanRepository(private val client: SupabaseClient) {
     suspend fun createPlan(
         organizationId: String, userId: String, title: String,
         serviceDate: String, startTime: String, notes: String
-    ) {
+    ): ServicePlanDto {
         val normalizedTitle = ServicePlanRules.normalizeTitle(title)
+        val normalizedDate = ServicePlanRules.normalizeDate(serviceDate)
+        val normalizedTime = ServicePlanRules.normalizeTime(startTime)
+        val normalizedNotes = notes.trim()
         client.from("service_plans").insert(
             NewServicePlan(
-                organizationId, normalizedTitle, ServicePlanRules.normalizeDate(serviceDate),
-                ServicePlanRules.normalizeTime(startTime), notes.trim(), userId
+                organizationId, normalizedTitle, normalizedDate,
+                normalizedTime, normalizedNotes, userId
             )
         )
+
+        // The current client API inserts without decoding a returned row.
+        // Reload only this organization's plans and resolve the row just
+        // created so the Setlist action can open its editor immediately.
+        return loadPlans(organizationId)
+            .filter { plan ->
+                plan.createdBy == userId &&
+                    plan.title == normalizedTitle &&
+                    plan.serviceDate == normalizedDate &&
+                    plan.startTime == normalizedTime &&
+                    plan.notes == normalizedNotes
+            }
+            .maxByOrNull { it.createdAt }
+            ?: throw IllegalStateException("The new service was saved but could not be opened. Refresh the service list.")
     }
 
     suspend fun updatePlan(
