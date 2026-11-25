@@ -402,7 +402,11 @@ fun ServicePlanningScreen(
                     try {
                         val existing = editingPlan
                         if (existing == null) {
-                            repository.createPlan(organizationId, userId, title, date, time, notes)
+                            val created = repository.createPlan(organizationId, userId, title, date, time, notes)
+                            if (creatingSetlist) {
+                                plans = (plans + created).distinctBy { it.id }
+                                selectedPlan = created
+                            }
                         } else {
                             repository.updatePlan(existing.id, organizationId, title, date, time, notes)
                         }
