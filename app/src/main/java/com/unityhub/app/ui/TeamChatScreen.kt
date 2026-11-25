@@ -88,9 +88,10 @@ fun TeamChatScreen(
             loading = true
             errorMessage = ""
             try {
+                val hadLoadedMessages = messages.isNotEmpty()
                 val page = repository.loadLatestMessages(organizationId)
                 messages = TeamChatRules.mergeMessages(messages, page.messages)
-                if (messages.isEmpty()) hasMoreOlder = page.hasMore
+                if (!hadLoadedMessages) hasMoreOlder = page.hasMore
                 readStates = repository.loadReadStates(organizationId)
                 membersByUserId = memberRepository.loadTeamMembers(organizationId)
                     .associateBy { it.userId }
