@@ -723,7 +723,9 @@ private fun WorkspaceDashboard(
         fun updateUnreadCounts(incoming: List<com.unityhub.app.data.NotificationDto>) {
             unreadNotificationCount = NotificationRules.unreadCount(incoming)
             unreadTeamChatCount = incoming.count {
-                it.notificationType == "team_message" && NotificationRules.isUnread(it)
+                it.organizationId == organization.id &&
+                    it.notificationType == "team_message" &&
+                    NotificationRules.isUnread(it)
             }
         }
         try {
