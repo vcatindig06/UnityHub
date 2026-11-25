@@ -1,6 +1,6 @@
 # UnityHub accessibility validation
 
-Use this checklist on a physical Android device before release. Automated compilation and unit tests do not replace these checks.
+Use this checklist on a physical Android device before release. Automated compilation and unit tests do not replace these checks. Compose regression tests also cover a representative 320 dp layout at 2.0x font scale, workspace scaffold bounds, heading semantics, and accessible labels/roles for representative actions; those fixtures do not certify every production screen.
 
 ## TalkBack
 
