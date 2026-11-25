@@ -4,11 +4,15 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.annotations.SupabaseExperimental
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.rpc
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.realtime.selectAsFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.time.Instant
 
 @Serializable
@@ -26,11 +30,6 @@ data class NotificationDto(
     @SerialName("team_message_id") val teamMessageId: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("read_at") val readAt: String? = null
-)
-
-@Serializable
-private data class MarkTeamChatNotificationsReadParams(
-    @SerialName("p_team_message_ids") val teamMessageIds: List<String>
 )
 
 internal object NotificationRules {
@@ -143,7 +142,11 @@ class NotificationsRepository(private val client: SupabaseClient) {
 
         client.postgrest.rpc(
             "mark_team_chat_notifications_read",
-            MarkTeamChatNotificationsReadParams(teamMessageIds = ids)
+            buildJsonObject {
+                put("p_team_message_ids", buildJsonArray {
+                    ids.forEach { messageId -> add(messageId) }
+                })
+            }
         )
     }
 
