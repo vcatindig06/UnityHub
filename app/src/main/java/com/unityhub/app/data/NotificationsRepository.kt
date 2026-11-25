@@ -127,9 +127,9 @@ class NotificationsRepository(private val client: SupabaseClient) {
         }
     }
     /**
-     * Clear this member's Team Chat notifications through the message whose
-     * read cursor was just advanced. The database scopes the update to the
-     * authenticated recipient and the same organization.
+     * Clear this member's Team Chat notifications through the persisted
+     * read cursor. The database scopes the update to the authenticated
+     * recipient and the same organization.
      */
     suspend fun markTeamChatNotificationsReadThrough(
         organizationId: String,
