@@ -129,6 +129,17 @@ class ChordProParserTest {
     }
 
     @Test
+    fun normalizesWindowsAndLegacyMacLineEndingsBeforeApplyingDisplayLimits() {
+        val document = ChordProParser.parse("First line\rSecond line\r\nThird line")
+
+        assertEquals(
+            listOf("First line", "Second line", "Third line"),
+            document.lines.map { it.lyrics }
+        )
+        assertFalse(document.isTruncated)
+    }
+
+    @Test
     fun marksNormalChartsAsNotTruncated() {
         val document = ChordProParser.parse("[G]Amazing grace")
 
