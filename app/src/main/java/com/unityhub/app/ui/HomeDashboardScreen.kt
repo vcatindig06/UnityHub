@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -76,6 +78,7 @@ fun HomeDashboardScreen(
     onOpenServicePlan: (String) -> Unit,
     onOpenTeam: () -> Unit,
     onOpenRehearsal: (String) -> Unit,
+    onRefreshWorkspace: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
@@ -91,6 +94,7 @@ fun HomeDashboardScreen(
     var rehearsalErrorMessage by remember { mutableStateOf("") }
     var myAssignments by remember { mutableStateOf<List<MyServiceAssignment>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var refreshing by remember { mutableStateOf(false) }
     var assignmentsLoading by remember { mutableStateOf(true) }
     var respondingAssignmentId by remember { mutableStateOf<String?>(null) }
     var decliningAssignment by remember { mutableStateOf<MyServiceAssignment?>(null) }
@@ -100,82 +104,88 @@ fun HomeDashboardScreen(
     var assignmentErrorMessage by remember { mutableStateOf("") }
 
     fun refresh() {
+        if (refreshing) return
         scope.launch {
-            loading = true
-            assignmentsLoading = true
-            errorMessage = ""
-            assignmentErrorMessage = ""
-            offlineDataMessage = ""
+            refreshing = true
             try {
-                plans = repository.loadPlans(organizationId)
-            } catch (_: Exception) {
-                val cached = runCatching {
-                    offlineServiceCache.loadServicePlans(userId, organizationId)
-                }.getOrNull()
-                plans = cached?.plans.orEmpty()
-                if (plans.isEmpty()) {
-                    errorMessage = "Upcoming services could not be loaded and no saved copy is available."
-                } else {
-                    offlineDataMessage = "Showing saved service information. Updates will sync when your internet connection returns."
-                }
-            } finally {
-                loading = false
-            }
-
-            try {
-                rehearsalsLoading = true
-                rehearsals = rehearsalRepository.loadRehearsals(organizationId)
-                rehearsalErrorMessage = ""
-            } catch (_: Exception) {
-                rehearsalErrorMessage = "Upcoming rehearsals could not be loaded."
-            } finally {
-                rehearsalsLoading = false
-            }
-
-            try {
-                myAssignments = assignmentRepository.loadMyAssignments(organizationId, userId)
+                loading = true
+                assignmentsLoading = true
+                errorMessage = ""
                 assignmentErrorMessage = ""
-            } catch (_: Exception) {
-                val cached = runCatching {
-                    offlineServiceCache.loadServicePlans(userId, organizationId)
-                }.getOrNull()
-                val cachedAssignments = mutableListOf<MyServiceAssignment>()
-                cached?.plans.orEmpty().forEach { plan ->
-                    runCatching {
-                        offlineServiceCache.loadAssignments(userId, organizationId, plan.id)
-                    }.getOrNull()?.assignments.orEmpty()
-                        .filter { it.isCurrentUser }
-                        .forEach { entry ->
-                            cachedAssignments += MyServiceAssignment(
-                                assignment = entry.assignment,
-                                servicePlan = plan
-                            )
-                        }
+                offlineDataMessage = ""
+                try {
+                    plans = repository.loadPlans(organizationId)
+                } catch (_: Exception) {
+                    val cached = runCatching {
+                        offlineServiceCache.loadServicePlans(userId, organizationId)
+                    }.getOrNull()
+                    plans = cached?.plans.orEmpty()
+                    if (plans.isEmpty()) {
+                        errorMessage = "Upcoming services could not be loaded and no saved copy is available."
+                    } else {
+                        offlineDataMessage = "Showing saved service information. Updates will sync when your internet connection returns."
+                    }
+                } finally {
+                    loading = false
                 }
-                myAssignments = cachedAssignments
-                if (cachedAssignments.isEmpty()) {
-                    assignmentErrorMessage = "Your assignments could not be loaded. Check your connection and sync your offline data."
-                } else if (offlineDataMessage.isBlank()) {
-                    offlineDataMessage = "Showing your last saved assignments. Responses can be saved here and sent when you're online."
+
+                try {
+                    rehearsalsLoading = true
+                    rehearsals = rehearsalRepository.loadRehearsals(organizationId)
+                    rehearsalErrorMessage = ""
+                } catch (_: Exception) {
+                    rehearsalErrorMessage = "Upcoming rehearsals could not be loaded."
+                } finally {
+                    rehearsalsLoading = false
+                }
+
+                try {
+                    myAssignments = assignmentRepository.loadMyAssignments(organizationId, userId)
+                    assignmentErrorMessage = ""
+                } catch (_: Exception) {
+                    val cached = runCatching {
+                        offlineServiceCache.loadServicePlans(userId, organizationId)
+                    }.getOrNull()
+                    val cachedAssignments = mutableListOf<MyServiceAssignment>()
+                    cached?.plans.orEmpty().forEach { plan ->
+                        runCatching {
+                            offlineServiceCache.loadAssignments(userId, organizationId, plan.id)
+                        }.getOrNull()?.assignments.orEmpty()
+                            .filter { it.isCurrentUser }
+                            .forEach { entry ->
+                                cachedAssignments += MyServiceAssignment(
+                                    assignment = entry.assignment,
+                                    servicePlan = plan
+                                )
+                            }
+                    }
+                    myAssignments = cachedAssignments
+                    if (cachedAssignments.isEmpty()) {
+                        assignmentErrorMessage = "Your assignments could not be loaded. Check your connection and retry."
+                    } else if (offlineDataMessage.isBlank()) {
+                        offlineDataMessage = "Showing your last saved assignments. Responses are kept on this device when offline."
+                    }
+                } finally {
+                    assignmentsLoading = false
+                }
+
+                val pending = runCatching {
+                    responseQueue.loadPending(userId, organizationId)
+                }.getOrDefault(emptyList())
+                val pendingByAssignment = pending.associateBy { it.assignmentId }
+                pendingResponseIds = pendingByAssignment.keys
+                myAssignments = myAssignments.map { item ->
+                    val savedResponse = pendingByAssignment[item.assignment.id] ?: return@map item
+                    item.copy(
+                        assignment = item.assignment.copy(
+                            responseStatus = savedResponse.responseStatus,
+                            responseNote = savedResponse.responseNote,
+                            respondedAt = Instant.ofEpochMilli(savedResponse.queuedAt).toString()
+                        )
+                    )
                 }
             } finally {
-                assignmentsLoading = false
-            }
-
-            val pending = runCatching {
-                responseQueue.loadPending(userId, organizationId)
-            }.getOrDefault(emptyList())
-            val pendingByAssignment = pending.associateBy { it.assignmentId }
-            pendingResponseIds = pendingByAssignment.keys
-            myAssignments = myAssignments.map { item ->
-                val savedResponse = pendingByAssignment[item.assignment.id] ?: return@map item
-                item.copy(
-                    assignment = item.assignment.copy(
-                        responseStatus = savedResponse.responseStatus,
-                        responseNote = savedResponse.responseNote,
-                        respondedAt = Instant.ofEpochMilli(savedResponse.queuedAt).toString()
-                    )
-                )
+                refreshing = false
             }
         }
     }
@@ -309,8 +319,16 @@ fun HomeDashboardScreen(
     }
     val dateLabel = today.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.getDefault()))
 
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            refresh()
+            onRefreshWorkspace()
+        },
+        modifier = modifier.fillMaxSize()
+    ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -354,10 +372,13 @@ fun HomeDashboardScreen(
         }
 
         item {
-            OfflineSyncStatusCard(
-                userId = userId,
-                organizationId = organizationId
-            )
+            OutlinedButton(
+                onClick = onOpenTeam,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Groups, contentDescription = null)
+                Text("Open Team", modifier = Modifier.padding(start = 8.dp))
+            }
         }
 
         item {
@@ -431,16 +452,6 @@ fun HomeDashboardScreen(
             }
         }
 
-        if (pendingResponseIds.isNotEmpty()) {
-            item {
-                Text(
-                    "${pendingResponseIds.size} responses waiting to sync",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -483,7 +494,6 @@ fun HomeDashboardScreen(
                             item = assignment,
                             today = today,
                             responding = respondingAssignmentId == assignment.assignment.id,
-                            pendingSync = assignment.assignment.id in pendingResponseIds,
                             onOpen = { onOpenServicePlan(assignment.servicePlan.id) },
                             onConfirm = { respondToAssignment(assignment, "confirmed") },
                             onDecline = { decliningAssignment = assignment }
@@ -572,6 +582,7 @@ fun HomeDashboardScreen(
             }
         }
     }
+    }
 
     decliningAssignment?.let { item ->
         DeclineServiceAssignmentDialog(
@@ -593,7 +604,6 @@ private fun MyUpcomingAssignmentCard(
     item: MyServiceAssignment,
     today: LocalDate,
     responding: Boolean,
-    pendingSync: Boolean,
     onOpen: () -> Unit,
     onConfirm: () -> Unit,
     onDecline: () -> Unit
@@ -622,14 +632,14 @@ private fun MyUpcomingAssignmentCard(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    if (pendingSync) "Saved · waiting to sync" else when (status) {
+                    when (status) {
                         "confirmed" -> "Confirmed"
                         "declined" -> "Unable to serve"
                         else -> "Awaiting response"
                     },
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (pendingSync) MaterialTheme.colorScheme.secondary else when (status) {
+                    color = when (status) {
                         "confirmed" -> MaterialTheme.colorScheme.primary
                         "declined" -> MaterialTheme.colorScheme.error
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -644,7 +654,7 @@ private fun MyUpcomingAssignmentCard(
             )
             if (status == "declined" && item.assignment.responseNote.isNotBlank()) {
                 Text(
-                    if (pendingSync) "Note saved · waiting to sync" else "Note sent to worship leader",
+                    "Response note",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
