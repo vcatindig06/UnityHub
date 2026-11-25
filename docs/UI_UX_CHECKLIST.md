@@ -53,7 +53,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 
 - [x] Load conversation history in stable 50-message pages using a timestamp-plus-ID cursor; retain the reader's position when older pages are prepended.
 - [x] Merge Realtime inserts into paginated history without duplicates and follow new messages only when the reader is already near the bottom.
-- [x] Show the unread Team Chat notification count on the Team tab and clear only notifications for messages that have entered the reader's viewport.
+- [x] Show the unread Team Chat notification count on the active workspace's Team tab and clear the signed-in member's alerts through the validated viewport read cursor, including older messages outside the loaded page.
 - [x] Store one organization-scoped read cursor per member, prevent backward cursor movement, and show the current-member read count on each sent message.
 - [x] Restrict read-state visibility to current organization members and updates to the signed-in member's own cursor.
 - [x] Support the Android keyboard Send action as well as the visible Send button.
