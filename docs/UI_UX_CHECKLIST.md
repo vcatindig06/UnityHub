@@ -74,6 +74,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 ## Release validation
 
 - [x] Automated unit tests and the debug APK build run in GitHub Actions.
+- [x] A Compose UI smoke test verifies the workspace top bar, content region, and bottom navigation remain within a full-height scaffold; GitHub Actions runs it on an Android emulator.
 - [ ] Perform a manual TalkBack pass.
 - [ ] Check the smallest supported phone width and larger font scale (at least 1.3x and 2.0x).
 - [ ] Verify light and dark appearance on a physical Android device.
