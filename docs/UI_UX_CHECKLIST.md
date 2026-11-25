@@ -40,12 +40,23 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [ ] Check keyboard/IME behavior so primary form actions remain reachable.
 - [ ] Avoid decorative animation, excessive shadows, gradients, and corner radii; use them only when they support hierarchy or feedback.
 
+## Navigation and refresh
+
+- [x] Keep four core bottom destinations: Home, Songs, Services, and Profile.
+- [x] Emphasize the center Song / Setlist action and change its action based on the selected destination.
+- [x] Keep Notifications in the top-right app-bar action with an unread badge.
+- [x] Keep Team management and Team Chat reachable without consuming a core bottom-navigation slot.
+- [x] Support pull-to-refresh from the top of the Home dashboard.
+- [x] Remove the dashboard offline-sync status card while preserving local queues, offline caches, WorkManager retries, and background uploads.
+- [ ] Manually verify the center action, notification deep links, and Home pull-to-refresh on a physical Android phone.
+
 ## Song library and ChordPro experience
 
 - [x] Search covers song titles, artists, keys, time signatures, ChordPro lyrics and chords, and song notes.
 - [x] Run full-text filtering off the UI thread and show progress while results are refreshed.
 - [x] Bound manual/imported ChordPro input and limit the live editor preview to a sample of large charts.
 - [x] Parse saved song charts and Live Stage snapshots away from the UI thread; cancel obsolete work when the selected song or setlist item changes.
+- [x] Bound saved chart display parsing to 12,000 rows and 8,192 characters per row; show when the rendered copy is shortened without changing the original ChordPro source.
 - [x] Keep the original ChordPro text unchanged when showing a preview sample or transposed chart.
 - [ ] Manually test a long imported chart, rapid song/setlist switching, and auto-scroll on a physical Android device.
 

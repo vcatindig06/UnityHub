@@ -50,6 +50,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -87,6 +88,8 @@ fun SongLibraryScreen(
     userId: String,
     role: String?,
     offlineOnly: Boolean = false,
+    openSongEditorRequestId: Int = 0,
+    onSongEditorRequestHandled: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val repository = remember { SongRepository(SupabaseClientProvider.client) }
@@ -204,6 +207,13 @@ fun SongLibraryScreen(
         editorOpen = true
     }
 
+    LaunchedEffect(openSongEditorRequestId) {
+        if (openSongEditorRequestId > 0) {
+            if (canEdit) startNewSong()
+            onSongEditorRequestHandled()
+        }
+    }
+
     fun startEditing(song: SongDto) {
         editingSong = song
         title = song.title
@@ -307,7 +317,9 @@ fun SongLibraryScreen(
     }
 
     selectedSong?.let { song ->
-        SongChartScreen(song = song, onBack = { selectedSong = null }, modifier = modifier)
+        key(song.id) {
+            SongChartScreen(song = song, onBack = { selectedSong = null }, modifier = modifier)
+        }
         return
     }
 

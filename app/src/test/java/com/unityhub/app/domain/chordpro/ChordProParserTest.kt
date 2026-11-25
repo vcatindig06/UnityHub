@@ -107,6 +107,46 @@ class ChordProParserTest {
     }
 
     @Test
+    fun limitsRenderedLineCountForVeryLargeSavedCharts() {
+        val source = (1..(ChordProParser.MAX_DISPLAY_LINES + 250))
+            .joinToString("\n") { "Amazing grace" }
+
+        val document = ChordProParser.parse(source)
+
+        assertEquals(ChordProParser.MAX_DISPLAY_LINES, document.lines.size)
+        assertTrue(document.isTruncated)
+        assertEquals("Amazing grace", document.lines.first().lyrics)
+    }
+
+    @Test
+    fun limitsIndividualLyricsRowsWithoutChangingTheSavedSource() {
+        val longLyrics = "x".repeat(ChordProParser.MAX_LINE_CHARACTERS + 500)
+        val document = ChordProParser.parse(longLyrics)
+
+        assertEquals(ChordProParser.MAX_LINE_CHARACTERS, document.lines.single().lyrics.length)
+        assertTrue(document.isTruncated)
+        assertEquals(ChordProParser.MAX_LINE_CHARACTERS + 500, longLyrics.length)
+    }
+
+    @Test
+    fun normalizesWindowsAndLegacyMacLineEndingsBeforeApplyingDisplayLimits() {
+        val document = ChordProParser.parse("First line\rSecond line\r\nThird line")
+
+        assertEquals(
+            listOf("First line", "Second line", "Third line"),
+            document.lines.map { it.lyrics }
+        )
+        assertFalse(document.isTruncated)
+    }
+
+    @Test
+    fun marksNormalChartsAsNotTruncated() {
+        val document = ChordProParser.parse("[G]Amazing grace")
+
+        assertFalse(document.isTruncated)
+    }
+
+    @Test
     fun transposesChordRootsAndSlashBassNotes() {
         assertEquals("A", ChordTransposer.transposeChord("G", 2))
         assertEquals("A/C#", ChordTransposer.transposeChord("G/B", 2))

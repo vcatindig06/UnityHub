@@ -281,6 +281,16 @@ fun SongChartScreen(
                 ChordProChartLine(line = line, transpose = transpose, scale = chartScale)
             }
         }
+        if (document?.isTruncated == true) {
+            item(key = "${song.id}:chart-truncated") {
+                Text(
+                    "This chart is shortened for safe display. The original saved ChordPro text is unchanged.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        }
         item(key = "${song.id}:chart-bottom-space") { Spacer(Modifier.height(24.dp)) }
         }
         Card(

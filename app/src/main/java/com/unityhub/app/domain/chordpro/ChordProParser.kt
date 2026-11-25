@@ -18,11 +18,14 @@ data class ChordProDocument(
     val key: String? = null,
     val lines: List<ChordProLine>,
     val tempo: Int? = null,
-    val timeSignature: String? = null
+    val timeSignature: String? = null,
+    val isTruncated: Boolean = false
 )
 
 object ChordProParser {
     const val MAX_CHORDS_PER_LINE = 256
+    const val MAX_DISPLAY_LINES = 12_000
+    const val MAX_LINE_CHARACTERS = 8_192
     private const val MAX_CHORD_LABEL_CHARACTERS = 64
     private val inlineChord = Regex("\\[([^\\]]+)]")
     private val directive = Regex("^\\{\\s*([a-zA-Z0-9_]+)\\s*(?::\\s*(.*?))?\\s*}$")
@@ -35,12 +38,24 @@ object ChordProParser {
         var tempo: Int? = null
         var timeSignature: String? = null
         var activeSection: String? = null
+        var isTruncated = false
         val lines = mutableListOf<ChordProLine>()
 
-        source.replace("\r\n", "\n").replace('\r', '\n').lines().forEach { sourceLine ->
+        // Saved charts are user-provided text. Parse lazily and cap both the
+        // number of rows and the size of an individual row before Compose sees
+        // them. This prevents newline-heavy or single-line 1 MB charts from
+        // allocating/rendering an unbounded number of text nodes.
+        source.replace("\r\n", "\n").replace('\r', '\n').lineSequence().take(MAX_DISPLAY_LINES + 1).forEachIndexed { lineIndex, sourceLine ->
+            if (lineIndex >= MAX_DISPLAY_LINES) {
+                isTruncated = true
+                return@forEachIndexed
+            }
+            if (sourceLine.length > MAX_LINE_CHARACTERS) isTruncated = true
+
             // Keep tabs and printable characters, but remove NUL and other control
             // bytes that can cause platform text renderers to behave unpredictably.
-            val rawLine = sourceLine.filter { it == '\t' || it >= ' ' }
+            val rawLine = sourceLine.take(MAX_LINE_CHARACTERS)
+                .filter { it == '\t' || it >= ' ' }
             val trimmed = rawLine.trim()
             val match = directive.matchEntire(trimmed)
             if (match != null) {
@@ -127,7 +142,8 @@ object ChordProParser {
             key = key,
             lines = lines,
             tempo = tempo,
-            timeSignature = timeSignature
+            timeSignature = timeSignature,
+            isTruncated = isTruncated
         )
     }
 

@@ -90,6 +90,8 @@ fun ServicePlanningScreen(
     openRehearsalId: String? = null,
     openRehearsalRequestId: String? = null,
     onOpenRehearsalHandled: () -> Unit = {},
+    openCreateSetlistRequestId: Int = 0,
+    onOpenCreateSetlistHandled: () -> Unit = {},
     offlineOnly: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -113,6 +115,8 @@ fun ServicePlanningScreen(
     var editingPlan by remember { mutableStateOf<ServicePlanDto?>(null) }
     var hasLoadedPlans by remember { mutableStateOf(false) }
     var consumedNavigationRequestId by remember { mutableStateOf<String?>(null) }
+    var consumedCreateSetlistRequestId by remember { mutableStateOf(0) }
+    var creatingSetlist by remember { mutableStateOf(false) }
     var calendarView by rememberSaveable { mutableStateOf("month") }
     var selectedCalendarDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var displayedCalendarMonth by rememberSaveable { mutableStateOf(java.time.YearMonth.now().toString()) }
@@ -204,6 +208,24 @@ fun ServicePlanningScreen(
                 reload()
             }
             assignmentOverviewOpen -> assignmentOverviewOpen = false
+        }
+    }
+
+    LaunchedEffect(organizationId, openCreateSetlistRequestId) {
+        if (
+            openCreateSetlistRequestId > 0 &&
+            consumedCreateSetlistRequestId != openCreateSetlistRequestId
+        ) {
+            consumedCreateSetlistRequestId = openCreateSetlistRequestId
+            if (canManage) {
+                editingPlan = null
+                creatingSetlist = true
+                error = ""
+                editorOpen = true
+            } else {
+                error = "Only administrators and worship leaders can create setlists."
+            }
+            onOpenCreateSetlistHandled()
         }
     }
 
@@ -366,9 +388,13 @@ fun ServicePlanningScreen(
     if (editorOpen) {
         ServicePlanEditorDialog(
             plan = editingPlan,
+            createLabel = if (creatingSetlist) "Create setlist" else "Create service",
             saving = saving,
             errorMessage = error,
-            onDismiss = { editorOpen = false },
+            onDismiss = {
+                editorOpen = false
+                creatingSetlist = false
+            },
             onSave = { title, date, time, notes ->
                 scope.launch {
                     saving = true
@@ -376,11 +402,16 @@ fun ServicePlanningScreen(
                     try {
                         val existing = editingPlan
                         if (existing == null) {
-                            repository.createPlan(organizationId, userId, title, date, time, notes)
+                            val created = repository.createPlan(organizationId, userId, title, date, time, notes)
+                            if (creatingSetlist) {
+                                plans = (plans + created).distinctBy { it.id }
+                                selectedPlan = created
+                            }
                         } else {
                             repository.updatePlan(existing.id, organizationId, title, date, time, notes)
                         }
                         editorOpen = false
+                        creatingSetlist = false
                         reload()
                     } catch (exception: Exception) {
                         error = exception.message ?: "The service plan could not be saved."
@@ -667,6 +698,7 @@ private fun ServiceStatusLabel(status: String) {
 @Composable
 private fun ServicePlanEditorDialog(
     plan: ServicePlanDto?,
+    createLabel: String = "Create service",
     saving: Boolean,
     errorMessage: String,
     onDismiss: () -> Unit,
@@ -679,14 +711,14 @@ private fun ServicePlanEditorDialog(
 
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
-        title = { Text(if (plan == null) "Create service" else "Edit service") },
+        title = { Text(if (plan == null) createLabel else "Edit service") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Service title *") },
+                    label = { Text(if (plan == null && createLabel == "Create setlist") "Setlist name *" else "Service title *") },
                     singleLine = true,
                     enabled = !saving
                 )
@@ -728,7 +760,7 @@ private fun ServicePlanEditorDialog(
                 enabled = !saving && title.isNotBlank()
             ) {
                 if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                else Text(if (plan == null) "Create service" else "Save changes")
+                else Text(if (plan == null) createLabel else "Save changes")
             }
         },
         dismissButton = {
