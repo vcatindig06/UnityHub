@@ -112,6 +112,17 @@ jobs:
 
       - name: Run Compose UI smoke tests on Android emulator
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_APPLICATION_ID: ${{ secrets.FIREBASE_APPLICATION_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_SENDER_ID: ${{ secrets.FIREBASE_SENDER_ID }}
+          UNITYHUB_KEYSTORE_PATH: ${{ steps.prepare-update-signing.outputs.keystore_path }}
+          UNITYHUB_KEYSTORE_PASSWORD: ${{ secrets.UNITYHUB_KEYSTORE_PASSWORD }}
+          UNITYHUB_KEY_ALIAS: ${{ secrets.UNITYHUB_KEY_ALIAS }}
+          UNITYHUB_KEY_PASSWORD: ${{ secrets.UNITYHUB_KEY_PASSWORD }}
         with:
           api-level: 36
           target: google_apis
