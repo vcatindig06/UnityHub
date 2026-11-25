@@ -1,6 +1,8 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,10 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Notifications
@@ -33,6 +35,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +52,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -82,14 +86,16 @@ private data class AppDestination(
     val icon: ImageVector
 )
 
-private const val NOTIFICATIONS_TAB_INDEX = 3
+private const val HOME_TAB_INDEX = 0
+private const val SONGS_TAB_INDEX = 1
+private const val SERVICES_TAB_INDEX = 2
+private const val PROFILE_TAB_INDEX = 3
 
 private val destinations = listOf(
     AppDestination("Home", Icons.Default.Home),
     AppDestination("Songs", Icons.Default.LibraryMusic),
     AppDestination("Services", Icons.Default.CalendarMonth),
-    AppDestination("Notifications", Icons.Default.Notifications),
-    AppDestination("Team", Icons.Default.Groups)
+    AppDestination("Profile", Icons.Default.Person)
 )
 
 @Composable
@@ -705,36 +711,31 @@ private fun WorkspaceDashboard(
     pushNavigation: UnityHubPushNavigation?,
     onPushNavigationHandled: () -> Unit
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(0) }
+    var selectedTab by rememberSaveable { mutableStateOf(HOME_TAB_INDEX) }
     var tabHistory by rememberSaveable { mutableStateOf(emptyList<Int>()) }
-    var showAccountScreen by rememberSaveable { mutableStateOf(false) }
+    var showNotifications by rememberSaveable { mutableStateOf(false) }
+    var showTeamManagement by rememberSaveable { mutableStateOf(false) }
     var showTeamChat by rememberSaveable { mutableStateOf(false) }
+    var chatReturnDestination by rememberSaveable { mutableStateOf("home") }
     var requestedServicePlanId by remember { mutableStateOf<String?>(null) }
     var serviceNavigationRequestId by remember { mutableStateOf<String?>(null) }
     var requestedRehearsalId by remember { mutableStateOf<String?>(null) }
     var rehearsalNavigationRequestId by remember { mutableStateOf<String?>(null) }
+    var songEditorRequestId by rememberSaveable { mutableIntStateOf(0) }
+    var createSetlistRequestId by rememberSaveable { mutableIntStateOf(0) }
     val notificationsRepository = remember { NotificationsRepository(SupabaseClientProvider.client) }
     var unreadNotificationCount by remember(userId) { mutableStateOf(0) }
-    var unreadTeamChatCount by remember(userId, workspace.organization?.id) { mutableStateOf(0) }
     val organization = workspace.organization ?: return
 
-    LaunchedEffect(userId, organization.id) {
+    LaunchedEffect(userId) {
         if (userId.isBlank()) return@LaunchedEffect
-        fun updateUnreadCounts(incoming: List<com.unityhub.app.data.NotificationDto>) {
-            unreadNotificationCount = NotificationRules.unreadCount(incoming)
-            unreadTeamChatCount = incoming.count {
-                it.organizationId == organization.id &&
-                    it.notificationType == "team_message" &&
-                    NotificationRules.isUnread(it)
-            }
-        }
         try {
             notificationsRepository.observeNotifications(userId).collect { incoming ->
-                updateUnreadCounts(incoming)
+                unreadNotificationCount = NotificationRules.unreadCount(incoming)
             }
         } catch (_: Exception) {
             runCatching { notificationsRepository.loadNotifications(userId) }
-                .onSuccess(::updateUnreadCounts)
+                .onSuccess { unreadNotificationCount = NotificationRules.unreadCount(it) }
         }
     }
 
@@ -743,18 +744,29 @@ private fun WorkspaceDashboard(
         selectedTab = destination
     }
 
+    fun returnFromTeamChat() {
+        showTeamChat = false
+        when (chatReturnDestination) {
+            "team" -> showTeamManagement = true
+            "notifications" -> showNotifications = true
+        }
+        chatReturnDestination = "home"
+    }
+
     BackHandler(
-        enabled = showAccountScreen || showTeamChat || tabHistory.isNotEmpty() || selectedTab != AppBackNavigationRules.HOME_TAB
+        enabled = showNotifications || showTeamManagement || showTeamChat ||
+            tabHistory.isNotEmpty() || selectedTab != HOME_TAB_INDEX
     ) {
-        if (showAccountScreen) {
-            showAccountScreen = false
-        } else if (showTeamChat) {
-            showTeamChat = false
-        } else {
-            val previousTab = AppBackNavigationRules.previousTab(selectedTab, tabHistory)
-            if (previousTab != null) {
-                selectedTab = previousTab
-                tabHistory = AppBackNavigationRules.popHistory(tabHistory)
+        when {
+            showTeamChat -> returnFromTeamChat()
+            showTeamManagement -> showTeamManagement = false
+            showNotifications -> showNotifications = false
+            else -> {
+                val previousTab = AppBackNavigationRules.previousTab(selectedTab, tabHistory)
+                if (previousTab != null) {
+                    selectedTab = previousTab
+                    tabHistory = AppBackNavigationRules.popHistory(tabHistory)
+                }
             }
         }
     }
@@ -767,7 +779,8 @@ private fun WorkspaceDashboard(
         pushNavigation?.organizationId
     ) {
         val navigation = pushNavigation ?: return@LaunchedEffect
-        showAccountScreen = false
+        showNotifications = false
+        showTeamManagement = false
         when {
             !navigation.teamMessageId.isNullOrBlank() -> {
                 if (navigation.organizationId == organization.id) {
@@ -775,23 +788,23 @@ private fun WorkspaceDashboard(
                     serviceNavigationRequestId = null
                     requestedRehearsalId = null
                     rehearsalNavigationRequestId = null
+                    chatReturnDestination = "home"
                     showTeamChat = true
-                    navigateToTab(4)
                 } else {
-                    navigateToTab(3)
+                    showNotifications = true
                 }
             }
             !navigation.rehearsalId.isNullOrBlank() -> {
                 requestedRehearsalId = navigation.rehearsalId
                 rehearsalNavigationRequestId = navigation.notificationId ?: navigation.rehearsalId
-                navigateToTab(2)
+                navigateToTab(SERVICES_TAB_INDEX)
             }
             !navigation.servicePlanId.isNullOrBlank() -> {
                 requestedServicePlanId = navigation.servicePlanId
                 serviceNavigationRequestId = navigation.notificationId ?: navigation.servicePlanId
-                navigateToTab(2)
+                navigateToTab(SERVICES_TAB_INDEX)
             }
-            else -> navigateToTab(3)
+            else -> showNotifications = true
         }
         onPushNavigationHandled()
     }
@@ -803,11 +816,24 @@ private fun WorkspaceDashboard(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
                 navigationIcon = {
-                    if (showAccountScreen || showTeamChat) {
-                        IconButton(onClick = {
-                            if (showTeamChat) showTeamChat = false else showAccountScreen = false
-                        }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = if (showTeamChat) "Back to team" else "Back to workspace")
+                    if (showNotifications || showTeamManagement || showTeamChat) {
+                        IconButton(
+                            onClick = {
+                                when {
+                                    showTeamChat -> returnFromTeamChat()
+                                    showTeamManagement -> showTeamManagement = false
+                                    else -> showNotifications = false
+                                }
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = when {
+                                    showTeamChat -> "Back"
+                                    showTeamManagement -> "Back to Home"
+                                    else -> "Back to workspace"
+                                }
+                            )
                         }
                     } else {
                         UnityHubLogoMark(
@@ -819,209 +845,290 @@ private fun WorkspaceDashboard(
                 title = {
                     Column {
                         Text(
-                            when { showAccountScreen -> "Account settings"; showTeamChat -> "Team Chat"; else -> organization.name },
+                            when {
+                                showNotifications -> "Notifications"
+                                showTeamManagement -> "Team"
+                                showTeamChat -> "Team Chat"
+                                selectedTab == PROFILE_TAB_INDEX -> "Profile"
+                                else -> organization.name
+                            },
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            when { showAccountScreen -> "Your profile and app preferences"; showTeamChat -> organization.name; else -> "${roleLabel(workspace.role)} · UnityHub workspace" },
+                            when {
+                                showNotifications -> "Updates for your worship team"
+                                showTeamManagement -> organization.name
+                                showTeamChat -> organization.name
+                                selectedTab == PROFILE_TAB_INDEX -> "Your account and app preferences"
+                                else -> "${roleLabel(workspace.role)} · UnityHub workspace"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
                 actions = {
-                    if (showAccountScreen || showTeamChat) {
-                        Spacer(Modifier.size(8.dp))
-                    } else {
-                        TextButton(onClick = onRefresh, enabled = !loading) { Text("Refresh") }
-                        IconButton(onClick = { showAccountScreen = true }) {
-                            Icon(Icons.Default.AccountCircle, contentDescription = "Account settings")
+                    if (!showNotifications && !showTeamManagement && !showTeamChat) {
+                        IconButton(onClick = { showNotifications = true }) {
+                            BadgedBox(
+                                badge = {
+                                    if (unreadNotificationCount > 0) {
+                                        Badge {
+                                            Text(
+                                                if (unreadNotificationCount > 99) "99+"
+                                                else unreadNotificationCount.toString()
+                                            )
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = if (unreadNotificationCount > 0) {
+                                        "Notifications, $unreadNotificationCount unread"
+                                    } else {
+                                        "Notifications"
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             )
         },
         bottomBar = {
-            if (!showAccountScreen && !showTeamChat) {
+            if (!showNotifications && !showTeamManagement && !showTeamChat) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = 3.dp
                 ) {
-                    destinations.forEachIndexed { index, destination ->
-                        NavigationBarItem(
-                            selected = selectedTab == index,
-                            onClick = { navigateToTab(index) },
-                            icon = {
-                                val badgeCount = when (index) {
-                                    NOTIFICATIONS_TAB_INDEX -> unreadNotificationCount
-                                    4 -> unreadTeamChatCount
-                                    else -> 0
-                                }
-                                if (badgeCount > 0) {
-                                    BadgedBox(
-                                        badge = {
-                                            Badge {
-                                                Text(if (badgeCount > 99) "99+" else badgeCount.toString())
-                                            }
-                                        }
-                                    ) {
-                                        Icon(
-                                            destination.icon,
-                                            contentDescription = if (index == 4) {
-                                                "$badgeCount unread Team Chat messages"
-                                            } else {
-                                                "$badgeCount unread notifications"
-                                            }
-                                        )
-                                    }
+                    NavigationBarItem(
+                        selected = selectedTab == HOME_TAB_INDEX,
+                        onClick = { navigateToTab(HOME_TAB_INDEX) },
+                        icon = { Icon(destinations[0].icon, contentDescription = null) },
+                        label = { Text(destinations[0].label) },
+                        alwaysShowLabel = true,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == SONGS_TAB_INDEX,
+                        onClick = { navigateToTab(SONGS_TAB_INDEX) },
+                        icon = { Icon(destinations[1].icon, contentDescription = null) },
+                        label = { Text(destinations[1].label) },
+                        alwaysShowLabel = true,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val setlistAction = selectedTab == SONGS_TAB_INDEX
+                        FloatingActionButton(
+                            onClick = {
+                                if (setlistAction) {
+                                    createSetlistRequestId += 1
+                                    navigateToTab(SERVICES_TAB_INDEX)
                                 } else {
-                                    Icon(
-                                        destination.icon,
-                                        contentDescription = when (index) {
-                                            NOTIFICATIONS_TAB_INDEX -> "Notifications"
-                                            4 -> "Team"
-                                            else -> null
-                                        }
-                                    )
+                                    songEditorRequestId += 1
+                                    navigateToTab(SONGS_TAB_INDEX)
                                 }
                             },
-                            label = { Text(destination.label) },
-                            alwaysShowLabel = true,
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        )
+                            modifier = Modifier.size(72.dp),
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(27.dp)
+                                )
+                                Text(
+                                    if (setlistAction) "Setlist" else "Song",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
+                    NavigationBarItem(
+                        selected = selectedTab == SERVICES_TAB_INDEX,
+                        onClick = { navigateToTab(SERVICES_TAB_INDEX) },
+                        icon = { Icon(destinations[2].icon, contentDescription = null) },
+                        label = { Text(destinations[2].label) },
+                        alwaysShowLabel = true,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == PROFILE_TAB_INDEX,
+                        onClick = { navigateToTab(PROFILE_TAB_INDEX) },
+                        icon = { Icon(destinations[3].icon, contentDescription = null) },
+                        label = { Text(destinations[3].label) },
+                        alwaysShowLabel = true,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
                 }
             }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        if (showAccountScreen) {
-            AccountSettingsScreen(
-                organizationName = organization.name,
-                role = roleLabel(workspace.role),
-                onSignOut = onSignOut,
-                modifier = Modifier.padding(innerPadding)
-            )
-        } else if (showTeamChat) {
-            TeamChatScreen(
-                organizationId = organization.id,
-                organizationName = organization.name,
-                userId = userId,
-                modifier = Modifier.padding(innerPadding)
-            )
-        } else {
-            when (selectedTab) {
-            0 -> HomeDashboardScreen(
-                organizationId = organization.id,
-                organizationName = organization.name,
-                userId = userId,
-                role = workspace.role,
-                memberCount = workspace.members.size,
-                pendingCount = workspace.pendingRequests.size,
-                onOpenSongs = { navigateToTab(1) },
-                onOpenServices = {
-                    requestedServicePlanId = null
-                    serviceNavigationRequestId = null
-                    navigateToTab(2)
-                },
-                onOpenServicePlan = { planId ->
-                    requestedServicePlanId = planId
-                    serviceNavigationRequestId = "dashboard-$planId"
-                    navigateToTab(2)
-                },
-                onOpenTeam = { navigateToTab(4) },
-                onOpenRehearsal = { rehearsalId ->
-                    requestedRehearsalId = rehearsalId
-                    rehearsalNavigationRequestId = "dashboard-$rehearsalId"
-                    requestedServicePlanId = null
-                    serviceNavigationRequestId = null
-                    navigateToTab(2)
-                },
-                modifier = Modifier.padding(innerPadding)
-            )
-            1 -> SongLibraryScreen(
-                organizationId = organization.id,
-                userId = userId,
-                role = workspace.role,
-                modifier = Modifier.padding(innerPadding)
-            )
-            2 -> ServicePlanningScreen(
-                organizationId = organization.id,
-                userId = userId,
-                role = workspace.role,
-                openServicePlanId = requestedServicePlanId,
-                openServicePlanRequestId = serviceNavigationRequestId,
-                onOpenServicePlanHandled = {
-                    requestedServicePlanId = null
-                    serviceNavigationRequestId = null
-                },
-                openRehearsalId = requestedRehearsalId,
-                openRehearsalRequestId = rehearsalNavigationRequestId,
-                onOpenRehearsalHandled = {
-                    requestedRehearsalId = null
-                    rehearsalNavigationRequestId = null
-                },
-                modifier = Modifier.padding(innerPadding)
-            )
-            3 -> NotificationsScreen(
+        when {
+            showNotifications -> NotificationsScreen(
                 userId = userId,
                 currentOrganizationId = organization.id,
                 onOpenServicePlan = { notification ->
                     val servicePlanId = notification.servicePlanId
                     if (!servicePlanId.isNullOrBlank()) {
+                        showNotifications = false
                         requestedServicePlanId = servicePlanId
                         serviceNavigationRequestId = notification.id
                         requestedRehearsalId = null
                         rehearsalNavigationRequestId = null
-                        navigateToTab(2)
+                        navigateToTab(SERVICES_TAB_INDEX)
                     }
                 },
                 onOpenRehearsal = { notification ->
                     val rehearsalId = notification.rehearsalId
                     if (!rehearsalId.isNullOrBlank()) {
+                        showNotifications = false
                         requestedRehearsalId = rehearsalId
                         rehearsalNavigationRequestId = notification.id
                         requestedServicePlanId = null
                         serviceNavigationRequestId = null
-                        navigateToTab(2)
+                        navigateToTab(SERVICES_TAB_INDEX)
                     }
                 },
                 onOpenTeamChat = { notification ->
-                    if (notification.organizationId == organization.id &&
+                    if (
+                        notification.organizationId == organization.id &&
                         !notification.teamMessageId.isNullOrBlank()
                     ) {
                         requestedServicePlanId = null
                         serviceNavigationRequestId = null
                         requestedRehearsalId = null
                         rehearsalNavigationRequestId = null
-                        showAccountScreen = false
+                        chatReturnDestination = "notifications"
+                        showNotifications = false
                         showTeamChat = true
-                        navigateToTab(4)
                     }
                 },
                 modifier = Modifier.padding(innerPadding)
             )
-            else -> TeamManagementScreen(
+            showTeamManagement -> TeamManagementScreen(
                 workspace = workspace,
                 currentUserId = userId,
                 onReviewRequest = onReviewRequest,
                 errorMessage = errorMessage,
                 onWorkspaceChanged = onRefresh,
-                onOpenChat = { showTeamChat = true },
+                onOpenChat = {
+                    chatReturnDestination = "team"
+                    showTeamManagement = false
+                    showTeamChat = true
+                },
                 modifier = Modifier.padding(innerPadding)
             )
+            showTeamChat -> TeamChatScreen(
+                organizationId = organization.id,
+                organizationName = organization.name,
+                userId = userId,
+                modifier = Modifier.padding(innerPadding)
+            )
+            else -> when (selectedTab) {
+                HOME_TAB_INDEX -> HomeDashboardScreen(
+                    organizationId = organization.id,
+                    organizationName = organization.name,
+                    userId = userId,
+                    role = workspace.role,
+                    memberCount = workspace.members.size,
+                    pendingCount = workspace.pendingRequests.size,
+                    onOpenSongs = { navigateToTab(SONGS_TAB_INDEX) },
+                    onOpenServices = {
+                        requestedServicePlanId = null
+                        serviceNavigationRequestId = null
+                        navigateToTab(SERVICES_TAB_INDEX)
+                    },
+                    onOpenServicePlan = { planId ->
+                        requestedServicePlanId = planId
+                        serviceNavigationRequestId = "dashboard-$planId"
+                        navigateToTab(SERVICES_TAB_INDEX)
+                    },
+                    onOpenTeam = { showTeamManagement = true },
+                    onOpenRehearsal = { rehearsalId ->
+                        requestedRehearsalId = rehearsalId
+                        rehearsalNavigationRequestId = "dashboard-$rehearsalId"
+                        requestedServicePlanId = null
+                        serviceNavigationRequestId = null
+                        navigateToTab(SERVICES_TAB_INDEX)
+                    },
+                    onRefreshWorkspace = onRefresh,
+                    modifier = Modifier.padding(innerPadding)
+                )
+                SONGS_TAB_INDEX -> SongLibraryScreen(
+                    organizationId = organization.id,
+                    userId = userId,
+                    role = workspace.role,
+                    openSongEditorRequestId = songEditorRequestId,
+                    onSongEditorRequestHandled = { songEditorRequestId = 0 },
+                    modifier = Modifier.padding(innerPadding)
+                )
+                SERVICES_TAB_INDEX -> ServicePlanningScreen(
+                    organizationId = organization.id,
+                    userId = userId,
+                    role = workspace.role,
+                    openServicePlanId = requestedServicePlanId,
+                    openServicePlanRequestId = serviceNavigationRequestId,
+                    onOpenServicePlanHandled = {
+                        requestedServicePlanId = null
+                        serviceNavigationRequestId = null
+                    },
+                    openRehearsalId = requestedRehearsalId,
+                    openRehearsalRequestId = rehearsalNavigationRequestId,
+                    onOpenRehearsalHandled = {
+                        requestedRehearsalId = null
+                        rehearsalNavigationRequestId = null
+                    },
+                    openCreateSetlistRequestId = createSetlistRequestId,
+                    onOpenCreateSetlistHandled = { createSetlistRequestId = 0 },
+                    modifier = Modifier.padding(innerPadding)
+                )
+                else -> AccountSettingsScreen(
+                    organizationName = organization.name,
+                    role = roleLabel(workspace.role),
+                    onSignOut = onSignOut,
+                    modifier = Modifier.padding(innerPadding)
+                )
             }
         }
     }
 }
-
 @Composable
 private fun HomeScreen(
     organizationName: String,
