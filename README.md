@@ -176,6 +176,16 @@ The app uses Supabase Row Level Security for authorization. Authorization decisi
 Do not add service-role keys, signing keys, keystores, or local SDK configuration to the repository.
 
 
+### Navigation and setlist creation
+
+UnityHub's bottom navigation has four core destinations: Home, Songs, Services, and Profile. A larger centered action opens Add Song from other destinations and changes to Create Setlist while Songs is selected. Creating a setlist opens the new draft directly in its editor so songs can be added from the existing song library. Notifications are opened from the top-right bell; Team management and Team Chat remain reachable from Home.
+
+Home supports pull-to-refresh from the top of its scrollable content. The dashboard's dedicated offline-sync status card and queue-status labels are hidden, but offline caches, queued member responses, WorkManager scheduling, retries, and background uploads remain active.
+
+### Saved ChordPro charts
+
+Saved charts are parsed away from the main UI thread. Display parsing is bounded to 12,000 rows and 8,192 characters per row to protect lower-memory Android devices from extremely large imports. A shortened chart is clearly identified; the stored ChordPro source is not modified by this display limit.
+
 ### Team Chat
 
 The Team tab includes an organization-wide text chat. Messages are limited to 1,000 characters and history is loaded in stable 50-message pages using a timestamp-plus-ID cursor, so loading older messages does not depend on an ever-growing offset. Realtime message inserts are merged into the existing history without duplicates, and the conversation preserves the reader's position unless they are already near the bottom. The Team tab shows a private unread-message count from the recipient's Team Chat notifications; messages become read as they enter the reader's viewport. Each member has one organization-scoped read cursor, and messages show how many current team members have read them. Read-state rows are protected by row-level security, members can update only their own cursor, and a database guard prevents read progress from moving backwards or pointing into another organization. Advancing a member's read cursor clears only that member's Team Chat notifications in the same organization through the cursor, including older messages outside the currently loaded page.
