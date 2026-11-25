@@ -139,7 +139,7 @@ To run the Compose UI smoke tests locally, start an Android emulator or connect 
 
     ./gradlew connectedDebugAndroidTest
 
-GitHub Actions runs JVM unit tests, a Compose UI scaffold smoke test on an Android 36 emulator, and builds the debug APK before publishing the APK as a workflow artifact. When the stable UnityHub signing key and Supabase update-publisher secret are configured, pushes to `main` also publish the signed APK and update manifest to the private-write/public-download `unityhub-updates` Supabase Storage bucket. See [In-app Updates](docs/APP_UPDATES.md) for the one-time signing and publishing setup.
+GitHub Actions runs JVM unit tests, Compose UI instrumentation checks on an Android 36 emulator (workspace layout bounds, narrow-width/2.0x font-scale reachability, and representative accessibility semantics), and builds the debug APK before publishing the APK as a workflow artifact. When the stable UnityHub signing key and Supabase update-publisher secret are configured, pushes to `main` also publish the signed APK and update manifest to the private-write/public-download `unityhub-updates` Supabase Storage bucket. See [In-app Updates](docs/APP_UPDATES.md) for the one-time signing and publishing setup.
 
 ## Current application foundation
 
