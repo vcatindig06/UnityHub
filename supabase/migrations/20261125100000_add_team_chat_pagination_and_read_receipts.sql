@@ -60,7 +60,7 @@ revoke all on table public.team_chat_read_states from public, anon, authenticate
 grant select on table public.team_chat_read_states to authenticated;
 grant insert (organization_id, user_id, last_read_message_id)
     on table public.team_chat_read_states to authenticated;
-grant update (organization_id, user_id, last_read_message_id)
+grant update (last_read_message_id)
     on table public.team_chat_read_states to authenticated;
 
 -- Derive read_at from the referenced message timestamp and prevent the cursor
