@@ -289,6 +289,7 @@ private fun OrganizationOnboardingScreen(
         .sortedBy { it.name.lowercase() }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -811,6 +812,7 @@ private fun WorkspaceDashboard(
     }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
