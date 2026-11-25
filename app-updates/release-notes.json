@@ -1,9 +1,19 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 48,
-  "latestVersionName": "0.48.0",
+  "latestVersionCode": 49,
+  "latestVersionName": "0.49.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 49,
+      "versionName": "0.49.0",
+      "releasedAt": "2026-11-25",
+      "summary": "Team Chat unread badges now stay in sync with member read progress.",
+      "changes": [
+        "Clear your private Team Chat alerts through the read cursor, including older messages outside the currently loaded page.",
+        "Keep notification clearing scoped to the signed-in member and active organization."
+      ]
+    },
     {
       "versionCode": 48,
       "versionName": "0.48.0",
