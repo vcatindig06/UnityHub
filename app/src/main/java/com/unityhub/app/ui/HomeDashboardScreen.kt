@@ -95,6 +95,7 @@ fun HomeDashboardScreen(
     var myAssignments by remember { mutableStateOf<List<MyServiceAssignment>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var refreshing by remember { mutableStateOf(false) }
+    var refreshInProgress by remember { mutableStateOf(false) }
     var assignmentsLoading by remember { mutableStateOf(true) }
     var respondingAssignmentId by remember { mutableStateOf<String?>(null) }
     var decliningAssignment by remember { mutableStateOf<MyServiceAssignment?>(null) }
@@ -103,10 +104,11 @@ fun HomeDashboardScreen(
     var errorMessage by remember { mutableStateOf("") }
     var assignmentErrorMessage by remember { mutableStateOf("") }
 
-    fun refresh() {
-        if (refreshing) return
+    fun refresh(showIndicator: Boolean = false) {
+        if (refreshInProgress) return
         scope.launch {
-            refreshing = true
+            refreshInProgress = true
+            refreshing = showIndicator
             try {
                 loading = true
                 assignmentsLoading = true
@@ -186,6 +188,7 @@ fun HomeDashboardScreen(
                 }
             } finally {
                 refreshing = false
+                refreshInProgress = false
             }
         }
     }
@@ -322,7 +325,7 @@ fun HomeDashboardScreen(
     PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = {
-            refresh()
+            refresh(showIndicator = true)
             onRefreshWorkspace()
         },
         modifier = modifier.fillMaxSize()
