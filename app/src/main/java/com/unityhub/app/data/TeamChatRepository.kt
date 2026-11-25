@@ -6,6 +6,7 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import io.github.jan.supabase.realtime.PostgresAction
+import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.realtime.selectAsFlow
@@ -46,11 +47,6 @@ private data class NewTeamChatMessage(
     @SerialName("organization_id") val organizationId: String,
     @SerialName("sender_id") val senderId: String,
     val content: String
-)
-
-private data class TeamChatReadCursorParams(
-    @SerialName("p_organization_id") val organizationId: String,
-    @SerialName("p_message_id") val messageId: String
 )
 
 data class TeamChatMessagePage(
