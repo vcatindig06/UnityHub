@@ -166,3 +166,33 @@ begin
     end if;
 end;
 $$;
+
+-- Clear only the caller's private Team Chat notifications in one request.
+-- This invoker function uses the same recipient RLS policy and read_at-only
+-- UPDATE privilege as the existing Notifications screen.
+create or replace function public.mark_team_chat_notifications_read(
+    p_team_message_ids uuid[]
+)
+returns integer
+language sql
+security invoker
+set search_path = ''
+as $function$
+    with updated as (
+        update public.notifications as notification
+           set read_at = now()
+         where notification.recipient_user_id = (select auth.uid())
+           and notification.notification_type = 'team_message'
+           and notification.team_message_id = any(
+               coalesce(p_team_message_ids, array[]::uuid[])
+           )
+           and notification.read_at is null
+        returning 1
+    )
+    select count(*)::integer from updated;
+$function$;
+
+revoke all on function public.mark_team_chat_notifications_read(uuid[])
+    from public, anon;
+grant execute on function public.mark_team_chat_notifications_read(uuid[])
+    to authenticated;
