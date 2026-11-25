@@ -258,14 +258,12 @@ fun TeamChatScreen(
                 repository.markAsRead(organizationId, userId, visibleMessage.id)
             }.onSuccess {
                 lastMarkedMessageId = visibleMessage.id
-                val visibleIndex = messages.indexOfFirst { it.id == visibleMessage.id }
-                if (visibleIndex >= 0) {
-                    val messagesRead = messages.take(visibleIndex + 1)
-                        .filter { it.senderId != userId }
-                        .map { it.id }
-                    runCatching {
-                        notificationsRepository.markTeamChatMessagesAsRead(messagesRead, userId)
-                    }
+                runCatching {
+                    notificationsRepository.markTeamChatNotificationsReadThrough(
+                        organizationId = organizationId,
+                        throughMessageId = visibleMessage.id,
+                        userId = userId
+                    )
                 }
             }
         }
