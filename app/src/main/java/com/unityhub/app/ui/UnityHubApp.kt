@@ -715,19 +715,26 @@ private fun WorkspaceDashboard(
     var rehearsalNavigationRequestId by remember { mutableStateOf<String?>(null) }
     val notificationsRepository = remember { NotificationsRepository(SupabaseClientProvider.client) }
     var unreadNotificationCount by remember(userId) { mutableStateOf(0) }
+    var unreadTeamChatCount by remember(userId, workspace.organization?.id) { mutableStateOf(0) }
     val organization = workspace.organization ?: return
 
-    LaunchedEffect(userId) {
+    LaunchedEffect(userId, organization.id) {
         if (userId.isBlank()) return@LaunchedEffect
+        fun updateUnreadCounts(incoming: List<com.unityhub.app.data.NotificationDto>) {
+            unreadNotificationCount = NotificationRules.unreadCount(incoming)
+            unreadTeamChatCount = incoming.count {
+                it.organizationId == organization.id &&
+                    it.notificationType == "team_message" &&
+                    NotificationRules.isUnread(it)
+            }
+        }
         try {
             notificationsRepository.observeNotifications(userId).collect { incoming ->
-                unreadNotificationCount = NotificationRules.unreadCount(incoming)
+                updateUnreadCounts(incoming)
             }
         } catch (_: Exception) {
             runCatching { notificationsRepository.loadNotifications(userId) }
-                .onSuccess { incoming ->
-                    unreadNotificationCount = NotificationRules.unreadCount(incoming)
-                }
+                .onSuccess(::updateUnreadCounts)
         }
     }
 
@@ -846,23 +853,36 @@ private fun WorkspaceDashboard(
                             selected = selectedTab == index,
                             onClick = { navigateToTab(index) },
                             icon = {
-                                if (index == NOTIFICATIONS_TAB_INDEX && unreadNotificationCount > 0) {
+                                val badgeCount = when (index) {
+                                    NOTIFICATIONS_TAB_INDEX -> unreadNotificationCount
+                                    4 -> unreadTeamChatCount
+                                    else -> 0
+                                }
+                                if (badgeCount > 0) {
                                     BadgedBox(
                                         badge = {
                                             Badge {
-                                                Text(if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString())
+                                                Text(if (badgeCount > 99) "99+" else badgeCount.toString())
                                             }
                                         }
                                     ) {
                                         Icon(
                                             destination.icon,
-                                            contentDescription = "$unreadNotificationCount unread notifications"
+                                            contentDescription = if (index == 4) {
+                                                "$badgeCount unread Team Chat messages"
+                                            } else {
+                                                "$badgeCount unread notifications"
+                                            }
                                         )
                                     }
                                 } else {
                                     Icon(
                                         destination.icon,
-                                        contentDescription = if (index == NOTIFICATIONS_TAB_INDEX) "Notifications" else null
+                                        contentDescription = when (index) {
+                                            NOTIFICATIONS_TAB_INDEX -> "Notifications"
+                                            4 -> "Team"
+                                            else -> null
+                                        }
                                     )
                                 }
                             },

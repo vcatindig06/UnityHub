@@ -1,9 +1,22 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 47,
-  "latestVersionName": "0.47.0",
+  "latestVersionCode": 48,
+  "latestVersionName": "0.48.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 48,
+      "versionName": "0.48.0",
+      "releasedAt": "2026-11-25",
+      "summary": "Team Chat now loads conversation history in pages and shows member read receipts.",
+      "changes": [
+        "Load conversation history 50 messages at a time with stable cursor-based pagination, so older messages remain available without downloading the entire chat.",
+        "See an unread count on the Team tab, based on private unread Team Chat alerts.",
+        "See how many current team members have read each of your messages.",
+        "Track read progress by member and message; opening and scrolling through the chat marks visible messages as read and clears only their matching Team Chat notifications.",
+        "Keep read-state access scoped to current organization members, with each member able to update only their own read cursor."
+      ]
+    },
     {
       "versionCode": 47,
       "versionName": "0.47.0",

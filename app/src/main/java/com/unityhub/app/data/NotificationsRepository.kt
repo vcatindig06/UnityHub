@@ -3,11 +3,17 @@ package com.unityhub.app.data
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.annotations.SupabaseExperimental
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.rpc
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.realtime.selectAsFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.JsonPrimitive
 import java.time.Instant
 
 @Serializable
@@ -122,4 +128,27 @@ class NotificationsRepository(private val client: SupabaseClient) {
             }
         }
     }
+    /**
+     * Mark notifications corresponding to messages that have actually entered
+     * the reader's viewport. Message reads stay recipient-scoped and use the
+     * existing column-level read_at permission.
+     */
+    suspend fun markTeamChatMessagesAsRead(messageIds: List<String>, userId: String) {
+        require(userId.isNotBlank()) { "No signed-in user was found." }
+        val ids = messageIds.asSequence()
+            .filter(String::isNotBlank)
+            .distinct()
+            .toList()
+        if (ids.isEmpty()) return
+
+        client.postgrest.rpc(
+            "mark_team_chat_notifications_read",
+            buildJsonObject {
+                put("p_team_message_ids", buildJsonArray {
+                    ids.forEach { messageId -> add(JsonPrimitive(messageId)) }
+                })
+            }
+        )
+    }
+
 }

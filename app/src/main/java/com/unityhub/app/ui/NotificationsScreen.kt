@@ -96,7 +96,13 @@ fun NotificationsScreen(
     fun markAllRead() {
         if (savingAll || savingIds.isNotEmpty()) return
         val unreadIds = notifications
-            .filter(NotificationRules::isUnread)
+            .filter { notification ->
+                NotificationRules.isUnread(notification) &&
+                    !(
+                        NotificationRules.hasTeamChatMessage(notification) &&
+                            notification.organizationId == currentOrganizationId
+                    )
+            }
             .map { it.id }
         if (unreadIds.isEmpty()) return
 
@@ -143,6 +149,18 @@ fun NotificationsScreen(
     }
 
     val unreadCount = NotificationRules.unreadCount(notifications)
+    val unreadTeamChatCount = notifications.count { notification ->
+        NotificationRules.isUnread(notification) &&
+            NotificationRules.hasTeamChatMessage(notification) &&
+            notification.organizationId == currentOrganizationId
+    }
+    val canMarkOtherNotificationsRead = notifications.any { notification ->
+        NotificationRules.isUnread(notification) &&
+            !(
+                NotificationRules.hasTeamChatMessage(notification) &&
+                    notification.organizationId == currentOrganizationId
+            )
+    }
     val visibleNotifications = NotificationRules.filterNotifications(
         notifications = notifications,
         unreadOnly = unreadOnly
@@ -187,14 +205,21 @@ fun NotificationsScreen(
                         label = { Text("Unread (" + unreadCount + ")") }
                     )
                 }
-                if (unreadCount > 0) {
+                if (unreadTeamChatCount > 0) {
+                    Text(
+                        "Team Chat alerts are marked read when their messages are viewed.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (unreadCount > 0 && canMarkOtherNotificationsRead) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(
                             onClick = { markAllRead() },
                             enabled = !loading && !savingAll && savingIds.isEmpty()
                         ) {
                             if (savingAll) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
-                            else Text("Mark all read")
+                            else Text(if (unreadTeamChatCount > 0) "Mark other read" else "Mark all read")
                         }
                     }
                 }
@@ -264,6 +289,7 @@ private fun NotificationCard(
     onOpenTeamChat: () -> Unit
 ) {
     val unread = NotificationRules.isUnread(notification)
+    val requiresConversationRead = NotificationRules.hasTeamChatMessage(notification) && canOpenTeamChat
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -313,7 +339,7 @@ private fun NotificationCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (unread) {
+                if (unread && !requiresConversationRead) {
                     TextButton(onClick = onMarkRead, enabled = !saving && !bulkSaving) {
                         if (saving) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
                         else {

@@ -3,10 +3,26 @@ package com.unityhub.app.data
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.annotations.SupabaseExperimental
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.rpc
+import io.github.jan.supabase.realtime.PostgresAction
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.realtime.selectAsFlow
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.put
+import java.time.Instant
 
 @Serializable
 data class TeamChatMessageDto(
@@ -18,15 +34,34 @@ data class TeamChatMessageDto(
 )
 
 @Serializable
+data class TeamChatReadStateDto(
+    val id: String,
+    @SerialName("organization_id") val organizationId: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("last_read_message_id") val lastReadMessageId: String,
+    @SerialName("last_read_at") val lastReadAt: String
+)
+
+@Serializable
 private data class NewTeamChatMessage(
     @SerialName("organization_id") val organizationId: String,
     @SerialName("sender_id") val senderId: String,
     val content: String
 )
 
+data class TeamChatMessagePage(
+    val messages: List<TeamChatMessageDto>,
+    val hasMore: Boolean
+)
+
+sealed interface TeamChatRealtimeEvent {
+    data object Connected : TeamChatRealtimeEvent
+    data class MessageReceived(val message: TeamChatMessageDto) : TeamChatRealtimeEvent
+}
+
 internal object TeamChatRules {
     const val MAX_MESSAGE_LENGTH = 1_000
-    const val MESSAGE_HISTORY_LIMIT = 100
+    const val PAGE_SIZE = 50
 
     fun normalizeMessage(value: String): String {
         val normalized = value.trim()
@@ -37,10 +72,46 @@ internal object TeamChatRules {
         return normalized
     }
 
-    fun latestMessages(messages: List<TeamChatMessageDto>): List<TeamChatMessageDto> =
-        messages.distinctBy { it.id }
-            .sortedWith(compareBy<TeamChatMessageDto> { it.createdAt }.thenBy { it.id })
-            .takeLast(MESSAGE_HISTORY_LIMIT)
+    fun mergeMessages(
+        current: List<TeamChatMessageDto>,
+        incoming: List<TeamChatMessageDto>
+    ): List<TeamChatMessageDto> = (current + incoming)
+        .distinctBy { it.id }
+        .sortedWith(compareBy<TeamChatMessageDto> { it.createdAt }.thenBy { it.id })
+
+    fun readByCount(
+        message: TeamChatMessageDto,
+        readStates: List<TeamChatReadStateDto>,
+        currentMemberIds: Set<String>
+    ): Int = readStates.count { state ->
+        state.userId != message.senderId &&
+            state.userId in currentMemberIds &&
+            hasReadMessage(state, message)
+    }
+
+    fun unreadCount(
+        messages: List<TeamChatMessageDto>,
+        readState: TeamChatReadStateDto?,
+        currentUserId: String
+    ): Int = messages.count { message ->
+        message.senderId != currentUserId &&
+            (readState == null || !hasReadMessage(readState, message))
+    }
+
+    fun hasReadMessage(
+        readState: TeamChatReadStateDto,
+        message: TeamChatMessageDto
+    ): Boolean {
+        val cursorTime = runCatching { Instant.parse(readState.lastReadAt) }.getOrNull()
+            ?: return readState.lastReadMessageId == message.id
+        val messageTime = runCatching { Instant.parse(message.createdAt) }.getOrNull()
+            ?: return readState.lastReadMessageId == message.id
+        return when {
+            cursorTime > messageTime -> true
+            cursorTime < messageTime -> false
+            else -> readState.lastReadMessageId >= message.id
+        }
+    }
 
     /**
      * Follow new messages only when the reader is already at (or very near)
@@ -58,13 +129,96 @@ internal object TeamChatRules {
     }
 }
 
+@OptIn(SupabaseExperimental::class)
 class TeamChatRepository(private val client: SupabaseClient) {
-    suspend fun loadMessages(organizationId: String): List<TeamChatMessageDto> {
+    suspend fun loadLatestMessages(organizationId: String): TeamChatMessagePage =
+        loadMessagePage(organizationId, before = null)
+
+    suspend fun loadOlderMessages(
+        organizationId: String,
+        before: TeamChatMessageDto
+    ): TeamChatMessagePage = loadMessagePage(organizationId, before)
+
+    private suspend fun loadMessagePage(
+        organizationId: String,
+        before: TeamChatMessageDto?
+    ): TeamChatMessagePage {
         require(organizationId.isNotBlank())
-        return TeamChatRules.latestMessages(
-            client.from("team_messages").select {
-                filter { eq("organization_id", organizationId) }
-            }.decodeList<TeamChatMessageDto>()
+        val fetched = client.postgrest.rpc(
+            "get_team_chat_messages",
+            buildJsonObject {
+                put("p_organization_id", organizationId)
+                put("p_page_size", TeamChatRules.PAGE_SIZE + 1)
+                before?.let { cursor ->
+                    put("p_before_created_at", cursor.createdAt)
+                    put("p_before_message_id", cursor.id)
+                }
+            }
+        ).decodeList<TeamChatMessageDto>()
+
+        val hasMore = fetched.size > TeamChatRules.PAGE_SIZE
+        return TeamChatMessagePage(
+            messages = fetched.take(TeamChatRules.PAGE_SIZE).asReversed(),
+            hasMore = hasMore
+        )
+    }
+
+    suspend fun loadReadStates(organizationId: String): List<TeamChatReadStateDto> {
+        require(organizationId.isNotBlank())
+        return client.from("team_chat_read_states").select {
+            filter { eq("organization_id", organizationId) }
+        }.decodeList<TeamChatReadStateDto>()
+    }
+
+    fun observeReadStates(organizationId: String): Flow<List<TeamChatReadStateDto>> {
+        require(organizationId.isNotBlank())
+        return client.from("team_chat_read_states").selectAsFlow(
+            TeamChatReadStateDto::id,
+            filter = { eq("organization_id", organizationId) }
+        )
+    }
+
+    /**
+     * The subscription is established before Connected is emitted. The screen
+     * then loads the latest page, so inserts occurring during that request are
+     * already queued by the Realtime collector and are not lost in a gap.
+     */
+    fun observeNewMessages(organizationId: String): Flow<TeamChatRealtimeEvent> = channelFlow {
+        require(organizationId.isNotBlank())
+        val channel = client.realtime.channel("team-chat:$organizationId")
+        val changes = channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
+            table = "team_messages"
+            filter = "organization_id=eq.$organizationId"
+        }
+        val collector = launch {
+            changes.collect { action ->
+                val message = CHAT_JSON.decodeFromJsonElement<TeamChatMessageDto>(action.record)
+                send(TeamChatRealtimeEvent.MessageReceived(message))
+            }
+        }
+
+        try {
+            channel.subscribe(blockUntilSubscribed = true)
+            send(TeamChatRealtimeEvent.Connected)
+            awaitCancellation()
+        } finally {
+            collector.cancelAndJoin()
+            runCatching { client.realtime.removeChannel(channel) }
+        }
+    }
+
+    suspend fun markAsRead(
+        organizationId: String,
+        userId: String,
+        messageId: String
+    ) {
+        require(organizationId.isNotBlank() && userId.isNotBlank() && messageId.isNotBlank())
+        client.postgrest.rpc(
+            "mark_team_chat_read",
+            buildJsonObject {
+                put("p_organization_id", organizationId)
+                put("p_message_id", messageId)
+            }
         )
     }
 
@@ -78,13 +232,8 @@ class TeamChatRepository(private val client: SupabaseClient) {
             )
         )
     }
+}
 
-    @OptIn(SupabaseExperimental::class)
-    fun observeMessages(organizationId: String): Flow<List<TeamChatMessageDto>> {
-        require(organizationId.isNotBlank())
-        return client.from("team_messages").selectAsFlow(
-            TeamChatMessageDto::id,
-            filter = { eq("organization_id", organizationId) }
-        )
-    }
+private val CHAT_JSON = Json {
+    ignoreUnknownKeys = true
 }
