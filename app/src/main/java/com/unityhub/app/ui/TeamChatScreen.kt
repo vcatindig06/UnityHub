@@ -249,11 +249,18 @@ fun TeamChatScreen(
             if (visibleMessage.id == lastMarkedMessageId) return@collect
 
             val ownCursor = readStates.firstOrNull { it.userId == userId }
-            if (ownCursor == null || !TeamChatRules.hasReadMessage(ownCursor, visibleMessage)) {
+            val readThroughMessageId = if (
+                ownCursor != null && TeamChatRules.hasReadMessage(ownCursor, visibleMessage)
+            ) {
+                // Use the persisted cursor itself when it is already ahead of
+                // the visible row, so upgrade cleanup reaches every stale alert.
+                ownCursor.lastReadMessageId
+            } else {
                 val readResult = runCatching {
                     repository.markAsRead(organizationId, userId, visibleMessage.id)
                 }
                 if (readResult.isFailure) return@collect
+                visibleMessage.id
             }
 
             // Also reconcile notifications when an existing cursor is already
@@ -263,7 +270,7 @@ fun TeamChatScreen(
             runCatching {
                 notificationsRepository.markTeamChatNotificationsReadThrough(
                     organizationId = organizationId,
-                    throughMessageId = visibleMessage.id,
+                    throughMessageId = readThroughMessageId,
                     userId = userId
                 )
             }
