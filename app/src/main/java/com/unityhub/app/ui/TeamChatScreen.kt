@@ -46,6 +46,7 @@ import com.unityhub.app.data.TeamChatReadStateDto
 import com.unityhub.app.data.TeamChatRealtimeEvent
 import com.unityhub.app.data.TeamChatRepository
 import com.unityhub.app.data.TeamChatRules
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -89,7 +90,7 @@ fun TeamChatScreen(
             try {
                 val page = repository.loadLatestMessages(organizationId)
                 messages = TeamChatRules.mergeMessages(messages, page.messages)
-                hasMoreOlder = page.hasMore || messages.size > page.messages.size
+                if (messages.isEmpty()) hasMoreOlder = page.hasMore
                 readStates = repository.loadReadStates(organizationId)
                 membersByUserId = memberRepository.loadTeamMembers(organizationId)
                     .associateBy { it.userId }
@@ -110,8 +111,12 @@ fun TeamChatScreen(
             messages.firstOrNull { it.id == id }?.let { item to it }
         }
         pendingAnchorMessageId = visibleMessage?.second?.id
-        pendingAnchorOffset = visibleMessage?.first?.let { listState.layoutInfo.visibleItemsInfo
-            .firstOrNull { visible -> visible.key == it.key }?.let { listState.firstVisibleItemScrollOffset }
+        pendingAnchorOffset = visibleMessage?.first?.let { item ->
+            if (item.index == listState.firstVisibleItemIndex) {
+                listState.firstVisibleItemScrollOffset
+            } else {
+                -item.offset
+            }
         } ?: 0
 
         scope.launch {
@@ -150,7 +155,6 @@ fun TeamChatScreen(
                     repository.loadLatestMessages(organizationId)
                 }.onSuccess { page ->
                     messages = TeamChatRules.mergeMessages(messages, page.messages)
-                    hasMoreOlder = hasMoreOlder || page.hasMore
                 }
             } catch (_: Exception) {
                 errorMessage = "Your message could not be sent. Check your connection and try again."
@@ -172,6 +176,8 @@ fun TeamChatScreen(
                     }
                 }
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             if (messages.isEmpty()) {
                 errorMessage = "Live updates are unavailable. Use Refresh to check for new messages."
@@ -186,13 +192,15 @@ fun TeamChatScreen(
             repository.observeReadStates(organizationId).collect { incoming ->
                 readStates = incoming
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             runCatching { repository.loadReadStates(organizationId) }
                 .onSuccess { readStates = it }
         }
     }
 
-    LaunchedEffect(organizationId, messages.size, messages.lastOrNull()?.id, hasMoreOlder, pendingAnchorMessageId) {
+    LaunchedEffect(organizationId, messages.size, messages.lastOrNull()?.id, hasMoreOlder) {
         if (messages.isEmpty()) return@LaunchedEffect
 
         val anchorId = pendingAnchorMessageId
@@ -288,11 +296,7 @@ fun TeamChatScreen(
 
         if (recentUnreadCount > 0) {
             Text(
-                if (hasMoreOlder && recentUnreadCount == messages.size) {
-                    "50+ unread messages in this conversation"
-                } else {
-                    "$recentUnreadCount unread messages in recent history"
-                },
+                "$recentUnreadCount unread messages in the loaded history",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary
             )
