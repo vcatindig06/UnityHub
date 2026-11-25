@@ -3,6 +3,7 @@ package com.unityhub.app.data
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.annotations.SupabaseExperimental
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.rpc
 import io.github.jan.supabase.realtime.selectAsFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -25,6 +26,11 @@ data class NotificationDto(
     @SerialName("team_message_id") val teamMessageId: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("read_at") val readAt: String? = null
+)
+
+@Serializable
+private data class MarkTeamChatNotificationsReadParams(
+    @SerialName("p_team_message_ids") val teamMessageIds: List<String>
 )
 
 internal object NotificationRules {
@@ -135,18 +141,10 @@ class NotificationsRepository(private val client: SupabaseClient) {
             .toList()
         if (ids.isEmpty()) return
 
-        val readAt = Instant.now().toString()
-        for (messageId in ids) {
-            client.from("notifications").update({
-                set("read_at", readAt)
-            }) {
-                filter {
-                    eq("recipient_user_id", userId)
-                    eq("notification_type", "team_message")
-                    eq("team_message_id", messageId)
-                }
-            }
-        }
+        client.postgrest.rpc(
+            "mark_team_chat_notifications_read",
+            MarkTeamChatNotificationsReadParams(teamMessageIds = ids)
+        )
     }
 
 }
