@@ -249,22 +249,23 @@ fun TeamChatScreen(
             if (visibleMessage.id == lastMarkedMessageId) return@collect
 
             val ownCursor = readStates.firstOrNull { it.userId == userId }
-            if (ownCursor != null && TeamChatRules.hasReadMessage(ownCursor, visibleMessage)) {
-                lastMarkedMessageId = visibleMessage.id
-                return@collect
+            if (ownCursor == null || !TeamChatRules.hasReadMessage(ownCursor, visibleMessage)) {
+                val readResult = runCatching {
+                    repository.markAsRead(organizationId, userId, visibleMessage.id)
+                }
+                if (readResult.isFailure) return@collect
             }
 
+            // Also reconcile notifications when an existing cursor is already
+            // ahead of this message; older app versions could leave alerts for
+            // history that was outside their loaded page.
+            lastMarkedMessageId = visibleMessage.id
             runCatching {
-                repository.markAsRead(organizationId, userId, visibleMessage.id)
-            }.onSuccess {
-                lastMarkedMessageId = visibleMessage.id
-                runCatching {
-                    notificationsRepository.markTeamChatNotificationsReadThrough(
-                        organizationId = organizationId,
-                        throughMessageId = visibleMessage.id,
-                        userId = userId
-                    )
-                }
+                notificationsRepository.markTeamChatNotificationsReadThrough(
+                    organizationId = organizationId,
+                    throughMessageId = visibleMessage.id,
+                    userId = userId
+                )
             }
         }
     }
