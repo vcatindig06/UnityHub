@@ -122,4 +122,31 @@ class NotificationsRepository(private val client: SupabaseClient) {
             }
         }
     }
+    /**
+     * Mark notifications corresponding to messages that have actually entered
+     * the reader's viewport. Message reads stay recipient-scoped and use the
+     * existing column-level read_at permission.
+     */
+    suspend fun markTeamChatMessagesAsRead(messageIds: List<String>, userId: String) {
+        require(userId.isNotBlank()) { "No signed-in user was found." }
+        val ids = messageIds.asSequence()
+            .filter(String::isNotBlank)
+            .distinct()
+            .toList()
+        if (ids.isEmpty()) return
+
+        val readAt = Instant.now().toString()
+        for (messageId in ids) {
+            client.from("notifications").update({
+                set("read_at", readAt)
+            }) {
+                filter {
+                    eq("recipient_user_id", userId)
+                    eq("notification_type", "team_message")
+                    eq("team_message_id", messageId)
+                }
+            }
+        }
+    }
+
 }
