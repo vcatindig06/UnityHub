@@ -99,8 +99,6 @@ fun HomeDashboardScreen(
     var assignmentsLoading by remember { mutableStateOf(true) }
     var respondingAssignmentId by remember { mutableStateOf<String?>(null) }
     var decliningAssignment by remember { mutableStateOf<MyServiceAssignment?>(null) }
-    var pendingResponseIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var offlineDataMessage by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     var assignmentErrorMessage by remember { mutableStateOf("") }
 
@@ -114,8 +112,7 @@ fun HomeDashboardScreen(
                 assignmentsLoading = true
                 errorMessage = ""
                 assignmentErrorMessage = ""
-                offlineDataMessage = ""
-                try {
+                    try {
                     plans = repository.loadPlans(organizationId)
                 } catch (_: Exception) {
                     val cached = runCatching {
@@ -125,7 +122,6 @@ fun HomeDashboardScreen(
                     if (plans.isEmpty()) {
                         errorMessage = "Upcoming services could not be loaded and no saved copy is available."
                     } else {
-                        offlineDataMessage = "Showing saved service information. Updates will sync when your internet connection returns."
                     }
                 } finally {
                     loading = false
@@ -164,8 +160,6 @@ fun HomeDashboardScreen(
                     myAssignments = cachedAssignments
                     if (cachedAssignments.isEmpty()) {
                         assignmentErrorMessage = "Your assignments could not be loaded. Check your connection and retry."
-                    } else if (offlineDataMessage.isBlank()) {
-                        offlineDataMessage = "Showing your last saved assignments. Responses are kept on this device when offline."
                     }
                 } finally {
                     assignmentsLoading = false
@@ -175,7 +169,6 @@ fun HomeDashboardScreen(
                     responseQueue.loadPending(userId, organizationId)
                 }.getOrDefault(emptyList())
                 val pendingByAssignment = pending.associateBy { it.assignmentId }
-                pendingResponseIds = pendingByAssignment.keys
                 myAssignments = myAssignments.map { item ->
                     val savedResponse = pendingByAssignment[item.assignment.id] ?: return@map item
                     item.copy(
@@ -210,11 +203,6 @@ fun HomeDashboardScreen(
                     )
                 )
             } else current
-        }
-        pendingResponseIds = if (queued) {
-            pendingResponseIds + item.assignment.id
-        } else {
-            pendingResponseIds - item.assignment.id
         }
     }
 
@@ -285,8 +273,8 @@ fun HomeDashboardScreen(
     }
 
     // A completed response-upload worker can update Supabase while the dashboard
-    // remains open. Refresh once for each completed immediate sync so the local
-    // "waiting to sync" label is replaced by the server-confirmed response.
+    // remains open. Refresh the local assignment snapshot after each completed
+    // immediate sync so server-confirmed responses are reflected in the UI.
     LaunchedEffect(context, userId, organizationId) {
         val handledWorkIds = mutableSetOf<String>()
         OfflineSyncScheduler.observeWork(context, userId).collect { workInfos ->
@@ -433,24 +421,6 @@ fun HomeDashboardScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-            }
-        }
-
-        if (offlineDataMessage.isNotBlank()) {
-            item {
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
-                ) {
-                    Text(
-                        offlineDataMessage,
-                        modifier = Modifier.fillMaxWidth().padding(13.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
                 }
             }
         }
