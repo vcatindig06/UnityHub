@@ -35,7 +35,7 @@ class TeamChatRulesTest {
 
     @Test
     fun readReceiptCountsOnlyOtherCurrentOrganizationMembers() {
-        val message = message("2", "2026-11-25T08:01:00Z")
+        val message = message("2", "2026-11-25T08:01:00Z", sender = "sender")
         val states = listOf(
             readState("sender", "2", "2026-11-25T08:01:00Z"),
             readState("member-a", "3", "2026-11-25T08:02:00Z"),
