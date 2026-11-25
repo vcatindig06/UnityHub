@@ -1,9 +1,23 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 49,
-  "latestVersionName": "0.49.0",
+  "latestVersionCode": 50,
+  "latestVersionName": "0.50.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 50,
+      "versionName": "0.50.0",
+      "releasedAt": "2026-11-25",
+      "summary": "Safer saved-song charts, simpler navigation, and setlists from Songs.",
+      "changes": [
+        "Harden saved ChordPro chart display by bounding very large charts and extra-long lyric rows. The saved source remains unchanged and shortened display is identified.",
+        "Use four core navigation tabs: Home, Songs, Services, and Profile.",
+        "Use the large centered Song action to open Add Song, and switch it to Setlist while on Songs.",
+        "Create a setlist from Songs and open its editor immediately to add songs.",
+        "Open Notifications from the top-right bell instead of the former profile shortcut.",
+        "Pull down from the top of Home to refresh; remove the dashboard sync-status card while keeping offline response queues and background synchronization active."
+      ]
+    },
     {
       "versionCode": 49,
       "versionName": "0.49.0",
