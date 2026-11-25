@@ -45,7 +45,7 @@ object ChordProParser {
         // number of rows and the size of an individual row before Compose sees
         // them. This prevents newline-heavy or single-line 1 MB charts from
         // allocating/rendering an unbounded number of text nodes.
-        source.lineSequence().take(MAX_DISPLAY_LINES + 1).forEachIndexed { lineIndex, sourceLine ->
+        source.replace("\r\n", "\n").replace('\r', '\n').lineSequence().take(MAX_DISPLAY_LINES + 1).forEachIndexed { lineIndex, sourceLine ->
             if (lineIndex >= MAX_DISPLAY_LINES) {
                 isTruncated = true
                 return@forEachIndexed
