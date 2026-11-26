@@ -110,6 +110,43 @@ jobs:
           UNITYHUB_KEY_PASSWORD: ${{ secrets.UNITYHUB_KEY_PASSWORD }}
         run: ./gradlew --no-daemon clean testDebugUnitTest assembleDebug
 
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm
+          fi
+
+          if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+            echo "KVM is available to the runner; the emulator can use hardware acceleration."
+          else
+            echo "KVM is unavailable. Allow the emulator to use QEMU TCG software emulation."
+            echo "ANDROID_I_WANT_MY_TCG=yes" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run workspace navigation Compose UI tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_APPLICATION_ID: ${{ secrets.FIREBASE_APPLICATION_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_SENDER_ID: ${{ secrets.FIREBASE_SENDER_ID }}
+          UNITYHUB_KEYSTORE_PATH: ${{ steps.prepare-update-signing.outputs.keystore_path }}
+          UNITYHUB_KEYSTORE_PASSWORD: ${{ secrets.UNITYHUB_KEYSTORE_PASSWORD }}
+          UNITYHUB_KEY_ALIAS: ${{ secrets.UNITYHUB_KEY_ALIAS }}
+          UNITYHUB_KEY_PASSWORD: ${{ secrets.UNITYHUB_KEY_PASSWORD }}
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-linux-hw-accel: auto
+          disable-animations: true
+          script: ./gradlew --no-daemon connectedDebugAndroidTest
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
