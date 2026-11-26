@@ -394,6 +394,15 @@ fun AccountSettingsScreen(
                 profile?.let { account ->
                     SettingsValueRow(label = "Display name", value = account.displayName)
                     SettingsValueRow(label = "Email", value = account.email.orEmpty())
+                    OutlinedButton(
+                        onClick = {
+                            nameDraft = account.displayName
+                            editErrorMessage = ""
+                            showEditNameDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !savingProfile
+                    ) { Text("Edit display name") }
                 }
                 SettingsValueRow(label = "Church or team", value = organizationName)
                 SettingsValueRow(label = "Team role", value = role)
