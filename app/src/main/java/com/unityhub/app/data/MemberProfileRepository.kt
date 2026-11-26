@@ -33,8 +33,7 @@ data class MemberProfileSummary(
     val attendedRehearsals: Int,
     val absentRehearsals: Int,
     val unrecordedRehearsals: Int,
-    val songsCreated: Int = 0,
-    val servicesServed: Int = 0
+    val songsCreated: Int = 0
 )
 
 data class MemberProfileData(
@@ -75,10 +74,7 @@ internal object MemberProfileRules {
             unrecordedRehearsals = completedRehearsals.count {
                 it.responseStatus !in setOf("attended", "absent")
             },
-            songsCreated = songsCreated.coerceAtLeast(0),
-            servicesServed = services.count {
-                it.serviceStatus == "completed" && it.responseStatus == "confirmed"
-            }
+            songsCreated = songsCreated.coerceAtLeast(0)
         )
     }
 
