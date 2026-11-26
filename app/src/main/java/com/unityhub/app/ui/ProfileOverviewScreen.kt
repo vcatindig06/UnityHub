@@ -36,6 +36,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -104,6 +105,8 @@ fun ProfileOverviewScreen(
     var imageUploading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var activityError by remember { mutableStateOf("") }
+    var activityFilter by rememberSaveable { mutableStateOf("All") }
+    var showAllActivity by rememberSaveable { mutableStateOf(false) }
     var showAboutEditor by rememberSaveable { mutableStateOf(false) }
     var showSocialEditor by rememberSaveable { mutableStateOf(false) }
     var bioDraft by rememberSaveable { mutableStateOf("") }
@@ -153,7 +156,7 @@ fun ProfileOverviewScreen(
             loading = false
         }
         try {
-            activity = activityRepository.loadOwnHistory(userId, organizationId)
+            activity = activityRepository.loadOwnHistory(userId, organizationId, limit = 100)
         } catch (_: Exception) {
             activityError = "Activity history could not be loaded. Check your connection and try again."
         } finally {
@@ -164,6 +167,16 @@ fun ProfileOverviewScreen(
     val avatarUrl = remember(profile?.avatarPath) { repository.publicMediaUrl(profile?.avatarPath) }
     val coverUrl = remember(profile?.coverPath) { repository.publicMediaUrl(profile?.coverPath) }
     val initials = profileInitials(profile?.displayName.orEmpty())
+    val filteredActivity = activity.filter { entry ->
+        when (activityFilter) {
+            "Songs" -> entry.entityType in setOf("songs", "song_setlists", "song_setlist_items", "personal_song_favorites")
+            "Services" -> entry.entityType.startsWith("service_") || entry.entityType in setOf("rehearsals", "rehearsal_assignments")
+            "Team" -> entry.entityType in setOf("team_messages", "organization_members", "organization_join_requests", "member_positions", "ministry_positions")
+            "Account" -> entry.entityType == "profiles"
+            else -> true
+        }
+    }
+    val displayedActivity = if (showAllActivity) filteredActivity else filteredActivity.take(8)
     val visibleSocialLinks = profile?.socialLinks.orEmpty()
         .filterValues(String::isNotBlank)
         .toList()
@@ -428,18 +441,35 @@ fun ProfileOverviewScreen(
                         Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Text("Actions history", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
+                    Text(
+                        "Your activity in this team, visible only to you.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("All", "Songs", "Services", "Team", "Account").forEach { filter ->
+                            FilterChip(
+                                selected = activityFilter == filter,
+                                onClick = { activityFilter = filter; showAllActivity = false },
+                                label = { Text(filter) }
+                            )
+                        }
+                    }
                     when {
                         activityLoading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                             Text("Loading activity…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         activityError.isNotBlank() -> Text(activityError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        activity.isEmpty() -> Text(
+                        filteredActivity.isEmpty() -> Text(
                             "Actions you take in UnityHub will appear here.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        else -> activity.forEachIndexed { index, entry ->
+                        else -> displayedActivity.forEachIndexed { index, entry ->
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(entry.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 if (entry.description.isNotBlank()) {
@@ -451,7 +481,15 @@ fun ProfileOverviewScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            if (index < activity.lastIndex) DividerLine()
+                            if (index < displayedActivity.lastIndex) DividerLine()
+                        }
+                        if (filteredActivity.size > 8) {
+                            TextButton(
+                                onClick = { showAllActivity = !showAllActivity },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (showAllActivity) "Show less" else "Show all ${filteredActivity.size} activities")
+                            }
                         }
                     }
                 }
