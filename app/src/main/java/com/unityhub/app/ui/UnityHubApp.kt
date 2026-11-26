@@ -1157,12 +1157,20 @@ private fun WorkspaceDashboard(
                     modifier = Modifier.padding(innerPadding)
                 )
                 else -> CommunityHubScreen(
+                    organizationId = organization.id,
+                    memberCount = workspace.members.size,
                     onOpenTeam = { showTeamManagement = true },
                     onOpenChat = {
                         chatReturnDestination = "community"
                         showTeamChat = true
                     },
                     onOpenProfile = { showPersonalProfile = true },
+                    onOpenServices = { navigateToTab(SERVICES_TAB_INDEX) },
+                    onOpenServicePlan = { planId ->
+                        requestedServicePlanId = planId
+                        serviceNavigationRequestId = null
+                        navigateToTab(SERVICES_TAB_INDEX)
+                    },
                     modifier = Modifier.padding(innerPadding)
                 )
             }
