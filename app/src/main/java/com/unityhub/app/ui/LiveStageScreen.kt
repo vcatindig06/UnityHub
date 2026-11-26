@@ -345,7 +345,7 @@ fun LiveStageScreen(
                     } else {
                         document?.lines.orEmpty().forEach { line ->
                             when {
-                                line.section != null && line.lyrics.isBlank() -> {
+                                line.section != null && line.lyrics.isBlank() && line.chords.isEmpty() -> {
                                     Text(
                                         line.section.uppercase(),
                                         color = StageAccent,
