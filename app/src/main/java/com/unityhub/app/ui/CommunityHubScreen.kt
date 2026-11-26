@@ -23,6 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -35,11 +36,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.unityhub.app.data.AttendancePeriod
 import com.unityhub.app.data.MinistryPositionDto
 import com.unityhub.app.data.MemberMinistryPositionDto
 import com.unityhub.app.data.RehearsalAttendanceSnapshot
@@ -82,6 +85,7 @@ fun CommunityHubScreen(
     var upcomingServices by remember { mutableStateOf<List<ServicePlanDto>>(emptyList()) }
     var serviceAssignments by remember { mutableStateOf<List<ServiceAssignmentOverviewEntry>>(emptyList()) }
     var attendanceSnapshots by remember { mutableStateOf<List<RehearsalAttendanceSnapshot>>(emptyList()) }
+    var attendancePeriod by rememberSaveable { mutableStateOf(AttendancePeriod.LAST_90_DAYS) }
     var loading by remember { mutableStateOf(true) }
     var refreshing by remember { mutableStateOf(false) }
     var loadingError by remember { mutableStateOf("") }
@@ -180,6 +184,8 @@ fun CommunityHubScreen(
                     isLoading = loading,
                     completedRehearsals = attendanceSnapshots,
                     upcomingRoleAssignments = upcomingRoleAssignments,
+                    selectedPeriod = attendancePeriod,
+                    onPeriodChange = { attendancePeriod = it },
                     today = today
                 )
             }
@@ -236,10 +242,15 @@ private fun ParticipationSummaryCard(
     isLoading: Boolean,
     completedRehearsals: List<RehearsalAttendanceSnapshot>,
     upcomingRoleAssignments: List<ServiceAssignmentOverviewEntry>,
+    selectedPeriod: AttendancePeriod,
+    onPeriodChange: (AttendancePeriod) -> Unit,
     today: LocalDate
 ) {
-    val rehearsalSummaries = remember(completedRehearsals) {
-        completedRehearsals.map { rehearsal ->
+    val periodRehearsals = remember(completedRehearsals, selectedPeriod, today) {
+        RehearsalRosterRules.filterByPeriod(completedRehearsals, selectedPeriod, today)
+    }
+    val rehearsalSummaries = remember(periodRehearsals) {
+        periodRehearsals.map { rehearsal ->
             rehearsal to RehearsalRosterRules.summary(rehearsal.assignments)
         }
     }
@@ -263,6 +274,18 @@ private fun ParticipationSummaryCard(
         ) {
             Text("Participation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("Rehearsal attendance", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                AttendancePeriod.values().forEach { period ->
+                    FilterChip(
+                        selected = selectedPeriod == period,
+                        onClick = { onPeriodChange(period) },
+                        label = { Text(period.label) }
+                    )
+                }
+            }
             when {
                 isLoading -> Text(
                     "Loading completed rehearsal records…",
@@ -271,6 +294,11 @@ private fun ParticipationSummaryCard(
                 )
                 completedRehearsals.isEmpty() -> Text(
                     "No completed rehearsal attendance is recorded yet. Complete a rehearsal and mark each roster member Attended or Absent to build this summary.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                periodRehearsals.isEmpty() -> Text(
+                    "No completed rehearsal attendance is recorded in this period.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
