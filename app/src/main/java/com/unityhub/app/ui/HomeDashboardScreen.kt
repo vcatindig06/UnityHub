@@ -71,7 +71,6 @@ import java.util.Locale
 @Composable
 fun HomeDashboardScreen(
     organizationId: String,
-    organizationName: String,
     userId: String,
     role: String?,
     memberCount: Int,
