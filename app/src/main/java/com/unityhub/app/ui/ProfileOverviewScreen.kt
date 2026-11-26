@@ -1,15 +1,17 @@
 package com.unityhub.app.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,16 +19,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,11 +61,22 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.unityhub.app.data.AccountProfile
 import com.unityhub.app.data.AccountRepository
+import com.unityhub.app.data.ActivityHistoryRepository
+import com.unityhub.app.data.ActivityHistoryRules
 import com.unityhub.app.data.MemberProfileData
 import com.unityhub.app.data.MemberProfileRepository
 import com.unityhub.app.data.OrganizationRepository
 import com.unityhub.app.data.SupabaseClientProvider
+import com.unityhub.app.data.UserActivityDto
 import kotlinx.coroutines.launch
+
+private val editableSocialFields = listOf(
+    "facebook" to "Facebook",
+    "instagram" to "Instagram",
+    "youtube" to "YouTube",
+    "tiktok" to "TikTok",
+    "website" to "Website"
+)
 
 @Composable
 fun ProfileOverviewScreen(
@@ -77,20 +92,23 @@ fun ProfileOverviewScreen(
     val repository = remember { AccountRepository(SupabaseClientProvider.client) }
     val organizationRepository = remember { OrganizationRepository(SupabaseClientProvider.client) }
     val memberRepository = remember { MemberProfileRepository(SupabaseClientProvider.client) }
+    val activityRepository = remember { ActivityHistoryRepository(SupabaseClientProvider.client) }
 
     var profile by remember { mutableStateOf<AccountProfile?>(null) }
     var contributions by remember { mutableStateOf<MemberProfileData?>(null) }
+    var activity by remember { mutableStateOf<List<UserActivityDto>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var activityLoading by remember { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
     var imageUploading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
-    var bio by rememberSaveable { mutableStateOf("") }
-    var facebook by rememberSaveable { mutableStateOf("") }
-    var instagram by rememberSaveable { mutableStateOf("") }
-    var youtube by rememberSaveable { mutableStateOf("") }
-    var tiktok by rememberSaveable { mutableStateOf("") }
-    var website by rememberSaveable { mutableStateOf("") }
-    var imageKind by remember { mutableStateOf("avatar") }
+    var activityError by remember { mutableStateOf("") }
+    var showAboutEditor by rememberSaveable { mutableStateOf(false) }
+    var showSocialEditor by rememberSaveable { mutableStateOf(false) }
+    var bioDraft by rememberSaveable { mutableStateOf("") }
+    var socialDrafts by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var aboutError by remember { mutableStateOf("") }
+    var socialError by remember { mutableStateOf("") }
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -103,10 +121,10 @@ fun ProfileOverviewScreen(
                     val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
                     val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                         ?: error("The selected image could not be opened.")
-                    repository.uploadProfileImage(imageKind, bytes, mimeType)
+                    repository.uploadProfileImage("avatar", bytes, mimeType)
                     profile = repository.loadProfile()
                 } catch (exception: Exception) {
-                    errorMessage = exception.message ?: "The profile image could not be uploaded."
+                    errorMessage = exception.message ?: "The profile photo could not be uploaded."
                 } finally {
                     imageUploading = false
                 }
@@ -116,44 +134,49 @@ fun ProfileOverviewScreen(
 
     LaunchedEffect(userId, organizationId) {
         loading = true
+        activityLoading = true
         errorMessage = ""
+        activityError = ""
         try {
-            val loadedProfile = repository.loadProfile()
-            profile = loadedProfile
-            bio = loadedProfile.bio
-            facebook = loadedProfile.socialLinks["facebook"].orEmpty()
-            instagram = loadedProfile.socialLinks["instagram"].orEmpty()
-            youtube = loadedProfile.socialLinks["youtube"].orEmpty()
-            tiktok = loadedProfile.socialLinks["tiktok"].orEmpty()
-            website = loadedProfile.socialLinks["website"].orEmpty()
-
-            runCatching {
-                val workspace = organizationRepository.loadWorkspace(userId)
-                val membership = workspace.members.firstOrNull { it.userId == userId }
-                if (membership != null) {
-                    contributions = memberRepository.loadProfile(organizationId, membership.id)
-                }
+            profile = repository.loadProfile()
+            val workspace = organizationRepository.loadWorkspace(userId)
+            val membership = workspace.members.firstOrNull { it.userId == userId }
+            if (membership != null) {
+                contributions = runCatching {
+                    memberRepository.loadProfile(organizationId, membership.id)
+                }.getOrNull()
             }
         } catch (exception: Exception) {
             errorMessage = exception.message ?: "Profile details could not be loaded."
         } finally {
             loading = false
         }
+        try {
+            activity = activityRepository.loadOwnHistory(userId, organizationId)
+        } catch (_: Exception) {
+            activityError = "Activity history could not be loaded. Check your connection and try again."
+        } finally {
+            activityLoading = false
+        }
     }
 
     val avatarUrl = remember(profile?.avatarPath) { repository.publicMediaUrl(profile?.avatarPath) }
     val coverUrl = remember(profile?.coverPath) { repository.publicMediaUrl(profile?.coverPath) }
     val initials = profileInitials(profile?.displayName.orEmpty())
+    val visibleSocialLinks = profile?.socialLinks.orEmpty()
+        .filterValues(String::isNotBlank)
+        .toList()
+        .sortedBy { it.first.lowercase() }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(172.dp).clip(RoundedCornerShape(22.dp))
+                    modifier = Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(22.dp))
                 ) {
                     if (!coverUrl.isNullOrBlank()) {
                         AsyncImage(
@@ -170,14 +193,6 @@ fun ProfileOverviewScreen(
                                 )
                             )
                         ) {
-                            Box(
-                                Modifier.align(Alignment.TopEnd).padding(18.dp).size(116.dp)
-                                    .background(Color.White.copy(alpha = 0.08f), CircleShape)
-                            )
-                            Box(
-                                Modifier.align(Alignment.BottomStart).padding(24.dp).size(70.dp)
-                                    .background(Color(0xFFF3E9D5).copy(alpha = 0.14f), CircleShape)
-                            )
                             Text(
                                 "WORSHIP · SERVE · GROW",
                                 modifier = Modifier.align(Alignment.BottomStart).padding(18.dp),
@@ -187,21 +202,6 @@ fun ProfileOverviewScreen(
                             )
                         }
                     }
-                    Surface(
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp),
-                        color = Color.Black.copy(alpha = 0.48f),
-                        shape = RoundedCornerShape(20.dp)
-                    ) {
-                        TextButton(
-                            onClick = { imageKind = "cover"; imagePicker.launch("image/*") },
-                            enabled = !imageUploading,
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
-                        ) {
-                            Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color.White)
-                            Spacer(Modifier.width(5.dp))
-                            Text("Change cover", color = Color.White)
-                        }
-                    }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
@@ -209,7 +209,7 @@ fun ProfileOverviewScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(
-                        modifier = Modifier.size(86.dp).clip(CircleShape)
+                        modifier = Modifier.size(82.dp).clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primaryContainer)
                             .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape),
                         contentAlignment = Alignment.Center
@@ -231,24 +231,162 @@ fun ProfileOverviewScreen(
                         }
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(profile?.displayName.orEmpty().ifBlank { "Your profile" }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(profile?.email.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(
-                            onClick = { imageKind = "avatar"; imagePicker.launch("image/*") },
-                            enabled = !imageUploading,
-                            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
-                        ) { Text(if (imageUploading) "Uploading…" else "Change profile photo") }
+                        Text(
+                            profile?.displayName.orEmpty().ifBlank { "Your profile" },
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            profile?.email.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "$role · $organizationName",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    TextButton(
+                        onClick = { imagePicker.launch("image/*") },
+                        enabled = !imageUploading
+                    ) {
+                        if (imageUploading) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        else Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                        Text("Photo", modifier = Modifier.padding(start = 4.dp))
                     }
                 }
-                Text(organizationName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
-        if (loading || imageUploading) {
+        if (loading) {
             item {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Text(if (imageUploading) "Uploading profile image…" else "Loading profile…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Loading profile…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        if (errorMessage.isNotBlank()) {
+            item { Text(errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("About Me", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        TextButton(
+                            onClick = {
+                                bioDraft = profile?.bio.orEmpty()
+                                aboutError = ""
+                                showAboutEditor = true
+                            },
+                            enabled = !saving
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null)
+                            Text("Edit", modifier = Modifier.padding(start = 4.dp))
+                        }
+                    }
+                    Text(
+                        profile?.bio?.takeIf(String::isNotBlank) ?: "No introduction has been added yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (profile?.bio.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                    )
+                    DividerLine()
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Groups, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Ministry positions", fontWeight = FontWeight.SemiBold)
+                    }
+                    val ministryPositions = contributions?.ministryPositions.orEmpty()
+                    if (ministryPositions.isEmpty()) {
+                        Text("No ministry positions assigned.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Text(ministryPositions.joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Text("Team role · $role", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Social links", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        TextButton(
+                            onClick = {
+                                socialDrafts = editableSocialFields.associate { (key, _) ->
+                                    key to profile?.socialLinks?.get(key).orEmpty()
+                                }
+                                socialError = ""
+                                showSocialEditor = true
+                            },
+                            enabled = !saving
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null)
+                            Text(
+                                if (visibleSocialLinks.isEmpty()) "Add social links" else "Edit",
+                                modifier = Modifier.padding(start = 4.dp)
+                            )
+                        }
+                    }
+                    if (visibleSocialLinks.isEmpty()) {
+                        Text(
+                            "No social links added yet.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        visibleSocialLinks.forEach { (key, value) ->
+                            val label = editableSocialFields.firstOrNull { it.first == key }?.second
+                                ?: key.replace('_', ' ').replaceFirstChar { it.uppercase() }
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        val target = if (value.startsWith("http://") || value.startsWith("https://")) {
+                                            value
+                                        } else {
+                                            "https://$value"
+                                        }
+                                        runCatching {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+                                        }
+                                    }
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Default.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(value, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -260,158 +398,191 @@ fun ProfileOverviewScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("About Me", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Contribution Dashboard", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    val summary = contributions?.summary
+                    if (summary == null) {
+                        Text(
+                            "Your team contributions will appear here when activity is recorded.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ContributionMetric("Songs created", summary.songsCreated)
+                            ContributionMetric("Services served", summary.servicesServed)
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ContributionMetric("Rehearsals attended", summary.attendedRehearsals)
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Actions history", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    when {
+                        activityLoading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Text("Loading activity…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        activityError.isNotBlank() -> Text(activityError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        activity.isEmpty() -> Text(
+                            "Actions you take in UnityHub will appear here.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        else -> activity.forEachIndexed { index, entry ->
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(entry.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                if (entry.description.isNotBlank()) {
+                                    Text(entry.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text(
+                                    ActivityHistoryRules.formatTimestamp(entry.createdAt),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (index < activity.lastIndex) DividerLine()
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            OutlinedButtonFullWidth(
+                onClick = onOpenSettings,
+                text = "Account settings"
+            )
+        }
+    }
+
+    if (showAboutEditor) {
+        AlertDialog(
+            onDismissRequest = { if (!saving) showAboutEditor = false },
+            title = { Text("Edit About Me") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = bio,
-                        onValueChange = { bio = it.take(300) },
+                        value = bioDraft,
+                        onValueChange = { bioDraft = it.take(300); aboutError = "" },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Bio") },
                         placeholder = { Text("Share a little about yourself and how you serve.") },
                         minLines = 3,
-                        maxLines = 4,
-                        supportingText = { Text("${bio.length}/300") }
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Groups, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Ministry roles", fontWeight = FontWeight.SemiBold)
-                    }
-                    val roles = contributions?.ministryPositions.orEmpty()
-                    if (roles.isEmpty()) {
-                        Text("No ministry roles assigned yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        roles.forEach { ministryRole ->
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(
-                                    if (ministryRole.contains("vocal", true) || ministryRole.contains("choir", true)) Icons.Default.Mic else Icons.Default.MusicNote,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Text(ministryRole, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            }
-                        }
-                    }
-                    Text("Workspace role", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(role, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    Text("Team", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(organizationName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                saving = true
-                                errorMessage = ""
-                                try {
-                                    profile = repository.updateProfileDetails(
-                                        bio = bio,
-                                        socialLinks = mapOf(
-                                            "facebook" to facebook,
-                                            "instagram" to instagram,
-                                            "youtube" to youtube,
-                                            "tiktok" to tiktok,
-                                            "website" to website
-                                        )
-                                    )
-                                } catch (exception: Exception) {
-                                    errorMessage = exception.message ?: "Profile details could not be saved."
-                                } finally {
-                                    saving = false
-                                }
-                            }
-                        },
-                        enabled = !saving && !loading,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (saving) "Saving profile…" else "Save About Me")
-                    }
-                }
-            }
-        }
-
-        item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Contribution Dashboard", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    val summary = contributions?.summary
-                    if (summary == null) {
-                        Text("Your service and rehearsal activity will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ContributionMetric("Upcoming services", summary.upcomingServices)
-                            ContributionMetric("Confirmed", summary.confirmedServices)
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ContributionMetric("Upcoming rehearsals", summary.upcomingRehearsals)
-                            ContributionMetric("Attended", summary.attendedRehearsals)
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ContributionMetric("Unable to serve", summary.declinedServices)
-                            ContributionMetric("Absent", summary.absentRehearsals)
-                        }
-                    }
-                    Text("Activity is based on your assigned services and rehearsals in this team.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-
-        item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Social links", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    SocialLinkField("Facebook", facebook, { facebook = it }, "facebook.com/…")
-                    SocialLinkField("Instagram", instagram, { instagram = it }, "instagram.com/…")
-                    SocialLinkField("YouTube", youtube, { youtube = it }, "youtube.com/…")
-                    SocialLinkField("TikTok", tiktok, { tiktok = it }, "tiktok.com/@…")
-                    SocialLinkField("Website", website, { website = it }, "https://…")
-                    TextButton(
-                        onClick = {
-                            scope.launch {
-                                saving = true
-                                try {
-                                    profile = repository.updateProfileDetails(
-                                        bio = bio,
-                                        socialLinks = mapOf(
-                                            "facebook" to facebook,
-                                            "instagram" to instagram,
-                                            "youtube" to youtube,
-                                            "tiktok" to tiktok,
-                                            "website" to website
-                                        )
-                                    )
-                                } catch (exception: Exception) {
-                                    errorMessage = exception.message ?: "Social links could not be saved."
-                                } finally {
-                                    saving = false
-                                }
-                            }
-                        },
+                        maxLines = 5,
+                        supportingText = { Text("${bioDraft.length}/300") },
                         enabled = !saving
-                    ) { Text("Save social links") }
+                    )
+                    if (aboutError.isNotBlank()) Text(aboutError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
-            }
-        }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            saving = true
+                            aboutError = ""
+                            try {
+                                profile = repository.updateProfileDetails(
+                                    bio = bioDraft,
+                                    socialLinks = profile?.socialLinks.orEmpty()
+                                )
+                                showAboutEditor = false
+                            } catch (exception: Exception) {
+                                aboutError = exception.message ?: "Your bio could not be saved."
+                            } finally {
+                                saving = false
+                            }
+                        }
+                    },
+                    enabled = !saving
+                ) {
+                    if (saving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else Text("Save")
+                }
+            },
+            dismissButton = { TextButton(onClick = { showAboutEditor = false }, enabled = !saving) { Text("Cancel") } }
+        )
+    }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Account and preferences", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Manage your sign-in, appearance, notifications and app updates.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Person, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Account settings")
+    if (showSocialEditor) {
+        AlertDialog(
+            onDismissRequest = { if (!saving) showSocialEditor = false },
+            title = { Text("Social links") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    editableSocialFields.forEach { (key, label) ->
+                        OutlinedTextField(
+                            value = socialDrafts[key].orEmpty(),
+                            onValueChange = { value -> socialDrafts = socialDrafts + (key to value.take(250)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(label) },
+                            singleLine = true,
+                            enabled = !saving
+                        )
                     }
+                    if (socialError.isNotBlank()) Text(socialError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
-            }
-        }
-
-        if (errorMessage.isNotBlank()) {
-            item { Text(errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            saving = true
+                            socialError = ""
+                            try {
+                                val otherLinks = profile?.socialLinks.orEmpty()
+                                    .filterKeys { key -> editableSocialFields.none { it.first == key } }
+                                profile = repository.updateProfileDetails(
+                                    bio = profile?.bio.orEmpty(),
+                                    socialLinks = otherLinks + socialDrafts
+                                )
+                                showSocialEditor = false
+                            } catch (exception: Exception) {
+                                socialError = exception.message ?: "Your social links could not be saved."
+                            } finally {
+                                saving = false
+                            }
+                        }
+                    },
+                    enabled = !saving
+                ) {
+                    if (saving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else Text("Save links")
+                }
+            },
+            dismissButton = { TextButton(onClick = { showSocialEditor = false }, enabled = !saving) { Text("Cancel") } }
+        )
     }
 }
 
 @Composable
-private fun RowScope.ContributionMetric(label: String, count: Int) {
+private fun DividerLine() {
+    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+@Composable
+private fun OutlinedButtonFullWidth(onClick: () -> Unit, text: String) {
+    androidx.compose.material3.OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Icon(Icons.Default.Settings, contentDescription = null)
+        Text(text, modifier = Modifier.padding(start = 8.dp))
+    }
+}
+
+@Composable
+private fun ContributionMetric(label: String, count: Int) {
     Card(
         modifier = Modifier.weight(1f),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
@@ -421,26 +592,6 @@ private fun RowScope.ContributionMetric(label: String, count: Int) {
             Text(count.toString(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
         }
-    }
-}
-
-@Composable
-private fun SocialLinkField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String
-) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(Icons.Default.Link, contentDescription = "$label link", tint = MaterialTheme.colorScheme.primary)
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.weight(1f),
-            label = { Text(label) },
-            placeholder = { Text(placeholder) },
-            singleLine = true
-        )
     }
 }
 
