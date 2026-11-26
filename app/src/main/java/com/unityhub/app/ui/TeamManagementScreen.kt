@@ -99,6 +99,9 @@ fun TeamManagementScreen(
     var ownershipTransferOpen by rememberSaveable { mutableStateOf(false) }
     var memberSearchQuery by rememberSaveable { mutableStateOf("") }
     var selectedPositionFilter by rememberSaveable { mutableStateOf("") }
+    var memberSort by rememberSaveable { mutableStateOf("Name") }
+    var memberListPage by rememberSaveable { mutableStateOf(0) }
+    val memberListPageSize = 10
     var positionFilterPage by rememberSaveable { mutableStateOf(0) }
     val positionFilterPageSize = 6
     val positionFilterPages = (positions.size + positionFilterPageSize - 1) / positionFilterPageSize
@@ -130,6 +133,23 @@ fun TeamManagementScreen(
             selectedPosition = selectedPositionFilter
         )
     }
+
+    val sortedMembers = remember(filteredMembers, memberSort) {
+        when (memberSort) {
+            "Team role" -> filteredMembers.sortedWith(
+                compareBy<ServiceMemberOption> { it.teamRole.lowercase() }
+                    .thenBy { it.displayName.lowercase() }
+            )
+            "Ministry" -> filteredMembers.sortedWith(
+                compareBy<ServiceMemberOption> {
+                    assignedPositionsByMember[it.memberId].orEmpty().firstOrNull().orEmpty().lowercase()
+                }.thenBy { it.displayName.lowercase() }
+            )
+            else -> filteredMembers.sortedBy { it.displayName.lowercase() }
+        }
+    }
+    val memberListPages = (sortedMembers.size + memberListPageSize - 1) / memberListPageSize
+    val visibleMembers = sortedMembers.drop(memberListPage * memberListPageSize).take(memberListPageSize)
 
     val canManagePositions = workspace.role == "admin" || workspace.role == "worship_leader"
     val canManageMembers = workspace.role == "admin"
@@ -196,7 +216,7 @@ fun TeamManagementScreen(
         refresh()
     }
 
-    LaunchedEffect(positionListPages) {
+    LaunchedEffect(memberListPages) {\n        memberListPage = memberListPage.coerceIn(0, (memberListPages - 1).coerceAtLeast(0))\n    }\n\n    LaunchedEffect(positionListPages) {
         positionListPage = positionListPage.coerceIn(0, (positionListPages - 1).coerceAtLeast(0))
     }
 
@@ -388,7 +408,7 @@ fun TeamManagementScreen(
         item {
             OutlinedTextField(
                 value = memberSearchQuery,
-                onValueChange = { memberSearchQuery = it },
+                onValueChange = { memberSearchQuery = it; memberListPage = 0 },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Search members") },
                 placeholder = { Text("Name, team role, or ministry position") },
@@ -408,14 +428,14 @@ fun TeamManagementScreen(
                     ) {
                         FilterChip(
                             selected = selectedPositionFilter.isBlank(),
-                            onClick = { selectedPositionFilter = "" },
+                            onClick = { selectedPositionFilter = ""; memberListPage = 0 },
                             label = { Text("All positions") }
                         )
                         visiblePositionFilters.forEach { position ->
                             FilterChip(
                                 selected = selectedPositionFilter == position.name,
                                 onClick = {
-                                    selectedPositionFilter = if (selectedPositionFilter == position.name) "" else position.name
+                                    selectedPositionFilter = if (selectedPositionFilter == position.name) "" else position.name\n                                    memberListPage = 0
                                 },
                                 label = { Text(position.name) }
                             )
@@ -485,13 +505,27 @@ fun TeamManagementScreen(
             }
         } else {
             item {
-                Text(
-                    "Showing ${filteredMembers.size} of ${members.size} members",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(
+                        "Showing ${filteredMembers.size} of ${members.size} members",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        listOf("Name", "Team role", "Ministry").forEach { option ->
+                            FilterChip(
+                                selected = memberSort == option,
+                                onClick = { memberSort = option; memberListPage = 0 },
+                                label = { Text("Sort: $option") }
+                            )
+                        }
+                    }
+                }
             }
-            items(filteredMembers, key = { it.memberId }) { member ->
+            items(visibleMembers, key = { it.memberId }) { member ->
                 TeamMemberProfileCard(
                     member = member,
                     isCurrentUser = member.userId == currentUserId,
@@ -508,6 +542,31 @@ fun TeamManagementScreen(
                     onManagePositions = { selectedMember = member },
                     onManageAccess = { memberAccessTarget = member }
                 )
+            }
+            if (memberListPages > 1) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Page ${memberListPage + 1} of $memberListPages",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row {
+                            TextButton(
+                                onClick = { memberListPage = (memberListPage - 1).coerceAtLeast(0) },
+                                enabled = memberListPage > 0
+                            ) { Text("Previous") }
+                            TextButton(
+                                onClick = { memberListPage = (memberListPage + 1).coerceAtMost(memberListPages - 1) },
+                                enabled = memberListPage < memberListPages - 1
+                            ) { Text("Next") }
+                        }
+                    }
+                }
             }
         }
 
