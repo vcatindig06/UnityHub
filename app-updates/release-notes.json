@@ -1,9 +1,20 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 50,
-  "latestVersionName": "0.50.0",
+  "latestVersionCode": 51,
+  "latestVersionName": "0.51.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 51,
+      "versionName": "0.51.0",
+      "releasedAt": "2026-11-26",
+      "summary": "Restore the full workspace layout by keeping bottom navigation at its intended height.",
+      "changes": [
+        "Keep the center Song / Setlist action inside the compact bottom navigation bar instead of allowing its container to expand to the full screen height.",
+        "Restore the top app bar and active screen content on the Home, Songs, Services, and Profile destinations.",
+        "Add an Android UI regression test that verifies the real workspace navigation bar stays compact and anchored at the bottom."
+      ]
+    },
     {
       "versionCode": 50,
       "versionName": "0.50.0",
