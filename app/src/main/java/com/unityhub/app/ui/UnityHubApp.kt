@@ -213,6 +213,8 @@ fun UnityHubApp(
         )
         else -> WorkspaceDashboard(
             workspace = workspace!!,
+            appearanceMode = appearanceMode,
+            onAppearanceModeChange = onAppearanceModeChange,
             userId = userId,
             loading = actionInProgress,
             errorMessage = errorMessage,
@@ -706,6 +708,8 @@ private fun OrganizationDirectoryCard(
 @Composable
 private fun WorkspaceDashboard(
     workspace: OrganizationWorkspace,
+    appearanceMode: AppearanceMode,
+    onAppearanceModeChange: (AppearanceMode) -> Unit,
     userId: String,
     loading: Boolean,
     errorMessage: String,
