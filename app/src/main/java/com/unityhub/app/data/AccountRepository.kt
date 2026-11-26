@@ -158,14 +158,14 @@ class AccountRepository(
         require(bytes.isNotEmpty() && bytes.size <= 8 * 1024 * 1024) {
             "Choose an image smaller than 8 MB."
         }
-        val contentType = when (mimeType.lowercase()) {
+        val uploadContentType = when (mimeType.lowercase()) {
             "image/jpeg", "image/jpg" -> ContentType.Image.JPEG
             "image/png" -> ContentType.Image.PNG
             "image/webp" -> ContentType("image", "webp")
             else -> error("Choose a JPG, PNG or WebP image.")
         }
         val extension = when {
-            contentType == ContentType.Image.PNG -> "png"
+            uploadContentType == ContentType.Image.PNG -> "png"
             mimeType.equals("image/webp", ignoreCase = true) -> "webp"
             else -> "jpg"
         }
@@ -174,7 +174,7 @@ class AccountRepository(
         val path = "${user.id}/$kind/${UUID.randomUUID()}.$extension"
         client.storage["profile-media"].upload(path, bytes) {
             upsert = false
-            contentType = contentType
+            contentType = uploadContentType
         }
         client.from("profiles").update({
             if (kind == "avatar") set("avatar_path", path) else set("cover_path", path)
