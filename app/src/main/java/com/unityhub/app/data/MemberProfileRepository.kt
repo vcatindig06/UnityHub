@@ -32,7 +32,9 @@ data class MemberProfileSummary(
     val upcomingRehearsals: Int,
     val attendedRehearsals: Int,
     val absentRehearsals: Int,
-    val unrecordedRehearsals: Int
+    val unrecordedRehearsals: Int,
+    val songsCreated: Int = 0,
+    val servicesServed: Int = 0
 )
 
 data class MemberProfileData(
@@ -49,7 +51,8 @@ internal object MemberProfileRules {
     fun summarize(
         services: List<MemberServiceActivity>,
         rehearsals: List<MemberRehearsalActivity>,
-        today: LocalDate
+        today: LocalDate,
+        songsCreated: Int = 0
     ): MemberProfileSummary {
         val upcomingServices = services.count { activity ->
             activity.serviceStatus !in setOf("completed", "cancelled") &&
@@ -71,6 +74,10 @@ internal object MemberProfileRules {
             absentRehearsals = completedRehearsals.count { it.responseStatus == "absent" },
             unrecordedRehearsals = completedRehearsals.count {
                 it.responseStatus !in setOf("attended", "absent")
+            },
+            songsCreated = songsCreated.coerceAtLeast(0),
+            servicesServed = services.count {
+                it.serviceStatus == "completed" && it.responseStatus == "confirmed"
             }
         )
     }
@@ -195,6 +202,13 @@ class MemberProfileRepository(private val client: SupabaseClient) {
             )
         }
 
+        val songsCreated = client.from("songs").select {
+            filter {
+                eq("organization_id", organizationId)
+                eq("created_by", membership.userId)
+            }
+        }.decodeList<SongDto>().size
+
         val rehearsalAssignments = client.from("rehearsal_assignments").select {
             filter {
                 eq("organization_id", organizationId)
@@ -229,7 +243,8 @@ class MemberProfileRepository(private val client: SupabaseClient) {
             summary = MemberProfileRules.summarize(
                 services = serviceActivities,
                 rehearsals = rehearsalActivities,
-                today = LocalDate.now()
+                today = LocalDate.now(),
+                songsCreated = songsCreated
             ),
             recentServices = MemberProfileRules.recentServices(serviceActivities),
             recentRehearsals = MemberProfileRules.recentRehearsals(rehearsalActivities)
