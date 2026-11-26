@@ -3,6 +3,7 @@ package com.unityhub.app.data
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
 
 class RehearsalRosterRulesTest {
     @Test
@@ -25,6 +26,45 @@ class RehearsalRosterRulesTest {
         assertEquals(1, summary.attended)
         assertEquals(1, summary.absent)
         assertEquals(4, summary.notRecorded)
+    }
+
+    @Test
+    fun thirtyDayPeriodIncludesThirtyCalendarDatesAndExcludesFutureRows() {
+        val today = LocalDate.parse("2026-11-27")
+        val dates = listOf(
+            "2026-11-27",
+            "2026-10-29",
+            "2026-10-28",
+            "2026-11-28"
+        )
+
+        val visible = dates.filter {
+            RehearsalRosterRules.includesDate(it, AttendancePeriod.LAST_30_DAYS, today)
+        }
+
+        assertEquals(listOf("2026-11-27", "2026-10-29"), visible)
+    }
+
+    @Test
+    fun ninetyDayPeriodIncludesItsBoundaryButNotThePreviousDay() {
+        val today = LocalDate.parse("2026-11-27")
+
+        assertTrue(RehearsalRosterRules.includesDate("2026-08-30", AttendancePeriod.LAST_90_DAYS, today))
+        assertTrue(!RehearsalRosterRules.includesDate("2026-08-29", AttendancePeriod.LAST_90_DAYS, today))
+    }
+
+    @Test
+    fun allTimePeriodKeepsOlderCompletedAttendanceRows() {
+        val today = LocalDate.parse("2026-11-27")
+
+        assertTrue(RehearsalRosterRules.includesDate("2024-01-01", AttendancePeriod.ALL_TIME, today))
+    }
+
+    @Test
+    fun invalidAttendanceDatesAreExcludedFromPeriodSummaries() {
+        val today = LocalDate.parse("2026-11-27")
+
+        assertTrue(!RehearsalRosterRules.includesDate("not-a-date", AttendancePeriod.ALL_TIME, today))
     }
 
     @Test
