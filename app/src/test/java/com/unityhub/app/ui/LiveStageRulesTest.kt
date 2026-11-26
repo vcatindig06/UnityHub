@@ -44,7 +44,7 @@ class LiveStageRulesTest {
             "{start_of_intro}",
             "[G] [C]",
             "{end_of_intro}"
-        ).joinToString("\\n")
+        ).joinToString("\n")
         val document = ChordProParser.parse(source)
         val introHeader = document.lines.firstOrNull {
             it.section == "Intro" && it.chords.isEmpty()
