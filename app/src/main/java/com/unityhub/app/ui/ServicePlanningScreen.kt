@@ -1547,23 +1547,52 @@ private fun CustomServiceItemDialog(
     var title by rememberSaveable { mutableStateOf("") }
     var selectedType by rememberSaveable { mutableStateOf("prayer") }
     var duration by rememberSaveable { mutableStateOf("") }
+    var typeMenuExpanded by remember { mutableStateOf(false) }
+    val customSelected = selectedType == "other"
 
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("Add service item") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Item title *") }, singleLine = true, enabled = !saving)
                 Text("Item type", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(
-                        onClick = {
-                            val next = (types.indexOf(selectedType) + 1) % types.size
-                            selectedType = types[next]
-                        },
-                        enabled = !saving
-                    ) { Text(selectedType.replaceFirstChar { it.uppercase() }) }
-                    Text("Tap to change type", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box {
+                    OutlinedButton(
+                        onClick = { typeMenuExpanded = true },
+                        enabled = !saving,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (customSelected) "Custom" else selectedType.replaceFirstChar { it.uppercase() })
+                    }
+                    DropdownMenu(
+                        expanded = typeMenuExpanded,
+                        onDismissRequest = { typeMenuExpanded = false }
+                    ) {
+                        (types + "custom").distinct().forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(if (type == "custom") "Custom" else type.replaceFirstChar { it.uppercase() }) },
+                                onClick = {
+                                    selectedType = if (type == "custom") "other" else type
+                                    typeMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it.take(200) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(if (customSelected) "Custom item name *" else "Item title *") },
+                    singleLine = true,
+                    enabled = !saving
+                )
+                if (customSelected) {
+                    Text(
+                        "This item will be saved as a custom service item.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 OutlinedTextField(
                     value = duration,
