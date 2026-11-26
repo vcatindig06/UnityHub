@@ -1,6 +1,9 @@
 package com.unityhub.app.ui
 
+import com.unityhub.app.domain.chordpro.ChordProParser
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LiveStageRulesTest {
@@ -32,6 +35,24 @@ class LiveStageRulesTest {
         assertEquals(0, LiveStageRules.autoScrollDurationMillis(0, 2f, 24))
         assertEquals(0, LiveStageRules.autoScrollDurationMillis(480, 0f, 24))
         assertEquals(0, LiveStageRules.autoScrollDurationMillis(480, 2f, 0))
+    }
+
+    @Test
+    fun chordOnlyIntroLinesRemainRenderableInLiveStage() {
+        val document = ChordProParser.parse(
+            "{start_of_intro}\\n[G] [C]\\n{end_of_intro}"
+        )
+        val introHeader = document.lines.first { it.section == "Intro" && it.chords.isEmpty() }
+        val chordOnlyLine = document.lines.first { it.section == "Intro" && it.chords.isNotEmpty() }
+
+        assertTrue(LiveStageRules.isSectionHeader(introHeader))
+        assertFalse(LiveStageRules.isSectionHeader(chordOnlyLine))
+        assertTrue(LiveStageRules.hasRenderableChartContent(chordOnlyLine))
+        assertEquals(listOf("G", "C"), chordOnlyLine.chords.map { it.chord })
+
+        val renderedChordRow = buildChordRow(chordOnlyLine, transpose = 0)
+        assertTrue(renderedChordRow.contains("G"))
+        assertTrue(renderedChordRow.contains("C"))
     }
 
     @Test

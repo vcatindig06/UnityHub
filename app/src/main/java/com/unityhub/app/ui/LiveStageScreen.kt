@@ -345,7 +345,7 @@ fun LiveStageScreen(
                     } else {
                         document?.lines.orEmpty().forEach { line ->
                             when {
-                                line.section != null && line.lyrics.isBlank() && line.chords.isEmpty() -> {
+                                LiveStageRules.isSectionHeader(line) -> {
                                     Text(
                                         line.section.uppercase(),
                                         color = StageAccent,
@@ -364,7 +364,7 @@ fun LiveStageScreen(
                                         modifier = Modifier.padding(vertical = 5.dp)
                                     )
                                 }
-                                line.lyrics.isBlank() && line.chords.isEmpty() -> {
+                                !LiveStageRules.hasRenderableChartContent(line) -> {
                                     Spacer(Modifier.height((12f * textScale).dp))
                                 }
                                 else -> {
@@ -384,14 +384,16 @@ fun LiveStageScreen(
                                                 maxLines = 1
                                             )
                                         }
-                                        Text(
-                                            line.lyrics,
-                                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                                            color = StagePrimaryText,
-                                            fontFamily = FontFamily.Monospace,
-                                            fontSize = (24f * textScale).sp,
-                                            lineHeight = (34f * textScale).sp
-                                        )
+                                        if (line.lyrics.isNotBlank()) {
+                                            Text(
+                                                line.lyrics,
+                                                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                                color = StagePrimaryText,
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = (24f * textScale).sp,
+                                                lineHeight = (34f * textScale).sp
+                                            )
+                                        }
                                     }
                                 }
                             }

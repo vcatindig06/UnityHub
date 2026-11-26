@@ -1,8 +1,15 @@
 package com.unityhub.app.ui
 
+import com.unityhub.app.domain.chordpro.ChordProLine
 import kotlin.math.ceil
 
 internal object LiveStageRules {
+    fun isSectionHeader(line: ChordProLine): Boolean =
+        line.section != null && line.lyrics.isBlank() && line.chords.isEmpty()
+
+    fun hasRenderableChartContent(line: ChordProLine): Boolean =
+        line.lyrics.isNotBlank() || line.chords.isNotEmpty()
+
     fun previousIndex(currentIndex: Int, itemCount: Int): Int {
         if (itemCount <= 0) return 0
         return currentIndex.coerceIn(0, itemCount - 1).minus(1).coerceAtLeast(0)
