@@ -21,6 +21,11 @@ data class RehearsalRosterSummary(
 )
 
 internal object RehearsalRosterRules {
+    fun attendanceRate(attended: Int, absent: Int): Int? {
+        val recordedOutcomes = attended + absent
+        return if (recordedOutcomes > 0) attended * 100 / recordedOutcomes else null
+    }
+
     fun summary(assignments: List<RehearsalAssignmentDto>): RehearsalRosterSummary {
         val attended = assignments.count { it.responseStatus == "attended" }
         val absent = assignments.count { it.responseStatus == "absent" }
