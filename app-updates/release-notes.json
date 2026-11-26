@@ -1,9 +1,33 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 57,
-  "latestVersionName": "0.57.0",
+  "latestVersionCode": 61,
+  "latestVersionName": "0.61.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 61,
+      "versionName": "0.61.0",
+      "releasedAt": "2026-11-27",
+      "summary": "Add team participation insights based on completed rehearsal attendance and upcoming service responses.",
+      "changes": [
+        "Show attended, absent, and not-recorded totals from completed rehearsal rosters.",
+        "Calculate attendance rate using only explicit Attended and Absent results; availability replies are not counted as attendance.",
+        "Review the three most recent completed rehearsal summaries.",
+        "Summarize confirmed, declined, and awaiting responses for upcoming service roles, clearly separated from attendance."
+      ]
+    },
+    {
+      "versionCode": 60,
+      "versionName": "0.60.0",
+      "releasedAt": "2026-11-26",
+      "summary": "Add a team-scoped Community dashboard with ministry coverage and upcoming services.",
+      "changes": [
+        "Show team size, ministry count, and upcoming service count.",
+        "Highlight members without assigned ministry positions and positions that still need coverage.",
+        "Preview upcoming services with assigned role and confirmation counts.",
+        "Keep private profile activity out of the shared Community dashboard."
+      ]
+    },
     {
       "versionCode": 57,
       "versionName": "0.57.0",
