@@ -66,6 +66,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.unityhub.app.ui.components.UnityHubLoadingScreen
+import com.unityhub.app.ui.theme.AppearanceMode
 import com.unityhub.app.ui.components.UnityHubLogoMark
 import com.unityhub.app.data.OfflineWorkspaceCache
 import com.unityhub.app.data.OfflineWorkspaceSnapshot
@@ -101,6 +102,8 @@ private val destinations = listOf(
 @Composable
 fun UnityHubApp(
     onSignOut: () -> Unit,
+    appearanceMode: AppearanceMode,
+    onAppearanceModeChange: (AppearanceMode) -> Unit,
     pushNavigation: UnityHubPushNavigation? = null,
     onPushNavigationHandled: () -> Unit = {}
 ) {
@@ -1127,6 +1130,8 @@ private fun WorkspaceDashboard(
                 else -> AccountSettingsScreen(
                     organizationName = organization.name,
                     role = roleLabel(workspace.role),
+                    appearanceMode = appearanceMode,
+                    onAppearanceModeChange = onAppearanceModeChange,
                     onSignOut = onSignOut,
                     modifier = Modifier.padding(innerPadding)
                 )
