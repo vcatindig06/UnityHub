@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -409,7 +410,7 @@ fun ProfileOverviewScreen(
                     } else {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ContributionMetric("Songs created", summary.songsCreated)
-                            ContributionMetric("Services served", summary.servicesServed)
+                            ContributionMetric("Completed services", summary.servicesServed)
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ContributionMetric("Rehearsals attended", summary.attendedRehearsals)
@@ -582,7 +583,7 @@ private fun OutlinedButtonFullWidth(onClick: () -> Unit, text: String) {
 }
 
 @Composable
-private fun ContributionMetric(label: String, count: Int) {
+private fun RowScope.ContributionMetric(label: String, count: Int) {
     Card(
         modifier = Modifier.weight(1f),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
