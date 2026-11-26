@@ -900,7 +900,7 @@ private fun WorkspaceDashboard(
             if (!showNotifications && !showTeamManagement && !showTeamChat) {
                 WorkspaceBottomNavigationBar(
                     selectedTab = selectedTab,
-                    onTabSelected = navigateToTab,
+                    onTabSelected = { destination -> navigateToTab(destination) },
                     onPrimaryAction = {
                         if (selectedTab == SONGS_TAB_INDEX) {
                             createSetlistRequestId += 1
