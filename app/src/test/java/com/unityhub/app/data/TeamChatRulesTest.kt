@@ -34,6 +34,21 @@ class TeamChatRulesTest {
     }
 
     @Test
+    fun incomingEditedMessageReplacesThePreviouslyLoadedMessage() {
+        val original = message("same-id", "2026-11-25T08:00:00Z")
+        val updated = original.copy(content = "Updated content", editedAt = "2026-11-25T08:05:00Z")
+
+        val result = TeamChatRules.mergeMessages(
+            current = listOf(original),
+            incoming = listOf(updated)
+        )
+
+        assertEquals(1, result.size)
+        assertEquals("Updated content", result.single().content)
+        assertEquals("2026-11-25T08:05:00Z", result.single().editedAt)
+    }
+
+    @Test
     fun readReceiptCountsOnlyOtherCurrentOrganizationMembers() {
         val message = message("2", "2026-11-25T08:01:00Z", sender = "sender")
         val states = listOf(

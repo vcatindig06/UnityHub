@@ -76,6 +76,7 @@ import com.unityhub.app.data.OrganizationDirectoryDto
 import com.unityhub.app.data.OrganizationJoinRequestDto
 import com.unityhub.app.data.OrganizationRepository
 import com.unityhub.app.data.OrganizationWorkspace
+import com.unityhub.app.data.ServiceMemberOption
 import com.unityhub.app.data.NotificationRules
 import com.unityhub.app.data.NotificationsRepository
 import com.unityhub.app.data.SupabaseClientProvider
@@ -733,6 +734,8 @@ private fun WorkspaceDashboard(
     var showTeamManagement by rememberSaveable { mutableStateOf(false) }
     var showPersonalProfile by rememberSaveable { mutableStateOf(false) }
     var showTeamChat by rememberSaveable { mutableStateOf(false) }
+    var showMemberProfile by rememberSaveable { mutableStateOf(false) }
+    var selectedMemberProfile by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var chatReturnDestination by rememberSaveable { mutableStateOf("home") }
     var requestedServicePlanId by remember { mutableStateOf<String?>(null) }
@@ -773,10 +776,11 @@ private fun WorkspaceDashboard(
     }
 
     BackHandler(
-        enabled = showNotifications || showTeamManagement || showTeamChat || showPersonalProfile || showSettings ||
+        enabled = showMemberProfile || showNotifications || showTeamManagement || showTeamChat || showPersonalProfile || showSettings ||
             tabHistory.isNotEmpty() || selectedTab != HOME_TAB_INDEX
     ) {
         when {
+            showMemberProfile -> showMemberProfile = false
             showTeamChat -> returnFromTeamChat()
             showSettings -> showSettings = false
             showPersonalProfile -> showPersonalProfile = false
@@ -842,10 +846,11 @@ private fun WorkspaceDashboard(
                     modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (showNotifications || showTeamManagement || showTeamChat || showPersonalProfile || showSettings) {
+                    if (showMemberProfile || showNotifications || showTeamManagement || showTeamChat || showPersonalProfile || showSettings) {
                         IconButton(
                             onClick = {
                                 when {
+                                    showMemberProfile -> showMemberProfile = false
                                     showTeamChat -> returnFromTeamChat()
                                     showSettings -> showSettings = false
                                     showPersonalProfile -> showPersonalProfile = false
@@ -1078,6 +1083,14 @@ private fun WorkspaceDashboard(
                 },
                 modifier = Modifier.padding(innerPadding)
             )
+            showMemberProfile -> selectedMemberProfile?.let { member ->
+                MemberProfileScreen(
+                    organizationId = organization.id,
+                    member = member,
+                    onBack = { showMemberProfile = false },
+                    modifier = Modifier.padding(innerPadding)
+                )
+            }
             showPersonalProfile -> ProfileOverviewScreen(
                 organizationId = organization.id,
                 organizationName = organization.name,
@@ -1092,12 +1105,20 @@ private fun WorkspaceDashboard(
                 onReviewRequest = onReviewRequest,
                 errorMessage = errorMessage,
                 onWorkspaceChanged = onRefresh,
+                onOpenMemberProfile = { member ->
+                    selectedMemberProfile = member
+                    showMemberProfile = true
+                },
                 modifier = Modifier.padding(innerPadding)
             )
             showTeamChat -> TeamChatScreen(
                 organizationId = organization.id,
                 organizationName = organization.name,
                 userId = userId,
+                onOpenMemberProfile = { member ->
+                    selectedMemberProfile = member
+                    showMemberProfile = true
+                },
                 modifier = Modifier.padding(innerPadding)
             )
             else -> when (selectedTab) {

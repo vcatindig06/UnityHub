@@ -30,7 +30,12 @@ data class TeamChatMessageDto(
     @SerialName("organization_id") val organizationId: String,
     @SerialName("sender_id") val senderId: String,
     val content: String,
-    @SerialName("created_at") val createdAt: String
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("reply_to_message_id") val replyToMessageId: String? = null,
+    @SerialName("edited_at") val editedAt: String? = null,
+    @SerialName("deleted_at") val deletedAt: String? = null,
+    @SerialName("pinned_at") val pinnedAt: String? = null,
+    @SerialName("pinned_by") val pinnedBy: String? = null
 )
 
 @Serializable
@@ -46,7 +51,26 @@ data class TeamChatReadStateDto(
 private data class NewTeamChatMessage(
     @SerialName("organization_id") val organizationId: String,
     @SerialName("sender_id") val senderId: String,
-    val content: String
+    val content: String,
+    @SerialName("reply_to_message_id") val replyToMessageId: String? = null
+)
+
+@Serializable
+data class TeamChatReactionDto(
+    val id: String,
+    @SerialName("organization_id") val organizationId: String,
+    @SerialName("message_id") val messageId: String,
+    @SerialName("user_id") val userId: String,
+    val emoji: String,
+    @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+private data class NewTeamChatReaction(
+    @SerialName("organization_id") val organizationId: String,
+    @SerialName("message_id") val messageId: String,
+    @SerialName("user_id") val userId: String,
+    val emoji: String
 )
 
 data class TeamChatMessagePage(
@@ -57,6 +81,7 @@ data class TeamChatMessagePage(
 sealed interface TeamChatRealtimeEvent {
     data object Connected : TeamChatRealtimeEvent
     data class MessageReceived(val message: TeamChatMessageDto) : TeamChatRealtimeEvent
+    data class MessageUpdated(val message: TeamChatMessageDto) : TeamChatRealtimeEvent
 }
 
 internal object TeamChatRules {
@@ -76,7 +101,8 @@ internal object TeamChatRules {
         current: List<TeamChatMessageDto>,
         incoming: List<TeamChatMessageDto>
     ): List<TeamChatMessageDto> = (current + incoming)
-        .distinctBy { it.id }
+        .associateBy { it.id }
+        .values
         .sortedWith(compareBy<TeamChatMessageDto> { it.createdAt }.thenBy { it.id })
 
     fun readByCount(
@@ -190,10 +216,20 @@ class TeamChatRepository(private val client: SupabaseClient) {
             table = "team_messages"
             filter = "organization_id=eq.$organizationId"
         }
-        val collector = launch {
+        val updates = channel.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
+            table = "team_messages"
+            filter = "organization_id=eq.$organizationId"
+        }
+        val insertCollector = launch {
             changes.collect { action ->
                 val message = CHAT_JSON.decodeFromJsonElement<TeamChatMessageDto>(action.record)
                 send(TeamChatRealtimeEvent.MessageReceived(message))
+            }
+        }
+        val updateCollector = launch {
+            updates.collect { action ->
+                val message = CHAT_JSON.decodeFromJsonElement<TeamChatMessageDto>(action.record)
+                send(TeamChatRealtimeEvent.MessageUpdated(message))
             }
         }
 
@@ -202,7 +238,8 @@ class TeamChatRepository(private val client: SupabaseClient) {
             send(TeamChatRealtimeEvent.Connected)
             awaitCancellation()
         } finally {
-            collector.cancelAndJoin()
+            insertCollector.cancelAndJoin()
+            updateCollector.cancelAndJoin()
             runCatching { client.realtime.removeChannel(channel) }
         }
     }
@@ -222,13 +259,106 @@ class TeamChatRepository(private val client: SupabaseClient) {
         )
     }
 
-    suspend fun sendMessage(organizationId: String, senderId: String, content: String) {
+    suspend fun loadReactions(organizationId: String): List<TeamChatReactionDto> =
+        client.from("team_message_reactions").select {
+            filter { eq("organization_id", organizationId) }
+        }.decodeList<TeamChatReactionDto>()
+
+    fun observeReactions(organizationId: String): Flow<List<TeamChatReactionDto>> =
+        client.from("team_message_reactions").selectAsFlow(
+            TeamChatReactionDto::id,
+            filter = { eq("organization_id", organizationId) }
+        )
+
+    suspend fun toggleReaction(
+        organizationId: String, messageId: String, userId: String, emoji: String
+    ) {
+        require(organizationId.isNotBlank() && messageId.isNotBlank() && userId.isNotBlank())
+        val normalized = emoji.trim()
+        require(normalized.isNotEmpty() && normalized.length <= 16) { "Choose one emoji reaction." }
+        val existing = client.from("team_message_reactions").select {
+            filter {
+                eq("organization_id", organizationId)
+                eq("message_id", messageId)
+                eq("user_id", userId)
+                eq("emoji", normalized)
+            }
+        }.decodeList<TeamChatReactionDto>().firstOrNull()
+        if (existing != null) {
+            client.from("team_message_reactions").delete {
+                filter {
+                    eq("id", existing.id)
+                    eq("organization_id", organizationId)
+                    eq("user_id", userId)
+                }
+            }
+        } else {
+            client.from("team_message_reactions").insert(
+                NewTeamChatReaction(organizationId, messageId, userId, normalized)
+            )
+        }
+    }
+
+    suspend fun editMessage(organizationId: String, messageId: String, senderId: String, content: String) {
+        val updated = client.from("team_messages").update({
+            set("content", TeamChatRules.normalizeMessage(content))
+            set("edited_at", Instant.now().toString())
+        }) {
+            select()
+            filter {
+                eq("id", messageId)
+                eq("organization_id", organizationId)
+                eq("sender_id", senderId)
+            }
+        }.decodeList<TeamChatMessageDto>()
+        check(updated.isNotEmpty()) { "This message could not be edited." }
+    }
+
+    suspend fun deleteMessage(organizationId: String, messageId: String, senderId: String) {
+        val updated = client.from("team_messages").update({
+            set("content", "This message was deleted")
+            set("deleted_at", Instant.now().toString())
+        }) {
+            select()
+            filter {
+                eq("id", messageId)
+                eq("organization_id", organizationId)
+                eq("sender_id", senderId)
+            }
+        }.decodeList<TeamChatMessageDto>()
+        check(updated.isNotEmpty()) { "This message could not be deleted." }
+    }
+
+    suspend fun setPinned(organizationId: String, messageId: String, userId: String, pinned: Boolean) {
+        val updated = client.from("team_messages").update({
+            set("pinned_at", if (pinned) Instant.now().toString() else null)
+            set("pinned_by", if (pinned) userId else null)
+        }) {
+            select()
+            filter {
+                eq("id", messageId)
+                eq("organization_id", organizationId)
+                if (!pinned) eq("pinned_by", userId)
+            }
+        }.decodeList<TeamChatMessageDto>()
+        check(updated.isNotEmpty()) {
+            if (pinned) "This message could not be pinned." else "Only the pinner can unpin this message."
+        }
+    }
+
+    suspend fun sendMessage(
+        organizationId: String,
+        senderId: String,
+        content: String,
+        replyToMessageId: String? = null
+    ) {
         require(organizationId.isNotBlank() && senderId.isNotBlank())
         client.from("team_messages").insert(
             NewTeamChatMessage(
                 organizationId = organizationId,
                 senderId = senderId,
-                content = TeamChatRules.normalizeMessage(content)
+                content = TeamChatRules.normalizeMessage(content),
+                replyToMessageId = replyToMessageId
             )
         )
     }

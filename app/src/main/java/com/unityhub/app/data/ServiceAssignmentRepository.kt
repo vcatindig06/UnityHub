@@ -24,7 +24,8 @@ data class ServiceMemberOption(
     val memberId: String,
     val userId: String,
     val displayName: String,
-    val teamRole: String
+    val teamRole: String,
+    val avatarPath: String? = null
 )
 
 data class MyServiceAssignment(
@@ -42,7 +43,8 @@ data class ServiceAssignmentOverviewEntry(
 @Serializable
 private data class ProfileNameDto(
     val id: String,
-    @SerialName("display_name") val displayName: String
+    @SerialName("display_name") val displayName: String,
+    @SerialName("avatar_path") val avatarPath: String? = null
 )
 
 @Serializable
@@ -204,7 +206,8 @@ class ServiceAssignmentRepository(private val client: SupabaseClient) {
                 displayName = profiles[member.userId]?.displayName
                     ?.takeIf(String::isNotBlank)
                     ?: "UnityHub member",
-                teamRole = member.role
+                teamRole = member.role,
+                avatarPath = profiles[member.userId]?.avatarPath
             )
         }.sortedBy { it.displayName.lowercase() }
     }

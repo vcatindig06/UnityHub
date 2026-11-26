@@ -1,10 +1,20 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import androidx.compose.material.icons.filled.Person
+import com.unityhub.app.data.AccountProfile
+import com.unityhub.app.data.AccountRepository
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -54,6 +64,10 @@ fun MemberProfileScreen(
     val repository = remember(organizationId) {
         MemberProfileRepository(SupabaseClientProvider.client)
     }
+    val accountRepository = remember { AccountRepository(SupabaseClientProvider.client) }
+    var publicProfile by remember(organizationId, member.userId) {
+        mutableStateOf<AccountProfile?>(null)
+    }
     val scope = rememberCoroutineScope()
     var profile by remember(organizationId, member.memberId) {
         mutableStateOf<MemberProfileData?>(null)
@@ -67,6 +81,9 @@ fun MemberProfileScreen(
             error = ""
             try {
                 profile = repository.loadProfile(organizationId, member.memberId)
+                publicProfile = runCatching {
+                    accountRepository.loadPublicProfile(member.userId)
+                }.getOrNull()
             } catch (_: Exception) {
                 error = "This member's activity could not be loaded. Check your connection and try again."
             } finally {
@@ -146,17 +163,50 @@ fun MemberProfileScreen(
                 Card(shape = RoundedCornerShape(16.dp)) {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        val avatarUrl = accountRepository.publicMediaUrl(publicProfile?.avatarPath)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.size(72.dp).clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (!avatarUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = avatarUrl,
+                                        contentDescription = "${member.displayName} profile photo",
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(34.dp), tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(member.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(memberRoleLabel(member.teamRole), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                Text("Member since ${formatMemberDate(data.joinedAt)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        if (!publicProfile?.bio.isNullOrBlank()) {
+                            Text(publicProfile?.bio.orEmpty(), style = MaterialTheme.typography.bodyMedium)
+                        }
+                        val socialLinks = publicProfile?.socialLinks.orEmpty()
+                        if (socialLinks.isNotEmpty()) {
+                            Text(
+                                socialLinks.entries.sortedBy { it.key }.joinToString(" · ") { (key, value) -> "${key.replaceFirstChar { it.uppercase() }}: $value" },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
                         Text(
-                            memberRoleLabel(member.teamRole),
+                            "Team role: ${memberRoleLabel(member.teamRole)}",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            "Member since ${formatMemberDate(data.joinedAt)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             if (data.ministryPositions.isEmpty()) "No ministry positions assigned"

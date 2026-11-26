@@ -19,12 +19,25 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.background
+import coil.compose.AsyncImage
+import com.unityhub.app.data.AccountRepository
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -76,6 +89,7 @@ fun TeamManagementScreen(
     onReviewRequest: (String, Boolean) -> Unit,
     errorMessage: String,
     onWorkspaceChanged: () -> Unit = {},
+    onOpenMemberProfile: (ServiceMemberOption) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val organizationId = workspace.organization?.id ?: return
@@ -545,7 +559,8 @@ fun TeamManagementScreen(
                     isOrganizationOwner = member.userId == organizationOwnerId,
                     saving = saving,
                     onManagePositions = { selectedMember = member },
-                    onManageAccess = { memberAccessTarget = member }
+                    onManageAccess = { memberAccessTarget = member },
+                    onOpenProfile = { onOpenMemberProfile(member) }
                 )
             }
             if (memberListPages > 1) {
@@ -764,10 +779,14 @@ private fun TeamMemberProfileCard(
     isOrganizationOwner: Boolean,
     saving: Boolean,
     onManagePositions: () -> Unit,
-    onManageAccess: () -> Unit
+    onManageAccess: () -> Unit,
+    onOpenProfile: () -> Unit
 ) {
+    val avatarUrl = remember(member.avatarPath) {
+        AccountRepository(SupabaseClientProvider.client).publicMediaUrl(member.avatarPath)
+    }
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenProfile),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -776,12 +795,29 @@ private fun TeamMemberProfileCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.Person,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(34.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!avatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = avatarUrl,
+                        contentDescription = "${member.displayName} profile photo",
+                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     if (isCurrentUser) "${member.displayName} (You)" else member.displayName,
@@ -801,12 +837,35 @@ private fun TeamMemberProfileCard(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                Text(
-                    if (assignedPositions.isEmpty()) "No ministry position assigned"
-                    else assignedPositions.joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+                if (assignedPositions.isEmpty()) {
+                    Text(
+                        "No ministry position assigned",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                } else {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        assignedPositions.take(4).forEach { position ->
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                MinistryPositionIcon(position)
+                                Text(position, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        if (assignedPositions.size > 4) {
+                            Text("+${assignedPositions.size - 4}", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
                 if (canManagePositions) {
                     TextButton(onClick = onManagePositions, enabled = !saving) {
                         Text("Manage ministry positions")
@@ -1142,6 +1201,7 @@ private fun ManageMemberPositionsDialog(
                                 onCheckedChange = null,
                                 enabled = !saving
                             )
+                            MinistryPositionIcon(position.name)
                             Text(position.name)
                         }
                     }
@@ -1190,6 +1250,28 @@ private fun TeamJoinRequestCard(
             }
         }
     }
+}
+
+
+@Composable
+private fun MinistryPositionIcon(name: String, modifier: Modifier = Modifier) {
+    val normalized = name.trim().lowercase()
+    val image = when {
+        listOf("vocal", "singer", "voice", "worship leader").any(normalized::contains) -> Icons.Default.Mic
+        listOf("guitar", "bass", "drum", "keyboard", "piano", "instrument", "musician").any(normalized::contains) -> Icons.Default.MusicNote
+        listOf("sound", "audio", "mix", "foh").any(normalized::contains) -> Icons.Default.GraphicEq
+        listOf("video", "media", "stream", "camera", "photography").any(normalized::contains) -> Icons.Default.Videocam
+        listOf("photo", "visual").any(normalized::contains) -> Icons.Default.CameraAlt
+        listOf("light", "lighting").any(normalized::contains) -> Icons.Default.Lightbulb
+        listOf("dance", "dancer", "movement").any(normalized::contains) -> Icons.Default.DirectionsRun
+        else -> Icons.Default.Groups
+    }
+    Icon(
+        image,
+        contentDescription = "$name ministry icon",
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = modifier.size(18.dp)
+    )
 }
 
 private fun teamAccessLabel(role: String): String = TeamAccessRules.roleLabel(role)

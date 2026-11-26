@@ -1,9 +1,21 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 62,
-  "latestVersionName": "0.62.0",
+  "latestVersionCode": 63,
+  "latestVersionName": "0.63.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 63,
+      "versionName": "0.63.0",
+      "releasedAt": "2026-11-27",
+      "summary": "Improve Team Chat message interactions and make team member profiles accessible across Community and chat.",
+      "changes": [
+        "Add long-press message actions for ❤️, 😆, 😯, 😥, 😡 and 👍 reactions, plus custom emoji entry.",
+        "Support swipe-to-reply, message editing, soft deletion, pinned messages and live reaction updates in the organization conversation.",
+        "Show teammate avatars in the member directory and chat, with profile access from both screens.",
+        "Expand member profile views with shared bio and social links, and show role-specific ministry icons."
+      ]
+    },
     {
       "versionCode": 62,
       "versionName": "0.62.0",

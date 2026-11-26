@@ -101,6 +101,26 @@ class AccountRepository(
         )
     }
 
+    suspend fun loadPublicProfile(userId: String): AccountProfile {
+        require(userId.isNotBlank()) { "Choose a valid team member." }
+        val profile = loadProfileRecord(userId)
+            ?: error("This member's profile is unavailable.")
+        return AccountProfile(
+            displayName = AccountProfileRules.resolveDisplayName(
+                profileName = profile.displayName,
+                metadata = null,
+                email = null
+            ),
+            email = null,
+            avatarPath = profile.avatarPath,
+            coverPath = profile.coverPath,
+            bio = profile.bio,
+            socialLinks = profile.socialLinks.mapNotNull { (key, value) ->
+                (value as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)?.let { key to it }
+            }.toMap()
+        )
+    }
+
     suspend fun updateDisplayName(value: String): AccountProfile {
         val displayName = AccountProfileRules.normalizeDisplayName(value)
         val user = client.auth.currentUserOrNull()
