@@ -436,7 +436,6 @@ fun SongSetlistsScreen(
                                     scaleX = dragScale
                                     scaleY = dragScale
                                     shadowElevation = dragElevation.toPx()
-                                    translationZ = if (isDragged) 12f else 0f
                                 }
                                 .fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp)
@@ -457,7 +456,7 @@ fun SongSetlistsScreen(
                                         mutableStateOf(selectedItems.map { it.id })
                                     }
                                     var draggedCenterY by remember(item.id) {
-                                        mutableFloatStateOf(0f)
+                                        mutableStateOf(0f)
                                     }
                                     Icon(
                                         Icons.Default.DragHandle,

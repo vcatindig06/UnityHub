@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -60,6 +61,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import com.unityhub.app.domain.chordpro.ChordTransposer
 import java.nio.charset.StandardCharsets
 
@@ -82,6 +84,7 @@ fun SongChartScreen(
     val listState = remember(song.id) { LazyListState() }
     val density = LocalDensity.current
     val context = LocalContext.current
+    val chartScope = rememberCoroutineScope()
 
     LaunchedEffect(autoScrollEnabled, autoScrollSpeed, song.id) {
         if (autoScrollEnabled) {
@@ -292,14 +295,15 @@ fun SongChartScreen(
                             ) { Text("A+") }
                         }
                         TextButton(
-                            onClick = { autoScrollEnabled = false; listState.animateScrollToItem(0) },
+                            onClick = { autoScrollEnabled = false; chartScope.launch { listState.animateScrollToItem(0) } },
                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
                         ) { Text("Back to beginning") }
                     }
                 }
             }
         }
-        item(key = "${song.id}:chart-loading") {
+        when {
+            isParsingDocument -> item(key = "${song.id}:chart-loading") {
                 Column(Modifier.fillMaxWidth().padding(vertical = 28.dp)) {
                     CircularProgressIndicator()
                     Text(

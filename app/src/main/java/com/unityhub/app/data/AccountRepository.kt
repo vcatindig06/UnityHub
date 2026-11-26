@@ -172,8 +172,9 @@ class AccountRepository(
         val user = client.auth.currentUserOrNull()
             ?: error("No signed-in account was found.")
         val path = "${user.id}/$kind/${UUID.randomUUID()}.$extension"
-        client.storage["profile-media"].upload(path, bytes, upsert = false) {
-            this.contentType = contentType
+        client.storage["profile-media"].upload(path, bytes) {
+            upsert = false
+            contentType = contentType
         }
         client.from("profiles").update({
             if (kind == "avatar") set("avatar_path", path) else set("cover_path", path)
