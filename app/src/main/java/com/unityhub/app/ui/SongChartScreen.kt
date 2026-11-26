@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -56,7 +56,6 @@ import com.unityhub.app.domain.chordpro.ChordProParser
 import com.unityhub.app.domain.chordpro.ChordProDocument
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.withContext
 import com.unityhub.app.domain.chordpro.ChordTransposer
@@ -74,7 +73,9 @@ fun SongChartScreen(
     var autoScrollSpeed by rememberSaveable(song.id) {
         mutableFloatStateOf(ChartAutoScrollRules.DEFAULT_SPEED_DP_PER_SECOND)
     }
-    val listState = rememberLazyListState()
+    // Do not restore a scroll index from a different or previously opened chart.
+    // Saved-song screens can contain very different row counts.
+    val listState = remember(song.id) { LazyListState() }
     val density = LocalDensity.current
     val context = LocalContext.current
 
@@ -262,10 +263,18 @@ fun SongChartScreen(
                 }
             }
             documentParseFailed -> item(key = "${song.id}:chart-error") {
-                Text(
-                    "The saved ChordPro chart could not be opened. Return to the song library and try again.",
-                    color = MaterialTheme.colorScheme.error
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "UnityHub could not format this saved chart, so its original text is shown below. You can still return to Songs and edit the chart.",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        safeRawChartText(song.chordpro),
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             document?.lines.isNullOrEmpty() -> item(key = "${song.id}:chart-empty") {
                 Text(
@@ -369,9 +378,14 @@ internal object ChartAutoScrollRules {
         speed.coerceIn(MIN_SPEED_DP_PER_SECOND, MAX_SPEED_DP_PER_SECOND)
 }
 
+internal data class ChordProPreviewResult(
+    val document: ChordProDocument? = null,
+    val failed: Boolean = false
+)
+
 internal object ChordProPreviewRules {
-    // The editor preview only renders a few lines. Parsing an entire large
-    // paste creates thousands of temporary objects while the user is typing.
+    // Keep preview parsing bounded and synchronous so a text-field edit is
+    // reflected in the preview during the same Compose recomposition.
     const val MAX_PREVIEW_SOURCE_CHARACTERS = 32_768
 
     fun previewSource(source: String): String =
@@ -379,55 +393,47 @@ internal object ChordProPreviewRules {
 
     fun isTruncated(source: String): Boolean =
         source.length > MAX_PREVIEW_SOURCE_CHARACTERS
+
+    fun parse(source: String): ChordProPreviewResult {
+        if (source.isBlank()) return ChordProPreviewResult()
+        return runCatching { ChordProParser.parse(previewSource(source)) }
+            .fold(
+                onSuccess = { ChordProPreviewResult(document = it) },
+                onFailure = { ChordProPreviewResult(failed = true) }
+            )
+    }
 }
 
-private data class ChordProPreviewResult(
-    val loading: Boolean,
-    val document: ChordProDocument? = null,
-    val failed: Boolean = false
-)
+internal const val MAX_RAW_CHART_FALLBACK_CHARACTERS = 12_000
+
+internal fun safeRawChartText(source: String): String {
+    val bounded = source.take(MAX_RAW_CHART_FALLBACK_CHARACTERS)
+    val readable = bounded.filter { character ->
+        character == '\n' || character == '\r' || character == '\t' || character >= ' '
+    }
+    return buildString {
+        append(readable)
+        if (source.length > MAX_RAW_CHART_FALLBACK_CHARACTERS) {
+            append("\n\n[Chart text shortened for safe display]")
+        }
+    }
+}
 
 @Composable
 internal fun ChordProPreview(source: String, maxLines: Int = 8) {
     val previewSource = remember(source) { ChordProPreviewRules.previewSource(source) }
     val previewIsTruncated = ChordProPreviewRules.isTruncated(source)
-    var result by remember(previewSource) {
-        mutableStateOf(ChordProPreviewResult(loading = previewSource.isNotBlank()))
-    }
-
-    // Keep preview state tied to the actual input text. This avoids retaining a
-    // stale parsed document while the editor is changing between blank and filled.
-    LaunchedEffect(previewSource) {
-        if (previewSource.isBlank()) {
-            result = ChordProPreviewResult(loading = false)
-            return@LaunchedEffect
-        }
-
-        result = ChordProPreviewResult(loading = true)
-        delay(120)
-        val parsed = withContext(Dispatchers.Default) {
-            runCatching { ChordProParser.parse(previewSource) }
-        }
-        result = parsed.fold(
-            onSuccess = { ChordProPreviewResult(loading = false, document = it) },
-            onFailure = { ChordProPreviewResult(loading = false, failed = true) }
-        )
-    }
-
+    val result = remember(previewSource) { ChordProPreviewRules.parse(previewSource) }
     val currentDocument = result.document
+
     when {
         previewSource.isBlank() -> Text(
             "Add sample lyrics or type a chord to see the live chart here.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
         )
-        result.loading -> Text(
-            "Updating chart preview…",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall
-        )
         result.failed -> Text(
-            "The chart preview could not be generated. Check the ChordPro text and try again.",
+            "The preview could not be formatted. Check the ChordPro text and try again.",
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodySmall
         )
@@ -437,16 +443,19 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
             style = MaterialTheme.typography.bodySmall
         )
         else -> {
-            currentDocument.lines.take(maxLines.coerceAtLeast(1)).forEachIndexed { index, line ->
+            val visibleLineCount = maxLines.coerceIn(1, 16)
+            currentDocument.lines.take(visibleLineCount).forEachIndexed { index, line ->
                 key("preview-line-$index") {
                     ChordProChartLine(line = line, transpose = 0, scale = 0.9f)
                 }
             }
-            if (currentDocument.lines.size > maxLines || previewIsTruncated) {
+            if (currentDocument.lines.size > visibleLineCount || previewIsTruncated) {
                 Text(
-                    when {
-                        previewIsTruncated -> "Preview sample only · the complete chart text is retained"
-                        else -> "Preview only · ${currentDocument.lines.size - maxLines.coerceAtLeast(1)} more lines in the full chart"
+                    if (previewIsTruncated) {
+                        "Preview sample only · the complete chart text is retained"
+                    } else {
+                        "Preview only · " + (currentDocument.lines.size - visibleLineCount) +
+                            " more lines in the full chart"
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

@@ -1,9 +1,21 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 52,
-  "latestVersionName": "0.52.0",
+  "latestVersionCode": 53,
+  "latestVersionName": "0.53.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 53,
+      "versionName": "0.53.0",
+      "releasedAt": "2026-11-26",
+      "summary": "Make the live chart preview update immediately and harden saved-song chart navigation and fallback rendering.",
+      "changes": [
+        "Parse the bounded live preview directly from the latest editor text instead of waiting for a delayed coroutine state update.",
+        "Use a fresh non-restored chart scroll state when opening each saved song to avoid applying a stale list position to a different chart.",
+        "Show the original sanitized ChordPro text when a saved chart cannot be formatted, rather than leaving the chart area unusable.",
+        "Add unit coverage for immediate preview parsing, empty input, and bounded safe chart fallback text."
+      ]
+    },
     {
       "versionCode": 52,
       "versionName": "0.52.0",
