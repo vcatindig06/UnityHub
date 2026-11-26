@@ -107,7 +107,9 @@ fun UnityHubApp(
     pushNavigation: UnityHubPushNavigation? = null,
     onPushNavigationHandled: () -> Unit = {},
     themeMode: String = "system",
-    onThemeModeChanged: (String) -> Unit = {}
+    onThemeModeChanged: (String) -> Unit = {},
+    fontScale: Float = 1f,
+    onFontScaleChanged: (Float) -> Unit = {}
 ) {
     val client = remember { SupabaseClientProvider.client }
     val userId = remember { client.auth.currentSessionOrNull()?.user?.id.orEmpty() }
@@ -226,7 +228,9 @@ fun UnityHubApp(
             pushNavigation = pushNavigation,
             onPushNavigationHandled = onPushNavigationHandled,
             themeMode = themeMode,
-            onThemeModeChanged = onThemeModeChanged
+            onThemeModeChanged = onThemeModeChanged,
+            fontScale = fontScale,
+            onFontScaleChanged = onFontScaleChanged
         )
     }
 }
@@ -719,7 +723,9 @@ private fun WorkspaceDashboard(
     pushNavigation: UnityHubPushNavigation?,
     onPushNavigationHandled: () -> Unit,
     themeMode: String,
-    onThemeModeChanged: (String) -> Unit
+    onThemeModeChanged: (String) -> Unit,
+    fontScale: Float,
+    onFontScaleChanged: (Float) -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(HOME_TAB_INDEX) }
     var tabHistory by rememberSaveable { mutableStateOf(emptyList<Int>()) }
@@ -1023,6 +1029,12 @@ private fun WorkspaceDashboard(
                 onSignOut = onSignOut,
                 themeMode = themeMode,
                 onThemeModeChanged = onThemeModeChanged,
+                fontScale = fontScale,
+                onFontScaleChanged = onFontScaleChanged,
+                onOpenProfileDetails = {
+                    showSettings = false
+                    showPersonalProfile = true
+                },
                 modifier = Modifier.padding(innerPadding)
             )
             showNotifications -> NotificationsScreen(
