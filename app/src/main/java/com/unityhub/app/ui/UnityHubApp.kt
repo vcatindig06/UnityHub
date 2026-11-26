@@ -2,7 +2,6 @@ package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -935,7 +934,10 @@ private fun WorkspaceDashboard(
                         )
                     )
                     Box(
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        // Keep the center action constrained to the NavigationBar's compact row.
+                        // fillMaxHeight() here expands the bottomBar during Scaffold measurement,
+                        // consuming the space intended for the app bar and destination content.
+                        modifier = Modifier.weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
                         val setlistAction = selectedTab == SONGS_TAB_INDEX
