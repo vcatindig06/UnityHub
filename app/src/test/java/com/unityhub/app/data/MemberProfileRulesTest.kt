@@ -54,13 +54,9 @@ class MemberProfileRulesTest {
     }
 
     @Test
-    fun summaryCountsCompletedServicesAndSongsAsTeamContributions() {
+    fun summaryCountsOnlySongsCreatedAndRecordedAttendanceAsContributions() {
         val summary = MemberProfileRules.summarize(
-            services = listOf(
-                service("Completed and confirmed", "2026-11-20", "completed", "confirmed"),
-                service("Completed but not confirmed", "2026-11-19", "completed", "pending"),
-                service("Upcoming", "2026-11-26", "published", "confirmed")
-            ),
+            services = emptyList(),
             rehearsals = listOf(
                 rehearsal("Attended rehearsal", "2026-11-18", "completed", "attended"),
                 rehearsal("Missed rehearsal", "2026-11-17", "completed", "absent")
@@ -69,7 +65,6 @@ class MemberProfileRulesTest {
             songsCreated = 4
         )
 
-        assertEquals(1, summary.servicesServed)
         assertEquals(4, summary.songsCreated)
         assertEquals(1, summary.attendedRehearsals)
     }
