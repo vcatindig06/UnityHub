@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.messaging.FirebaseMessaging
@@ -81,7 +82,7 @@ class MainActivity : ComponentActivity() {
             }
             val baseDensity = LocalDensity.current
             CompositionLocalProvider(
-                LocalDensity provides baseDensity.copy(fontScale = fontScale)
+                LocalDensity provides Density(baseDensity.density, baseDensity.fontScale * fontScale)
             ) {
                 UnityHubTheme(themeMode = themeMode) {
                 BackHandler {
