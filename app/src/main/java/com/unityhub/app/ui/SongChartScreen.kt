@@ -192,7 +192,7 @@ fun SongChartScreen(
         }
         item(key = "${song.id}:performance-settings") {
             Card {
-                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     TextButton(onClick = { performanceSettingsExpanded = !performanceSettingsExpanded }) {
                         Text(if (performanceSettingsExpanded) "Hide performance settings" else "Show performance settings")
                     }
@@ -382,7 +382,7 @@ fun SongChartScreen(
 private fun ChartMetadata(label: String, value: String) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
     }
 }
 

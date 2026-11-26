@@ -119,6 +119,9 @@ class ChordProParserTest {
         assertEquals(74, document.tempo)
         assertEquals("6/8", document.timeSignature)
         assertTrue(document.lines.any { it.section == "Intro" })
+        val introLine = document.lines.first { it.lyrics == "Instrumental" }
+        assertEquals("Intro", introLine.section)
+        assertEquals(listOf("G"), introLine.chords.map { it.chord })
         assertTrue(document.lines.any { it.section == "Chorus" })
     }
 

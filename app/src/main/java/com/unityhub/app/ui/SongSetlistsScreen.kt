@@ -427,6 +427,7 @@ fun SongSetlistsScreen(
                             ) {
                                 if (canManage) {
                                     var dragOrder = selectedItems.toMutableList()
+                                    var originalItems = selectedItems.toList()
                                     var originalOrder = selectedItems.map { it.id }
                                     var draggedCenterY = 0f
                                     Icon(
@@ -438,6 +439,7 @@ fun SongSetlistsScreen(
                                                 detectDragGesturesAfterLongPress(
                                                     onDragStart = { touchOffset ->
                                                         dragOrder = selectedItems.toMutableList()
+                                                        originalItems = dragOrder.toList()
                                                         originalOrder = dragOrder.map { it.id }
                                                         val info = setlistListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == item.id }
                                                         draggedCenterY = (info?.offset ?: 0) + touchOffset.y
@@ -464,7 +466,7 @@ fun SongSetlistsScreen(
                                                             })
                                                         }
                                                     },
-                                                    onDragCancel = { selectedItems = dragOrder.toList() }
+                                                    onDragCancel = { selectedItems = originalItems }
                                                 )
                                             }
                                     )
