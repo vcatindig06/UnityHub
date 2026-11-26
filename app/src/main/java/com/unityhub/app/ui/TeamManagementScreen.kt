@@ -216,7 +216,11 @@ fun TeamManagementScreen(
         refresh()
     }
 
-    LaunchedEffect(memberListPages) {\n        memberListPage = memberListPage.coerceIn(0, (memberListPages - 1).coerceAtLeast(0))\n    }\n\n    LaunchedEffect(positionListPages) {
+    LaunchedEffect(memberListPages) {
+        memberListPage = memberListPage.coerceIn(0, (memberListPages - 1).coerceAtLeast(0))
+    }
+
+    LaunchedEffect(positionListPages) {
         positionListPage = positionListPage.coerceIn(0, (positionListPages - 1).coerceAtLeast(0))
     }
 
@@ -435,7 +439,8 @@ fun TeamManagementScreen(
                             FilterChip(
                                 selected = selectedPositionFilter == position.name,
                                 onClick = {
-                                    selectedPositionFilter = if (selectedPositionFilter == position.name) "" else position.name\n                                    memberListPage = 0
+                                    selectedPositionFilter = if (selectedPositionFilter == position.name) "" else position.name
+                                    memberListPage = 0
                                 },
                                 label = { Text(position.name) }
                             )
