@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -434,8 +436,8 @@ fun SongLibraryScreen(
             onCancel = { editorOpen = false },
             onSave = {
                 val parsedTempo = tempo.toIntOrNull()
-                if (tempo.isNotBlank() && parsedTempo == null) {
-                    error = "Enter a valid tempo."
+                if (tempo.isNotBlank() && (parsedTempo == null || parsedTempo !in 20..300)) {
+                    error = "Tempo must be between 20 and 300 BPM."
                 } else {
                     scope.launch {
                         saving = true
@@ -574,8 +576,8 @@ fun SongLibraryScreen(
                         horizontalArrangement = Arrangement.End
                     ) {
                         Box {
-                            TextButton(onClick = { sortMenuExpanded = true }) {
-                                Text("Sort: ${songSortOption.label}")
+                            IconButton(onClick = { sortMenuExpanded = true }) {
+                                Icon(Icons.Default.Sort, contentDescription = "Sort songs: ${songSortOption.label}")
                             }
                             DropdownMenu(
                                 expanded = sortMenuExpanded,
@@ -750,6 +752,11 @@ private fun SongEditor(
     onCancel: () -> Unit,
     onSave: () -> Unit
 ) {
+    var keyMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    var timeMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    var guideExpanded by rememberSaveable { mutableStateOf(false) }
+    val keyOptions = listOf("C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B")
+    val timeOptions = listOf("4/4", "3/4", "6/8", "2/4", "2/2", "12/8")
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
@@ -825,26 +832,45 @@ private fun SongEditor(
         }
         item(key = "song-editor-item-3") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(keySignature, onKeyChange, Modifier.weight(1f), label = { Text("Key") }, singleLine = true, enabled = !saving)
-                OutlinedTextField(tempo, onTempoChange, Modifier.weight(1f), label = { Text("Tempo (BPM)") }, singleLine = true, enabled = !saving, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                Box(Modifier.weight(1f)) {
+                    OutlinedButton(onClick = { keyMenuExpanded = true }, modifier = Modifier.fillMaxWidth(), enabled = !saving) {
+                        Text(keySignature.ifBlank { "Key" }, maxLines = 1)
+                    }
+                    DropdownMenu(expanded = keyMenuExpanded, onDismissRequest = { keyMenuExpanded = false }) {
+                        keyOptions.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { onKeyChange(option); keyMenuExpanded = false }) }
+                    }
+                }
+                OutlinedTextField(tempo, onTempoChange, Modifier.weight(1f), label = { Text("BPM (20–300)") }, singleLine = true, enabled = !saving, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
             }
         }
         item(key = "song-editor-item-4") {
-            OutlinedTextField(timeSignature, onTimeSignatureChange, Modifier.fillMaxWidth().padding(horizontal = 20.dp), label = { Text("Time signature") }, singleLine = true, enabled = !saving)
+            Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                OutlinedButton(onClick = { timeMenuExpanded = true }, modifier = Modifier.fillMaxWidth(), enabled = !saving) {
+                    Text("Time signature · $timeSignature")
+                }
+                DropdownMenu(expanded = timeMenuExpanded, onDismissRequest = { timeMenuExpanded = false }) {
+                    timeOptions.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { onTimeSignatureChange(option); timeMenuExpanded = false }) }
+                }
+            }
         }
         item(key = "song-editor-item-5") {
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Text("ChordPro chart", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(
-                    "Type lyrics normally and place each chord in square brackets just before the syllable where it changes. Use section tags to label verses and choruses.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "Guide: [G] = chord · [D/F#] = slash chord · {start_of_verse} / {end_of_verse} = verse · {start_of_chorus} / {end_of_chorus} = chorus · {comment: ...} = stage note",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                TextButton(onClick = { guideExpanded = !guideExpanded }, contentPadding = PaddingValues(0.dp)) {
+                    Text(if (guideExpanded) "Hide ChordPro guide" else "Show ChordPro guide")
+                }
+                if (guideExpanded) {
+                    Text(
+                        "Place chords in square brackets before the syllable where they change. Use section tags for verses, choruses, intros and bridges.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "[G] = chord · [D/F#] = slash chord · {start_of_intro} / {end_of_intro} = intro · {start_of_verse} / {end_of_verse} = verse · {start_of_chorus} / {end_of_chorus} = chorus · {comment: ...} = stage note",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 if (chordpro.isBlank()) {
                     OutlinedButton(
                         onClick = { onChordproChange(SAMPLE_CHORDPRO) },

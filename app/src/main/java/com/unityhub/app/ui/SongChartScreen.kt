@@ -69,6 +69,7 @@ fun SongChartScreen(
 ) {
     var transpose by rememberSaveable(song.id) { mutableIntStateOf(0) }
     var chartScale by rememberSaveable(song.id) { mutableFloatStateOf(1f) }
+    var performanceSettingsExpanded by rememberSaveable(song.id) { mutableStateOf(false) }
     var autoScrollEnabled by rememberSaveable(song.id) { mutableStateOf(false) }
     var autoScrollSpeed by rememberSaveable(song.id) {
         mutableFloatStateOf(ChartAutoScrollRules.DEFAULT_SPEED_DP_PER_SECOND)
@@ -191,12 +192,15 @@ fun SongChartScreen(
         item(key = "${song.id}:performance-settings") {
             Card {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Performance settings", modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    TextButton(onClick = { performanceSettingsExpanded = !performanceSettingsExpanded }) {
+                        Text(if (performanceSettingsExpanded) "Hide performance settings" else "Show performance settings")
+                    }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         ChartMetadata("Key", displayKey ?: "—")
                         ChartMetadata("Tempo", displayTempo?.let { "$it BPM" } ?: "—")
                         ChartMetadata("Time", displayTimeSignature.ifBlank { "—" })
                     }
+                    if (performanceSettingsExpanded) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
                             Text("Transpose", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -251,6 +255,7 @@ fun SongChartScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
                     }
                 }
             }
