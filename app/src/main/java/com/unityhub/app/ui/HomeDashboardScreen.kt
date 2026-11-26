@@ -79,7 +79,6 @@ fun HomeDashboardScreen(
     onOpenSongs: () -> Unit,
     onOpenServices: () -> Unit,
     onOpenServicePlan: (String) -> Unit,
-    onOpenTeam: () -> Unit,
     onOpenRehearsal: (String) -> Unit,
     onRefreshWorkspace: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -323,7 +322,7 @@ fun HomeDashboardScreen(
     ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
@@ -337,17 +336,6 @@ fun HomeDashboardScreen(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(greeting, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        organizationName,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                    Text(
-                        dashboardRoleLabel(role),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
                 Text(
                     dateLabel,
@@ -377,16 +365,6 @@ fun HomeDashboardScreen(
                         DashboardMetric("Requests", pendingCount.toString(), Modifier.weight(1f), emphasize = pendingCount > 0)
                     }
                 }
-            }
-        }
-
-        item {
-            OutlinedButton(
-                onClick = onOpenTeam,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Groups, contentDescription = null)
-                Text("Open Team", modifier = Modifier.padding(start = 8.dp))
             }
         }
 

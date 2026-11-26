@@ -151,6 +151,8 @@ dependencies {
     implementation(libs.supabase.auth)
     implementation(libs.supabase.postgrest)
     implementation(libs.supabase.realtime)
+    implementation(libs.supabase.storage)
+    implementation(libs.coil.compose)
     implementation(libs.ktor.client.okhttp)
 
     implementation(platform(libs.firebase.bom))

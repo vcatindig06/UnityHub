@@ -126,6 +126,19 @@ class ChordProParserTest {
     }
 
     @Test
+    fun keepsChordOnlyIntroRowsAsChordRowsInsteadOfSectionHeadings() {
+        val document = ChordProParser.parse(
+            "{start_of_intro}\n[G] [D/F#]\n{end_of_intro}"
+        )
+
+        val introChordRow = document.lines.first { it.chords.isNotEmpty() }
+        assertEquals("Intro", introChordRow.section)
+        assertTrue(introChordRow.lyrics.isBlank())
+        assertEquals(listOf("G", "D/F#"), introChordRow.chords.map { it.chord })
+        assertTrue(document.lines.any { it.section == "Intro" && it.chords.isEmpty() })
+    }
+
+    @Test
     fun parsesCapoDirectiveAndRejectsOutOfRangeValues() {
         assertEquals(5, ChordProParser.parse("{capo: 5}\n[G]Amazing").capo)
         assertEquals(null, ChordProParser.parse("{capo: 15}").capo)

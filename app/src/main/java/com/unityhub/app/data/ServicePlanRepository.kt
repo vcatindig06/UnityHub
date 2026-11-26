@@ -151,6 +151,40 @@ class ServicePlanRepository(private val client: SupabaseClient) {
         )
     }
 
+    suspend fun addSongSetlistToPlan(
+        planId: String,
+        organizationId: String,
+        songSetlistId: String
+    ): Int {
+        require(planId.isNotBlank() && organizationId.isNotBlank() && songSetlistId.isNotBlank())
+        val plan = loadPlans(organizationId).firstOrNull { it.id == planId }
+            ?: error("The destination service could not be found.")
+        require(plan.status != "completed" && plan.status != "cancelled") {
+            "A completed or cancelled service cannot be changed."
+        }
+        val setlistItems = SongSetlistRepository(client).loadItems(songSetlistId, organizationId)
+        require(setlistItems.size >= SongSetlistRules.MIN_SONGS) {
+            "A saved song setlist must contain at least two songs."
+        }
+        val nextOrder = (loadPlanItems(planId, organizationId).maxOfOrNull { it.itemOrder } ?: -1) + 1
+        client.from("service_plan_items").insert(
+            setlistItems.mapIndexed { index, item ->
+                NewServicePlanItem(
+                    organizationId = organizationId,
+                    servicePlanId = planId,
+                    songId = item.songId,
+                    title = item.title,
+                    itemType = "song",
+                    chordproSnapshot = item.chordproSnapshot,
+                    itemOrder = nextOrder + index,
+                    durationMinutes = null,
+                    notes = ""
+                )
+            }
+        )
+        return setlistItems.size
+    }
+
     suspend fun copySetlist(
         sourcePlanId: String,
         targetPlanId: String,

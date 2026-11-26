@@ -103,19 +103,41 @@ class RehearsalRepository(private val client: SupabaseClient) {
     ): RehearsalDto {
         require(organizationId.isNotBlank() && userId.isNotBlank())
         val normalizedStart = RehearsalRules.normalizeTime(startTime)
-        val created = client.from("rehearsals").insert(
+        val normalizedTitle = RehearsalRules.normalizeTitle(title)
+        val normalizedDate = RehearsalRules.normalizeDate(date)
+        val normalizedEnd = RehearsalRules.normalizeEndTime(normalizedStart, endTime)
+        val normalizedLocation = RehearsalRules.normalizeLocation(location)
+        val normalizedNotes = RehearsalRules.normalizeNotes(notes)
+
+        // Supabase/Postgrest can return an empty response body for INSERT.
+        // Do not decode that EOF body as a JSON array; insert first, then load
+        // the new row from the organization-scoped list.
+        client.from("rehearsals").insert(
             NewRehearsal(
                 organizationId = organizationId,
-                title = RehearsalRules.normalizeTitle(title),
-                rehearsalDate = RehearsalRules.normalizeDate(date),
+                title = normalizedTitle,
+                rehearsalDate = normalizedDate,
                 startTime = normalizedStart,
-                endTime = RehearsalRules.normalizeEndTime(normalizedStart, endTime),
-                location = RehearsalRules.normalizeLocation(location),
-                notes = RehearsalRules.normalizeNotes(notes),
+                endTime = normalizedEnd,
+                location = normalizedLocation,
+                notes = normalizedNotes,
                 servicePlanId = servicePlanId?.takeIf(String::isNotBlank),
                 createdBy = userId
             )
-        ).decodeList<RehearsalDto>().single()
+        )
+        val created = loadRehearsals(organizationId)
+            .filter { rehearsal ->
+                rehearsal.createdBy == userId &&
+                    rehearsal.title == normalizedTitle &&
+                    rehearsal.rehearsalDate == normalizedDate &&
+                    rehearsal.startTime.take(5) == normalizedStart &&
+                    rehearsal.location == normalizedLocation &&
+                    rehearsal.notes == normalizedNotes
+            }
+            .maxByOrNull { it.createdAt }
+            ?: throw IllegalStateException(
+                "The rehearsal was saved but could not be opened. Refresh the rehearsal list."
+            )
 
         try {
             insertAssignments(created.id, organizationId, userId, memberIds)

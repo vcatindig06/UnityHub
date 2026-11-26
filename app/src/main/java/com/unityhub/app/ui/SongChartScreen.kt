@@ -3,6 +3,7 @@ package com.unityhub.app.ui
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,6 +62,7 @@ import kotlinx.coroutines.withContext
 import com.unityhub.app.domain.chordpro.ChordTransposer
 import java.nio.charset.StandardCharsets
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SongChartScreen(
     song: SongDto,
@@ -70,7 +72,6 @@ fun SongChartScreen(
     var transpose by rememberSaveable(song.id) { mutableIntStateOf(0) }
     var chartScale by rememberSaveable(song.id) { mutableFloatStateOf(1f) }
     var performanceSettingsExpanded by rememberSaveable(song.id) { mutableStateOf(false) }
-    var autoScrollOptionsExpanded by rememberSaveable(song.id) { mutableStateOf(false) }
     var autoScrollEnabled by rememberSaveable(song.id) { mutableStateOf(false) }
     var autoScrollSpeed by rememberSaveable(song.id) {
         mutableFloatStateOf(ChartAutoScrollRules.DEFAULT_SPEED_DP_PER_SECOND)
@@ -190,82 +191,114 @@ fun SongChartScreen(
                 }
             }
         }
-        item(key = "${song.id}:performance-settings") {
+        stickyHeader(key = "${song.id}:performance-settings") {
             Card {
-                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    TextButton(onClick = { performanceSettingsExpanded = !performanceSettingsExpanded }) {
-                        Text(if (performanceSettingsExpanded) "Hide performance settings" else "Show performance settings")
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = { performanceSettingsExpanded = !performanceSettingsExpanded },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(if (performanceSettingsExpanded) "Performance ▴" else "Performance ▾")
+                        }
+                        TextButton(
+                            onClick = { autoScrollEnabled = !autoScrollEnabled },
+                            enabled = document?.lines?.isNotEmpty() == true,
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(if (autoScrollEnabled) "Pause scroll" else "Start scroll")
+                        }
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         ChartMetadata("Key", displayKey ?: "—")
                         ChartMetadata("Tempo", displayTempo?.let { "$it BPM" } ?: "—")
                         ChartMetadata("Time", displayTimeSignature.ifBlank { "—" })
-                    }
-                    document?.capo?.let { fret ->
-                        Text("Capo: " + if (fret == 0) "None" else "Fret $fret", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        document?.capo?.let { fret ->
+                            ChartMetadata("Capo", if (fret == 0) "None" else "$fret")
+                        }
                     }
                     if (performanceSettingsExpanded) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text("Transpose", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
                             Text(
-                                when {
-                                    transpose > 0 -> "+$transpose semitones"
-                                    transpose < 0 -> "$transpose semitones"
-                                    else -> "Original key"
-                                },
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
+                                "Speed · ${autoScrollSpeed.toInt()} dp/s",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Slider(
+                                modifier = Modifier.weight(1f),
+                                value = autoScrollSpeed,
+                                onValueChange = { autoScrollSpeed = ChartAutoScrollRules.clampSpeed(it) },
+                                valueRange = ChartAutoScrollRules.MIN_SPEED_DP_PER_SECOND..
+                                    ChartAutoScrollRules.MAX_SPEED_DP_PER_SECOND,
+                                enabled = document?.lines?.isNotEmpty() == true
                             )
                         }
-                        Row {
-                            IconButton(onClick = { transpose = (transpose - 1).coerceAtLeast(-11) }) {
-                                Icon(Icons.Default.Remove, contentDescription = "Transpose down one semitone")
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text("Transpose", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    when {
+                                        transpose > 0 -> "+$transpose semitones"
+                                        transpose < 0 -> "$transpose semitones"
+                                        else -> "Original key"
+                                    },
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
-                            IconButton(onClick = { transpose = (transpose + 1).coerceAtMost(11) }) {
-                                Icon(Icons.Default.Add, contentDescription = "Transpose up one semitone")
-                            }
-                            IconButton(
-                                onClick = { transpose = 0; chartScale = 1f },
-                                enabled = transpose != 0 || chartScale != 1f
-                            ) {
-                                Icon(Icons.Default.RestartAlt, contentDescription = "Reset chart display")
+                            Row {
+                                IconButton(onClick = { transpose = (transpose - 1).coerceAtLeast(-11) }) {
+                                    Icon(Icons.Default.Remove, contentDescription = "Transpose down one semitone")
+                                }
+                                IconButton(onClick = { transpose = (transpose + 1).coerceAtMost(11) }) {
+                                    Icon(Icons.Default.Add, contentDescription = "Transpose up one semitone")
+                                }
+                                IconButton(
+                                    onClick = { transpose = 0; chartScale = 1f; autoScrollSpeed = ChartAutoScrollRules.DEFAULT_SPEED_DP_PER_SECOND },
+                                    enabled = transpose != 0 || chartScale != 1f || autoScrollSpeed != ChartAutoScrollRules.DEFAULT_SPEED_DP_PER_SECOND
+                                ) {
+                                    Icon(Icons.Default.RestartAlt, contentDescription = "Reset chart display")
+                                }
                             }
                         }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(
+                                onClick = { chartScale = (chartScale - 0.1f).coerceAtLeast(0.8f) },
+                                enabled = chartScale > 0.8f
+                            ) { Text("A−") }
+                            Text(
+                                "Text size",
+                                modifier = Modifier.padding(top = 12.dp, start = 6.dp, end = 6.dp),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            TextButton(
+                                onClick = { chartScale = (chartScale + 0.1f).coerceAtMost(1.5f) },
+                                enabled = chartScale < 1.5f
+                            ) { Text("A+") }
+                        }
                         TextButton(
-                            onClick = { chartScale = (chartScale - 0.1f).coerceAtLeast(0.8f) },
-                            enabled = chartScale > 0.8f,
-                            modifier = Modifier.semantics { contentDescription = "Decrease chart text size" }
-                        ) { Text("A−") }
-                        Text(
-                            "Text size",
-                            modifier = Modifier.padding(top = 12.dp, start = 6.dp, end = 6.dp),
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        TextButton(
-                            onClick = { chartScale = (chartScale + 0.1f).coerceAtMost(1.5f) },
-                            enabled = chartScale < 1.5f,
-                            modifier = Modifier.semantics { contentDescription = "Increase chart text size" }
-                        ) { Text("A+") }
-                    }
-                    if (transpose != 0) {
-                        Text(
-                            "Transposed for this view only. The saved song and service setlists remain unchanged.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                            onClick = { autoScrollEnabled = false; listState.animateScrollToItem(0) },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                        ) { Text("Back to beginning") }
                     }
                 }
             }
         }
-        when {
-            isParsingDocument -> item(key = "${song.id}:chart-loading") {
+        item(key = "${song.id}:chart-loading") {
                 Column(Modifier.fillMaxWidth().padding(vertical = 28.dp)) {
                     CircularProgressIndicator()
                     Text(
@@ -314,67 +347,7 @@ fun SongChartScreen(
         }
         item(key = "${song.id}:chart-bottom-space") { Spacer(Modifier.height(24.dp)) }
         }
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            "Auto-scroll",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            if (autoScrollEnabled) "Scrolling · ${autoScrollSpeed.toInt()} dp/s" else "Paused",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    TextButton(onClick = { autoScrollOptionsExpanded = !autoScrollOptionsExpanded }) {
-                        Text(if (autoScrollOptionsExpanded) "Hide options" else "Options")
-                    }
-                    TextButton(
-                        onClick = { autoScrollEnabled = !autoScrollEnabled },
-                        enabled = document?.lines?.isNotEmpty() == true
-                    ) {
-                        Text(if (autoScrollEnabled) "Pause" else "Start")
-                    }
-                    }
-                }
-                if (autoScrollOptionsExpanded) Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        "Speed",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Slider(
-                        modifier = Modifier.weight(1f),
-                        value = autoScrollSpeed,
-                        onValueChange = {
-                            autoScrollSpeed = ChartAutoScrollRules.clampSpeed(it)
-                        },
-                        valueRange = ChartAutoScrollRules.MIN_SPEED_DP_PER_SECOND..
-                            ChartAutoScrollRules.MAX_SPEED_DP_PER_SECOND,
-                        enabled = document?.lines?.isNotEmpty() == true
-                    )
-                }
-            }
-        }
+
     }
 }
 
@@ -517,7 +490,7 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
 @Composable
 internal fun ChordProChartLine(line: ChordProLine, transpose: Int, scale: Float = 1f) {
     when {
-        line.section != null && line.lyrics.isBlank() -> {
+        line.section != null && line.lyrics.isBlank() && line.chords.isEmpty() -> {
             Text(
                 line.section.uppercase(),
                 style = MaterialTheme.typography.labelLarge.copy(

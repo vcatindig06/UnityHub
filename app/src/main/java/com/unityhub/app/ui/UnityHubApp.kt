@@ -47,6 +47,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -91,13 +92,13 @@ private data class AppDestination(
 private const val HOME_TAB_INDEX = 0
 private const val SONGS_TAB_INDEX = 1
 private const val SERVICES_TAB_INDEX = 2
-private const val PROFILE_TAB_INDEX = 3
+private const val COMMUNITY_TAB_INDEX = 3
 
 private val destinations = listOf(
     AppDestination("Home", Icons.Default.Home),
     AppDestination("Songs", Icons.Default.LibraryMusic),
     AppDestination("Services", Icons.Default.CalendarMonth),
-    AppDestination("Profile", Icons.Default.Person)
+    AppDestination("Community", Icons.Default.Groups)
 )
 
 @Composable
@@ -724,6 +725,7 @@ private fun WorkspaceDashboard(
     var tabHistory by rememberSaveable { mutableStateOf(emptyList<Int>()) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
     var showTeamManagement by rememberSaveable { mutableStateOf(false) }
+    var showPersonalProfile by rememberSaveable { mutableStateOf(false) }
     var showTeamChat by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var chatReturnDestination by rememberSaveable { mutableStateOf("home") }
@@ -759,19 +761,21 @@ private fun WorkspaceDashboard(
         when (chatReturnDestination) {
             "team" -> showTeamManagement = true
             "notifications" -> showNotifications = true
+            "community" -> Unit
         }
         chatReturnDestination = "home"
     }
 
     BackHandler(
-        enabled = showNotifications || showTeamManagement || showTeamChat || showSettings ||
+        enabled = showNotifications || showTeamManagement || showTeamChat || showPersonalProfile || showSettings ||
             tabHistory.isNotEmpty() || selectedTab != HOME_TAB_INDEX
     ) {
         when {
             showTeamChat -> returnFromTeamChat()
+            showSettings -> showSettings = false
+            showPersonalProfile -> showPersonalProfile = false
             showTeamManagement -> showTeamManagement = false
             showNotifications -> showNotifications = false
-            showSettings -> showSettings = false
             else -> {
                 val previousTab = AppBackNavigationRules.previousTab(selectedTab, tabHistory)
                 if (previousTab != null) {
@@ -792,6 +796,7 @@ private fun WorkspaceDashboard(
         val navigation = pushNavigation ?: return@LaunchedEffect
         showNotifications = false
         showTeamManagement = false
+        showPersonalProfile = false
         when {
             !navigation.teamMessageId.isNullOrBlank() -> {
                 if (navigation.organizationId == organization.id) {
@@ -823,109 +828,91 @@ private fun WorkspaceDashboard(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                navigationIcon = {
-                    if (showNotifications || showTeamManagement || showTeamChat || showSettings) {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 1.dp
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (showNotifications || showTeamManagement || showTeamChat || showPersonalProfile || showSettings) {
                         IconButton(
                             onClick = {
                                 when {
                                     showTeamChat -> returnFromTeamChat()
+                                    showSettings -> showSettings = false
+                                    showPersonalProfile -> showPersonalProfile = false
                                     showTeamManagement -> showTeamManagement = false
                                     showNotifications -> showNotifications = false
-                                    else -> showSettings = false
                                 }
-                            }
+                            },
+                            modifier = Modifier.size(40.dp)
                         ) {
-                            Icon(
-                                Icons.Default.ArrowBack,
-                                contentDescription = when {
-                                    showTeamChat -> "Back"
-                                    showTeamManagement -> "Back to Home"
-                                    showNotifications -> "Back to workspace"
-                                    else -> "Back to workspace"
-                                }
-                            )
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", modifier = Modifier.size(20.dp))
                         }
                     } else {
                         UnityHubLogoMark(
-                            modifier = Modifier.padding(start = 12.dp).size(34.dp),
+                            modifier = Modifier.padding(start = 4.dp).size(30.dp),
                             contentDescription = null
                         )
                     }
-                },
-                title = {
-                    Column {
-                        Text(
-                            when {
-                                showNotifications -> "Notifications"
-                                showSettings -> "Settings"
-                                showTeamManagement -> "Team"
-                                showTeamChat -> "Team Chat"
-                                selectedTab == PROFILE_TAB_INDEX -> "Profile"
-                                else -> organization.name
-                            },
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            when {
-                                showNotifications -> "Updates for your worship team"
-                                showSettings -> "Account, appearance, notifications and updates"
-                                showTeamManagement -> organization.name
-                                showTeamChat -> organization.name
-                                selectedTab == PROFILE_TAB_INDEX -> "Your profile and team membership"
-                                else -> "${roleLabel(workspace.role)} · UnityHub workspace"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                actions = {
-                    if (!showNotifications && !showTeamManagement && !showTeamChat && !showSettings) {
+                    Spacer(Modifier.size(10.dp))
+                    Text(
+                        when {
+                            showNotifications -> "Notifications"
+                            showSettings -> "Settings"
+                            showPersonalProfile -> "Profile"
+                            showTeamManagement -> "Team"
+                            showTeamChat -> "Team Chat"
+                            selectedTab == COMMUNITY_TAB_INDEX -> "Community"
+                            selectedTab == SONGS_TAB_INDEX -> "Songs"
+                            selectedTab == SERVICES_TAB_INDEX -> "Services"
+                            else -> "Home"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.weight(1f))
+                    if (!showNotifications && !showTeamManagement && !showTeamChat && !showPersonalProfile && !showSettings) {
                         IconButton(
                             onClick = {
-                                chatReturnDestination = "home"
+                                chatReturnDestination = if (selectedTab == COMMUNITY_TAB_INDEX) "community" else "home"
                                 showTeamChat = true
-                            }
+                            },
+                            modifier = Modifier.size(40.dp)
                         ) {
-                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Team Chat")
+                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Team Chat", modifier = Modifier.size(20.dp))
                         }
-                        IconButton(onClick = { showNotifications = true }) {
+                        IconButton(
+                            onClick = { showNotifications = true },
+                            modifier = Modifier.size(40.dp)
+                        ) {
                             BadgedBox(
                                 badge = {
                                     if (unreadNotificationCount > 0) {
                                         Badge {
-                                            Text(
-                                                if (unreadNotificationCount > 99) "99+"
-                                                else unreadNotificationCount.toString()
-                                            )
+                                            Text(if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString())
                                         }
                                     }
                                 }
                             ) {
-                                Icon(
-                                    Icons.Default.Notifications,
-                                    contentDescription = if (unreadNotificationCount > 0) {
-                                        "Notifications, $unreadNotificationCount unread"
-                                    } else {
-                                        "Notifications"
-                                    }
-                                )
+                                Icon(Icons.Default.Notifications, contentDescription = "Notifications", modifier = Modifier.size(20.dp))
                             }
                         }
-                        IconButton(onClick = { showSettings = true }) {
-                            Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        IconButton(
+                            onClick = { showSettings = true },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings", modifier = Modifier.size(20.dp))
                         }
                     }
                 }
-            )
+            }
         },
         bottomBar = {
-            if (!showNotifications && !showTeamManagement && !showTeamChat && !showSettings) {
+            if (!showNotifications && !showTeamManagement && !showTeamChat && !showPersonalProfile && !showSettings) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = 3.dp
@@ -1011,8 +998,8 @@ private fun WorkspaceDashboard(
                         )
                     )
                     NavigationBarItem(
-                        selected = selectedTab == PROFILE_TAB_INDEX,
-                        onClick = { navigateToTab(PROFILE_TAB_INDEX) },
+                        selected = selectedTab == COMMUNITY_TAB_INDEX,
+                        onClick = { navigateToTab(COMMUNITY_TAB_INDEX) },
                         icon = { Icon(destinations[3].icon, contentDescription = null) },
                         label = { Text(destinations[3].label) },
                         alwaysShowLabel = true,
@@ -1079,6 +1066,14 @@ private fun WorkspaceDashboard(
                 },
                 modifier = Modifier.padding(innerPadding)
             )
+            showPersonalProfile -> ProfileOverviewScreen(
+                organizationId = organization.id,
+                organizationName = organization.name,
+                userId = userId,
+                role = roleLabel(workspace.role),
+                onOpenSettings = { showSettings = true },
+                modifier = Modifier.padding(innerPadding)
+            )
             showTeamManagement -> TeamManagementScreen(
                 workspace = workspace,
                 currentUserId = userId,
@@ -1117,7 +1112,6 @@ private fun WorkspaceDashboard(
                         serviceNavigationRequestId = "dashboard-$planId"
                         navigateToTab(SERVICES_TAB_INDEX)
                     },
-                    onOpenTeam = { showTeamManagement = true },
                     onOpenRehearsal = { rehearsalId ->
                         requestedRehearsalId = rehearsalId
                         rehearsalNavigationRequestId = "dashboard-$rehearsalId"
@@ -1156,10 +1150,13 @@ private fun WorkspaceDashboard(
                     },
                     modifier = Modifier.padding(innerPadding)
                 )
-                else -> ProfileOverviewScreen(
-                    organizationName = organization.name,
-                    role = roleLabel(workspace.role),
-                    onOpenSettings = { showSettings = true },
+                else -> CommunityHubScreen(
+                    onOpenTeam = { showTeamManagement = true },
+                    onOpenChat = {
+                        chatReturnDestination = "community"
+                        showTeamChat = true
+                    },
+                    onOpenProfile = { showPersonalProfile = true },
                     modifier = Modifier.padding(innerPadding)
                 )
             }

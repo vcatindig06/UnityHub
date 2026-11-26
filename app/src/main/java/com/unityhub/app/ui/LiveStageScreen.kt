@@ -109,6 +109,7 @@ fun LiveStageScreen(
     var showChords by rememberSaveable(serviceTitle) { mutableStateOf(true) }
     var autoScrollEnabled by rememberSaveable(serviceTitle) { mutableStateOf(false) }
     var autoScrollSpeedIndex by rememberSaveable(serviceTitle) { mutableIntStateOf(1) }
+    var stageControlsExpanded by rememberSaveable(serviceTitle) { mutableStateOf(false) }
     var lastAutoScrollIndex by remember { mutableIntStateOf(0) }
 
     val context = LocalContext.current
@@ -414,9 +415,52 @@ fun LiveStageScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(StageSurface)
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(
+                            onClick = { autoScrollEnabled = !autoScrollEnabled },
+                            enabled = scrollState.maxValue > 0 || autoScrollEnabled
+                        ) {
+                            Icon(
+                                if (autoScrollEnabled) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (autoScrollEnabled) "Pause auto-scroll" else "Start auto-scroll",
+                                tint = StageAccent
+                            )
+                        }
+                        TextButton(
+                            onClick = { autoScrollSpeedIndex = (autoScrollSpeedIndex + 1) % autoScrollSpeeds.size },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                        ) {
+                            Text(autoScrollSpeeds[autoScrollSpeedIndex].first, color = StageAccent, fontSize = 12.sp)
+                        }
+                        IconButton(
+                            onClick = { currentIndex = LiveStageRules.previousIndex(currentIndex, items.size) },
+                            enabled = currentIndex > 0
+                        ) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Previous item", tint = StagePrimaryText)
+                        }
+                        TextButton(
+                            onClick = { stageControlsExpanded = !stageControlsExpanded },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                        ) {
+                            Text(if (stageControlsExpanded) "Less" else "Controls", color = StageAccent, fontSize = 12.sp)
+                        }
+                        IconButton(
+                            onClick = {
+                                if (currentIndex == items.lastIndex) onBack()
+                                else currentIndex = LiveStageRules.nextIndex(currentIndex, items.size)
+                            }
+                        ) {
+                            Icon(Icons.Default.ArrowForward, contentDescription = if (currentIndex == items.lastIndex) "Finish stage" else "Next item", tint = StageAccent)
+                        }
+                    }
+                    if (stageControlsExpanded) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -460,37 +504,6 @@ fun LiveStageScreen(
                                 Spacer(Modifier.width(5.dp))
                                 Text(if (showChords) "Hide chords" else "Show chords", color = StageAccent)
                             }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        TextButton(
-                            onClick = { autoScrollEnabled = !autoScrollEnabled },
-                            enabled = scrollState.maxValue > 0 || autoScrollEnabled
-                        ) {
-                            Icon(
-                                if (autoScrollEnabled) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (autoScrollEnabled) "Pause auto-scroll" else "Start auto-scroll",
-                                tint = StageAccent,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(Modifier.width(5.dp))
-                            Text(
-                                if (autoScrollEnabled) "Pause scroll" else "Auto-scroll",
-                                color = StageAccent
-                            )
-                        }
-                        TextButton(
-                            onClick = { autoScrollSpeedIndex = (autoScrollSpeedIndex + 1) % autoScrollSpeeds.size }
-                        ) {
-                            Text(
-                                "Speed: ${autoScrollSpeeds[autoScrollSpeedIndex].first}",
-                                color = StageAccent
-                            )
                         }
                     }
 
@@ -570,6 +583,7 @@ fun LiveStageScreen(
                         }
                     }
                 }
+                    }
             }
         }
     }

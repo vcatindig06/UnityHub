@@ -76,6 +76,8 @@ import com.unityhub.app.data.ServiceTemplateDto
 import com.unityhub.app.data.ServiceTemplateRepository
 import com.unityhub.app.data.ServiceAssignmentRules
 import com.unityhub.app.data.SongDto
+import com.unityhub.app.data.SongSetlistDto
+import com.unityhub.app.data.SongSetlistRepository
 import com.unityhub.app.data.SupabaseClientProvider
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -753,6 +755,7 @@ private fun ServicePlanDetailScreen(
 ) {
     val repository = remember { ServicePlanRepository(SupabaseClientProvider.client) }
     val templateRepository = remember { ServiceTemplateRepository(SupabaseClientProvider.client) }
+    val songSetlistRepository = remember { SongSetlistRepository(SupabaseClientProvider.client) }
     val context = LocalContext.current
     val offlineCache = remember(context) { OfflineServiceCache(context) }
     val scope = rememberCoroutineScope()
@@ -760,11 +763,14 @@ private fun ServicePlanDetailScreen(
     val effectiveCanManage = canManage && !usingOfflineCopy
     var items by remember(plan.id) { mutableStateOf<List<ServicePlanItemDto>>(emptyList()) }
     var songs by remember(plan.id) { mutableStateOf<List<SongDto>>(emptyList()) }
+    var savedSongSetlists by remember(plan.id) { mutableStateOf<List<SongSetlistDto>>(emptyList()) }
+    var songSetlistCounts by remember(plan.id) { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var currentStatus by remember(plan.id) { mutableStateOf(plan.status) }
     var loading by remember(plan.id) { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var songPickerOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
+    var songSetlistPickerOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
     var customItemOpen by rememberSaveable(plan.id) { mutableStateOf(false) }
     var durationEditingItem by remember(plan.id) { mutableStateOf<ServicePlanItemDto?>(null) }
     var notesEditingItem by remember(plan.id) { mutableStateOf<ServicePlanItemDto?>(null) }
@@ -815,6 +821,8 @@ private fun ServicePlanDetailScreen(
                 if (offlineOnly || usingOfflineCopy) {
                     items = offlineCache.loadPlanItems(currentUserId, organizationId, plan.id)
                     songs = emptyList()
+                    savedSongSetlists = emptyList()
+                    songSetlistCounts = emptyMap()
                     usingOfflineCopy = true
                     if (items.isEmpty()) {
                         error = "No saved setlist is available for this service on this device."
@@ -823,6 +831,11 @@ private fun ServicePlanDetailScreen(
                     try {
                         items = repository.loadPlanItems(plan.id, organizationId)
                         songs = repository.loadSongs(organizationId)
+                        val storedSongLists = songSetlistRepository.loadSetlists(organizationId)
+                        val storedSongListItems = songSetlistRepository.loadAllItems(organizationId)
+                        val loadedSongSetlistCounts = storedSongListItems.groupingBy { it.setlistId }.eachCount()
+                        songSetlistCounts = loadedSongSetlistCounts
+                        savedSongSetlists = storedSongLists.filter { (loadedSongSetlistCounts[it.id] ?: 0) >= 2 }
                         runCatching {
                             offlineCache.saveServicePlan(
                                 currentUserId, organizationId, plan.copy(status = currentStatus), items
@@ -833,6 +846,8 @@ private fun ServicePlanDetailScreen(
                     } catch (_: Exception) {
                         items = offlineCache.loadPlanItems(currentUserId, organizationId, plan.id)
                         songs = emptyList()
+                        savedSongSetlists = emptyList()
+                        songSetlistCounts = emptyMap()
                         templates = emptyList()
                         templateItemCounts = emptyMap()
                         usingOfflineCopy = true
@@ -879,17 +894,22 @@ private fun ServicePlanDetailScreen(
     if (songPickerOpen) {
         AlertDialog(
             onDismissRequest = { songPickerOpen = false },
-            title = { Text("Add songs or a setlist") },
+            title = { Text("Add a song or setlist") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (templates.isNotEmpty()) {
-                        OutlinedActionButton(
-                            label = "Add a saved setlist",
-                            onClick = {
-                                songPickerOpen = false
-                                templatePickerOpen = true
-                            },
-                            enabled = !saving && !templatesLoading
+                    OutlinedActionButton(
+                        label = "Add a setlist",
+                        onClick = {
+                            songPickerOpen = false
+                            songSetlistPickerOpen = true
+                        },
+                        enabled = !saving && savedSongSetlists.isNotEmpty()
+                    )
+                    if (savedSongSetlists.isEmpty()) {
+                        Text(
+                            "Create a saved song setlist with at least two songs in the Songs tab.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     if (songs.isEmpty()) {
@@ -1011,6 +1031,52 @@ private fun ServicePlanDetailScreen(
                     }
                 }
             }
+        )
+    }
+
+    if (songSetlistPickerOpen) {
+        AlertDialog(
+            onDismissRequest = { songSetlistPickerOpen = false },
+            title = { Text("Add a saved song setlist") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Choose a setlist containing two or more songs.")
+                    if (savedSongSetlists.isEmpty()) {
+                        Text("No eligible song setlists are available yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        LazyColumn(Modifier.heightIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            items(savedSongSetlists, key = { it.id }) { setlist ->
+                                TextButton(
+                                    onClick = {
+                                        songSetlistPickerOpen = false
+                                        runAction {
+                                            val added = repository.addSongSetlistToPlan(
+                                                planId = plan.id,
+                                                organizationId = organizationId,
+                                                songSetlistId = setlist.id
+                                            )
+                                            error = ""
+                                            copySuccessMessage = "Added $added songs from “${setlist.name}”."
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !saving
+                                ) {
+                                    Column(Modifier.fillMaxWidth()) {
+                                        Text(setlist.name, fontWeight = FontWeight.SemiBold)
+                                        Text(
+                                            "${songSetlistCounts[setlist.id] ?: 0} songs",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { songSetlistPickerOpen = false }) { Text("Close") } }
         )
     }
 
@@ -1184,7 +1250,7 @@ private fun ServicePlanDetailScreen(
         if (effectiveCanManage && currentStatus != "completed" && currentStatus != "cancelled") {
             item {
                 OutlinedActionButton(
-                    label = "Add prayer, reading or other item",
+                    label = "Add prayer, reading or custom item",
                     onClick = { customItemOpen = true },
                     enabled = !saving
                 )
@@ -1559,7 +1625,7 @@ private fun CustomServiceItemDialog(
     onDismiss: () -> Unit,
     onSave: (String, String, Int?) -> Unit
 ) {
-    val types = listOf("prayer", "reading", "announcement", "other")
+    val types = listOf("prayer", "reading", "announcement")
     var title by rememberSaveable { mutableStateOf("") }
     var selectedType by rememberSaveable { mutableStateOf("prayer") }
     var duration by rememberSaveable { mutableStateOf("") }

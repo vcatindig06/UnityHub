@@ -1,5 +1,7 @@
 package com.unityhub.app.ui
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.LazyListState
@@ -49,6 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -86,6 +89,7 @@ fun SongSetlistsScreen(
     }
     var selectedSetlist by remember { mutableStateOf<SongSetlistDto?>(null) }
     var selectedItems by remember { mutableStateOf<List<SongSetlistItemDto>>(emptyList()) }
+    var draggedItemId by remember { mutableStateOf<String?>(null) }
     val setlistListState = remember(selectedSetlist?.id) { LazyListState() }
     var loading by remember(organizationId) { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
@@ -416,8 +420,25 @@ fun SongSetlistsScreen(
                             createdAt = item.createdAt,
                             updatedAt = item.createdAt
                         )
+                        val isDragged = draggedItemId == item.id
+                        val dragScale by animateFloatAsState(
+                            targetValue = if (isDragged) 1.035f else 1f,
+                            label = "setlistDraggedScale"
+                        )
+                        val dragElevation by animateDpAsState(
+                            targetValue = if (isDragged) 16.dp else 1.dp,
+                            label = "setlistDraggedElevation"
+                        )
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .animateItem()
+                                .graphicsLayer {
+                                    scaleX = dragScale
+                                    scaleY = dragScale
+                                    shadowElevation = dragElevation.toPx()
+                                    translationZ = if (isDragged) 12f else 0f
+                                }
+                                .fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp)
                         ) {
                             Row(
@@ -426,10 +447,18 @@ fun SongSetlistsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 if (canManage) {
-                                    var dragOrder = selectedItems.toMutableList()
-                                    var originalItems = selectedItems.toList()
-                                    var originalOrder = selectedItems.map { it.id }
-                                    var draggedCenterY = 0f
+                                    var dragOrder by remember(item.id) {
+                                        mutableStateOf(selectedItems.toMutableList())
+                                    }
+                                    var originalItems by remember(item.id) {
+                                        mutableStateOf(selectedItems.toList())
+                                    }
+                                    var originalOrder by remember(item.id) {
+                                        mutableStateOf(selectedItems.map { it.id })
+                                    }
+                                    var draggedCenterY by remember(item.id) {
+                                        mutableFloatStateOf(0f)
+                                    }
                                     Icon(
                                         Icons.Default.DragHandle,
                                         contentDescription = "Hold and drag to reorder",
@@ -438,6 +467,7 @@ fun SongSetlistsScreen(
                                             .pointerInput(item.id) {
                                                 detectDragGesturesAfterLongPress(
                                                     onDragStart = { touchOffset ->
+                                                        draggedItemId = item.id
                                                         dragOrder = selectedItems.toMutableList()
                                                         originalItems = dragOrder.toList()
                                                         originalOrder = dragOrder.map { it.id }
@@ -460,13 +490,14 @@ fun SongSetlistsScreen(
                                                         }
                                                     },
                                                     onDragEnd = {
+                                                        draggedItemId = null
                                                         if (dragOrder.map { it.id } != originalOrder) {
                                                             performAction({
                                                                 repository.reorderItems(currentSetlist.id, organizationId, dragOrder.map { it.id })
                                                             })
                                                         }
                                                     },
-                                                    onDragCancel = { selectedItems = originalItems }
+                                                    onDragCancel = { selectedItems = originalItems; draggedItemId = null }
                                                 )
                                             }
                                     )

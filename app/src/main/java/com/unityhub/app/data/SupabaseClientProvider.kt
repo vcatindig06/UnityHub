@@ -7,6 +7,7 @@ import io.github.jan.supabase.auth.FlowType
 import io.github.jan.supabase.auth.SettingsSessionManager
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
+import io.github.jan.supabase.storage.Storage
 
 object SupabaseClientProvider {
     private val persistentSessionManager = SettingsSessionManager()
@@ -29,6 +30,7 @@ object SupabaseClientProvider {
             }
             install(Postgrest)
             install(Realtime)
+            install(Storage)
         }
     }
 }

@@ -67,6 +67,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.data.SongEditorInputLimits
 import com.unityhub.app.data.SongLibraryRules
@@ -114,6 +116,7 @@ fun SongLibraryScreen(
     val repository = remember { SongRepository(SupabaseClientProvider.client) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
     val offlineCache = remember(context) { OfflineSongCache(context) }
     var usingOfflineCopy by remember(organizationId, userId, offlineOnly) { mutableStateOf(offlineOnly) }
     var lastSyncedAtMillis by remember(organizationId, userId) { mutableStateOf<Long?>(null) }
@@ -140,6 +143,8 @@ fun SongLibraryScreen(
     var artist by rememberSaveable { mutableStateOf("") }
     var keySignature by rememberSaveable { mutableStateOf("") }
     var tempo by rememberSaveable { mutableStateOf("") }
+    var lastTempoWasInvalid by remember { mutableStateOf(false) }
+    val tempoInvalid = tempo.isNotBlank() && (tempo.toIntOrNull()?.let { it !in 20..300 } == true)
     var timeSignature by rememberSaveable { mutableStateOf("4/4") }
     var capo by rememberSaveable { mutableStateOf(0) }
     var category by rememberSaveable { mutableStateOf("") }
@@ -423,8 +428,16 @@ fun SongLibraryScreen(
                 keySignature = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_KEY_SIGNATURE_CHARACTERS)
             },
             tempo = tempo,
+            tempoInvalid = tempoInvalid,
             onTempoChange = {
-                tempo = it.filter(Char::isDigit).take(SongEditorInputLimits.MAX_TEMPO_CHARACTERS)
+                val nextTempo = it.filter(Char::isDigit).take(SongEditorInputLimits.MAX_TEMPO_CHARACTERS)
+                val nextValue = nextTempo.toIntOrNull()
+                val invalid = nextTempo.isNotBlank() && nextValue != null && nextValue !in 20..300
+                if (invalid && !lastTempoWasInvalid) {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                }
+                lastTempoWasInvalid = invalid
+                tempo = nextTempo
             },
             timeSignature = timeSignature,
             onTimeSignatureChange = {
@@ -454,8 +467,8 @@ fun SongLibraryScreen(
             onCancel = { editorOpen = false },
             onSave = {
                 val parsedTempo = tempo.toIntOrNull()
-                if (tempo.isNotBlank() && (parsedTempo == null || parsedTempo !in 20..300)) {
-                    error = "Tempo must be between 20 and 300 BPM."
+                if (tempoInvalid || (tempo.isNotBlank() && parsedTempo == null)) {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                 } else {
                     scope.launch {
                         saving = true
@@ -768,6 +781,7 @@ private fun SongEditor(
     keySignature: String,
     onKeyChange: (String) -> Unit,
     tempo: String,
+    tempoInvalid: Boolean,
     onTempoChange: (String) -> Unit,
     timeSignature: String,
     onTimeSignatureChange: (String) -> Unit,
@@ -877,7 +891,7 @@ private fun SongEditor(
                         keyOptions.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { onKeyChange(option); keyMenuExpanded = false }) }
                     }
                 }
-                OutlinedTextField(tempo, onTempoChange, Modifier.weight(1f), label = { Text("BPM (20–300)") }, singleLine = true, enabled = !saving, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                OutlinedTextField(tempo, onTempoChange, Modifier.weight(1f), label = { Text("BPM (20–300)") }, singleLine = true, enabled = !saving, isError = tempoInvalid, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
             }
         }
         item(key = "song-editor-item-4") {
@@ -1029,7 +1043,13 @@ private fun formatOfflineSyncTime(timestamp: Long): String {
 
 private fun updateChordProCapo(source: String, capo: Int): String {
     val withoutCapo = source.lineSequence()
-        .filterNot { it.trim().matches(Regex("""\{\s*capo\s*:\s*\d+\s*}""", RegexOption.IGNORE_CASE)) }
+        .filterNot { line ->
+            val directive = line.trim().removePrefix("{").removeSuffix("}")
+            val separator = directive.indexOf(':')
+            separator > 0 &&
+                directive.substring(0, separator).trim().equals("capo", ignoreCase = true) &&
+                directive.substring(separator + 1).trim().toIntOrNull() != null
+        }
         .joinToString("\n")
     return if (capo == 0) withoutCapo else "{capo: $capo}" + if (withoutCapo.isBlank()) "" else "\n$withoutCapo"
 }
