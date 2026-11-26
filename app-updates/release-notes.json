@@ -1,9 +1,22 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 56,
-  "latestVersionName": "0.56.0",
+  "latestVersionCode": 57,
+  "latestVersionName": "0.57.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 57,
+      "versionName": "0.57.0",
+      "releasedAt": "2026-11-26",
+      "summary": "Make profiles more useful and expand account, appearance, notification and privacy settings.",
+      "changes": [
+        "Make About Me and social links read-only by default, with separate edit actions and empty states for links that have not been added.",
+        "Show only verified profile contributions: songs created and rehearsals marked attended.",
+        "Add a private member action history for songs, services, rehearsals, team chat, setlists, templates, membership and profile changes.",
+        "Paginate assigned ministry positions on the Team page and remove its redundant Team Chat action.",
+        "Add expandable Account Management, Appearance, Notifications, Privacy and About settings, including password changes, font size and push-alert categories."
+      ]
+    },
     {
       "versionCode": 56,
       "versionName": "0.56.0",
