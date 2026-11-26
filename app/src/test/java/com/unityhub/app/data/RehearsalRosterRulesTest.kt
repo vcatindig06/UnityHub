@@ -28,6 +28,16 @@ class RehearsalRosterRulesTest {
     }
 
     @Test
+    fun attendanceRateUsesOnlyAttendedAndAbsentOutcomes() {
+        assertEquals(75, RehearsalRosterRules.attendanceRate(attended = 3, absent = 1))
+    }
+
+    @Test
+    fun attendanceRateIsNotInventedWhenNoAttendanceWasRecorded() {
+        assertEquals(null, RehearsalRosterRules.attendanceRate(attended = 0, absent = 0))
+    }
+
+    @Test
     fun scheduledRehearsalOffersAvailabilityFilters() {
         assertEquals(
             listOf(
