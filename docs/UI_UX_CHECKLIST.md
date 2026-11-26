@@ -5,7 +5,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 ## Implemented in 0.21.0
 
 - [x] **Brand consistency:** use the butter-cream canvas, forest-green primary, terracotta emphasis, muted-gold details, scalable logo mark, and coordinated light/dark palettes.
-- [x] **Light and dark appearance:** follow the Android system appearance automatically; the Account settings screen explains this behavior.
+- [x] **Light and dark appearance:** let members choose System default, Light, or Dark in Account settings; persist the selection and apply it across the app and Android system bars.
 - [x] **System chrome:** status-bar and navigation-bar colors and icon contrast follow the active app theme.
 - [x] **Readable type hierarchy:** apply consistent headline, title, body, and label weights; use scalable typography and comfortable body line heights.
 - [x] **Consistent control shapes:** establish shared Material 3 shape tokens for fields, menus, dialogs, and controls that use theme defaults.
