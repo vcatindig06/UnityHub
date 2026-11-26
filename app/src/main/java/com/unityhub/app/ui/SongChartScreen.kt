@@ -200,7 +200,9 @@ fun SongChartScreen(
                         ChartMetadata("Key", displayKey ?: "—")
                         ChartMetadata("Tempo", displayTempo?.let { "$it BPM" } ?: "—")
                         ChartMetadata("Time", displayTimeSignature.ifBlank { "—" })
-                        document?.capo?.let { fret -> ChartMetadata("Capo", if (fret == 0) "None" else "Fret $fret") }
+                    }
+                    document?.capo?.let { fret ->
+                        Text("Capo: " + if (fret == 0) "None" else "Fret $fret", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if (performanceSettingsExpanded) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
