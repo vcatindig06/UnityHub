@@ -1,9 +1,21 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 61,
-  "latestVersionName": "0.61.0",
+  "latestVersionCode": 62,
+  "latestVersionName": "0.62.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 62,
+      "versionName": "0.62.0",
+      "releasedAt": "2026-11-27",
+      "summary": "Add time-range filters to the Community participation dashboard.",
+      "changes": [
+        "Filter completed rehearsal attendance to the last 30 days, last 90 days, or all recorded history.",
+        "Keep attendance rates based only on explicit Attended and Absent records.",
+        "Show a clear empty state when the selected period has no completed rehearsal attendance.",
+        "Add tests for period boundaries, future-dated records, all-time history, and invalid dates."
+      ]
+    },
     {
       "versionCode": 61,
       "versionName": "0.61.0",
