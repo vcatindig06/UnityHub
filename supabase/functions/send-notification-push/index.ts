@@ -176,7 +176,9 @@ Deno.serve(async (request: Request) => {
           body: JSON.stringify({
             message: {
               token: device.token,
-              notification: { title: notification.title, body: notification.message },
+              // Data-only delivery guarantees that FirebaseMessagingService can
+              // apply the recipient's per-category notification preferences even
+              // when Android has UnityHub in the background.
               data: {
                 notification_id: notification.id,
                 notification_type: notification.notification_type,
@@ -189,7 +191,6 @@ Deno.serve(async (request: Request) => {
               },
               android: {
                 priority: "HIGH",
-                notification: { channel_id: "team_updates", sound: "default" },
               },
             },
           }),
