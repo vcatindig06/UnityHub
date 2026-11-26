@@ -28,7 +28,7 @@ object ChordProParser {
     const val MAX_LINE_CHARACTERS = 4_096
     private const val MAX_CHORD_LABEL_CHARACTERS = 64
     private val inlineChord = Regex("\\[([^\\]]+)]")
-    private val directive = Regex("^\\{\\s*([a-zA-Z0-9_]+)\\s*(?::\\s*(.*?))?\\s*}$")
+    private val directive = Regex("^\\\\{[ \\t]*([a-zA-Z0-9_]+)[ \\t]*(?::[ \\t]*(.*?))?[ \\t]*\\\\}$")
     private val timeSignaturePattern = Regex("^\\d{1,2}/\\d{1,2}$")
 
     private data class BoundedSourceLine(

@@ -1,9 +1,20 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 54,
-  "latestVersionName": "0.54.0",
+  "latestVersionCode": 56,
+  "latestVersionName": "0.56.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 56,
+      "versionName": "0.56.0",
+      "releasedAt": "2026-11-26",
+      "summary": "Fix ChordPro directive parsing on Android so saved songs and live previews can format normally.",
+      "changes": [
+        "Escape both opening and closing directive braces in the ChordPro parser pattern, avoiding Android regex syntax initialization failures.",
+        "Keep support for directives with and without values, including {start_of_verse} and {end_of_verse}.",
+        "Add regression coverage for the exact saved-song verse sample."
+      ]
+    },
     {
       "versionCode": 55,
       "versionName": "0.55.0",
