@@ -98,7 +98,7 @@ private val destinations = listOf(
     AppDestination("Home", Icons.Default.Home),
     AppDestination("Songs", Icons.Default.LibraryMusic),
     AppDestination("Services", Icons.Default.CalendarMonth),
-    AppDestination("Team", Icons.Default.Groups)
+    AppDestination("Community", Icons.Default.Groups)
 )
 
 @Composable
@@ -865,7 +865,7 @@ private fun WorkspaceDashboard(
                             showPersonalProfile -> "Profile"
                             showTeamManagement -> "Team"
                             showTeamChat -> "Team Chat"
-                            selectedTab == COMMUNITY_TAB_INDEX -> "Team"
+                            selectedTab == COMMUNITY_TAB_INDEX -> "Community"
                             selectedTab == SONGS_TAB_INDEX -> "Songs"
                             selectedTab == SERVICES_TAB_INDEX -> "Services"
                             else -> "Home"
@@ -1080,11 +1080,6 @@ private fun WorkspaceDashboard(
                 onReviewRequest = onReviewRequest,
                 errorMessage = errorMessage,
                 onWorkspaceChanged = onRefresh,
-                onOpenChat = {
-                    chatReturnDestination = "team"
-                    showTeamManagement = false
-                    showTeamChat = true
-                },
                 modifier = Modifier.padding(innerPadding)
             )
             showTeamChat -> TeamChatScreen(
