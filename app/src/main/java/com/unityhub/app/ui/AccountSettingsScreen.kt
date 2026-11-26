@@ -35,6 +35,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -84,6 +85,8 @@ fun AccountSettingsScreen(
     organizationName: String,
     role: String,
     onSignOut: () -> Unit,
+    themeMode: String = "system",
+    onThemeModeChanged: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -360,7 +363,33 @@ fun AccountSettingsScreen(
             SettingsSection(title = "Appearance", icon = {
                 Icon(Icons.Default.DarkMode, contentDescription = null)
             }) {
-                SettingsValueRow(label = "Theme", value = "System default")
+                Text(
+                    "Choose how UnityHub looks on this device.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        "system" to "System",
+                        "light" to "Light",
+                        "dark" to "Dark"
+                    ).forEach { (value, label) ->
+                        FilterChip(
+                            selected = themeMode == value,
+                            onClick = { onThemeModeChanged(value) },
+                            label = { Text(label) }
+                        )
+                    }
+                }
+                Text(
+                    when (themeMode) {
+                        "light" -> "Light appearance is active."
+                        "dark" -> "Dark appearance is active."
+                        else -> "UnityHub follows your Android system appearance."
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 

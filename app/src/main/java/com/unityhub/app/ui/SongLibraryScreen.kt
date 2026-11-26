@@ -82,6 +82,20 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+
+private const val SAMPLE_CHORDPRO = """{title: Sample Worship Song}
+{artist: UnityHub sample}
+{key: G}
+{tempo: 72}
+{time: 4/4}
+{start_of_verse}
+[G]You are [D]faithful through the [Em]night
+[C]Your love keeps [G]leading me
+{end_of_verse}
+{start_of_chorus}
+[G]We will [D]sing, we will [Em]praise
+[C]Your name is [G]worthy
+{end_of_chorus}"""
 @Composable
 fun SongLibraryScreen(
     organizationId: String,
@@ -90,6 +104,8 @@ fun SongLibraryScreen(
     offlineOnly: Boolean = false,
     openSongEditorRequestId: Int = 0,
     onSongEditorRequestHandled: () -> Unit = {},
+    openCreateSetlistRequestId: Int = 0,
+    onCreateSetlistRequestHandled: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val repository = remember { SongRepository(SupabaseClientProvider.client) }
@@ -110,6 +126,7 @@ fun SongLibraryScreen(
     var favoriteSavingIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var favoriteError by remember { mutableStateOf("") }
     var selectedSong by remember { mutableStateOf<SongDto?>(null) }
+    var showSetlists by rememberSaveable(organizationId) { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
     var search by rememberSaveable { mutableStateOf("") }
@@ -126,11 +143,11 @@ fun SongLibraryScreen(
     var error by remember { mutableStateOf("") }
     var importMessage by remember { mutableStateOf("") }
 
-    BackHandler(enabled = selectedSong != null || editorOpen) {
-        if (selectedSong != null) {
-            selectedSong = null
-        } else if (!saving) {
-            editorOpen = false
+    BackHandler(enabled = selectedSong != null || editorOpen || showSetlists) {
+        when {
+            selectedSong != null -> selectedSong = null
+            editorOpen && !saving -> editorOpen = false
+            showSetlists -> showSetlists = false
         }
     }
 
@@ -212,6 +229,10 @@ fun SongLibraryScreen(
             if (canEdit) startNewSong()
             onSongEditorRequestHandled()
         }
+    }
+
+    LaunchedEffect(openCreateSetlistRequestId) {
+        if (openCreateSetlistRequestId > 0) showSetlists = true
     }
 
     fun startEditing(song: SongDto) {
@@ -323,11 +344,26 @@ fun SongLibraryScreen(
         return
     }
 
+    if (showSetlists && !editorOpen) {
+        SongSetlistsScreen(
+            organizationId = organizationId,
+            userId = userId,
+            songs = songs,
+            canManage = canEdit && !usingOfflineCopy,
+            openCreateSetlistRequestId = openCreateSetlistRequestId,
+            onCreateSetlistRequestHandled = onCreateSetlistRequestHandled,
+            onBackToSongs = { showSetlists = false },
+            onOpenSong = { selectedSong = it },
+            modifier = modifier
+        )
+        return
+    }
+
     if (deleteCandidate != null) {
         AlertDialog(
             onDismissRequest = { if (!saving) deleteCandidate = null },
             title = { Text("Delete song?") },
-            text = { Text("“${deleteCandidate?.title}” will be removed from this team's song library. Existing service setlists keep their saved chart snapshots.") },
+            text = { Text("“${deleteCandidate?.title}” will be removed from this team's song library. Existing service plans keep their own saved song snapshots.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -457,6 +493,21 @@ fun SongLibraryScreen(
                                 Text("Add")
                             }
                         }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = true,
+                            onClick = { showSetlists = false },
+                            label = { Text("Songs") }
+                        )
+                        FilterChip(
+                            selected = false,
+                            onClick = { showSetlists = true },
+                            label = { Text("Setlists") }
+                        )
                     }
                     if (usingOfflineCopy) {
                         Spacer(Modifier.height(8.dp))
@@ -785,10 +836,24 @@ private fun SongEditor(
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Text("ChordPro chart", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Supports title, artist, key, tempo, time signature, verse/chorus/bridge sections, comments, and inline chords such as [G]Amazing [D]grace.",
+                    "Type lyrics normally and place each chord in square brackets just before the syllable where it changes. Use section tags to label verses and choruses.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Text(
+                    "Guide: [G] = chord · [D/F#] = slash chord · {start_of_verse} / {end_of_verse} = verse · {start_of_chorus} / {end_of_chorus} = chorus · {comment: ...} = stage note",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (chordpro.isBlank()) {
+                    OutlinedButton(
+                        onClick = { onChordproChange(SAMPLE_CHORDPRO) },
+                        enabled = !saving,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Insert sample chords and lyrics")
+                    }
+                }
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(
                     value = chordpro,
@@ -797,6 +862,12 @@ private fun SongEditor(
                     minLines = 8,
                     maxLines = 18,
                     label = { Text("Paste or type ChordPro text") },
+                    placeholder = {
+                        Text(
+                            "[G]You are [D]faithful through the [Em]night\n[C]Your love keeps [G]leading me",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
                     supportingText = {
                         Text("${chordpro.length} / ${SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS} characters · 1 MB maximum")
                     },

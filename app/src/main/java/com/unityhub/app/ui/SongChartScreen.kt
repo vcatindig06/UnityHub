@@ -50,7 +50,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.produceState
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.domain.chordpro.ChordProLine
 import com.unityhub.app.domain.chordpro.ChordProParser
@@ -392,30 +391,33 @@ private data class ChordProPreviewResult(
 internal fun ChordProPreview(source: String, maxLines: Int = 8) {
     val previewSource = remember(source) { ChordProPreviewRules.previewSource(source) }
     val previewIsTruncated = ChordProPreviewRules.isTruncated(source)
-    val result by produceState(
-        initialValue = ChordProPreviewResult(loading = previewSource.isNotBlank()),
-        key1 = previewSource
-    ) {
+    var result by remember(previewSource) {
+        mutableStateOf(ChordProPreviewResult(loading = previewSource.isNotBlank()))
+    }
+
+    // Keep preview state tied to the actual input text. This avoids retaining a
+    // stale parsed document while the editor is changing between blank and filled.
+    LaunchedEffect(previewSource) {
         if (previewSource.isBlank()) {
-            value = ChordProPreviewResult(loading = false)
-        } else {
-            // A short debounce avoids reparsing every keystroke. produceState is
-            // keyed by the exact preview text, so stale parses are cancelled.
-            delay(120)
-            value = withContext(Dispatchers.Default) {
-                runCatching { ChordProParser.parse(previewSource) }
-                    .fold(
-                        onSuccess = { ChordProPreviewResult(loading = false, document = it) },
-                        onFailure = { ChordProPreviewResult(loading = false, failed = true) }
-                    )
-            }
+            result = ChordProPreviewResult(loading = false)
+            return@LaunchedEffect
         }
+
+        result = ChordProPreviewResult(loading = true)
+        delay(120)
+        val parsed = withContext(Dispatchers.Default) {
+            runCatching { ChordProParser.parse(previewSource) }
+        }
+        result = parsed.fold(
+            onSuccess = { ChordProPreviewResult(loading = false, document = it) },
+            onFailure = { ChordProPreviewResult(loading = false, failed = true) }
+        )
     }
 
     val currentDocument = result.document
     when {
         previewSource.isBlank() -> Text(
-            "Enter lyrics or add chords to see the chart here.",
+            "Add sample lyrics or type a chord to see the live chart here.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
         )
@@ -430,7 +432,7 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
             style = MaterialTheme.typography.bodySmall
         )
         currentDocument == null || currentDocument.lines.isEmpty() -> Text(
-            "No chart lines to preview yet.",
+            "No chart lines to preview yet. Add lyrics or a chord such as [G]Amazing grace.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
         )

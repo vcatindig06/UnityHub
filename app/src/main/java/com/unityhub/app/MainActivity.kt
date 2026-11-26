@@ -69,7 +69,11 @@ class MainActivity : ComponentActivity() {
         UnityHubNotificationManager.createChannel(this)
 
         setContent {
-            UnityHubTheme {
+            val preferences = getSharedPreferences("unityhub_app_preferences", MODE_PRIVATE)
+            var themeMode by rememberSaveable {
+                mutableStateOf(preferences.getString("theme_mode", "system") ?: "system")
+            }
+            UnityHubTheme(themeMode = themeMode) {
                 BackHandler {
                     if (passwordRecoveryMode) {
                         passwordRecoveryMode = false
@@ -142,6 +146,12 @@ class MainActivity : ComponentActivity() {
                         UnityHubApp(
                             pushNavigation = pendingPushNavigation,
                             onPushNavigationHandled = { pendingPushNavigation = null },
+                            themeMode = themeMode,
+                            onThemeModeChanged = { selectedMode ->
+                                val normalizedMode = selectedMode.takeIf { it in setOf("system", "light", "dark") } ?: "system"
+                                themeMode = normalizedMode
+                                preferences.edit().putString("theme_mode", normalizedMode).apply()
+                            },
                             onSignOut = {
                                 scope.launch {
                                     runCatching {

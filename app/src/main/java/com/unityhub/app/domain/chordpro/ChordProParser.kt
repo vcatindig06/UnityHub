@@ -24,12 +24,40 @@ data class ChordProDocument(
 
 object ChordProParser {
     const val MAX_CHORDS_PER_LINE = 256
-    const val MAX_DISPLAY_LINES = 12_000
-    const val MAX_LINE_CHARACTERS = 8_192
+    const val MAX_DISPLAY_LINES = 6_000
+    const val MAX_LINE_CHARACTERS = 4_096
     private const val MAX_CHORD_LABEL_CHARACTERS = 64
     private val inlineChord = Regex("\\[([^\\]]+)]")
     private val directive = Regex("^\\{\\s*([a-zA-Z0-9_]+)\\s*(?::\\s*(.*?))?\\s*}$")
     private val timeSignaturePattern = Regex("^\\d{1,2}/\\d{1,2}$")
+
+    private data class BoundedSourceLine(
+        val value: String,
+        val truncated: Boolean
+    )
+
+    private fun boundedSourceLines(source: String): Sequence<BoundedSourceLine> = sequence {
+        var start = 0
+        var index = 0
+        while (index < source.length) {
+            val character = source[index]
+            if (character == '\n' || character == '\r') {
+                val lineLength = index - start
+                val end = minOf(index, start + MAX_LINE_CHARACTERS)
+                yield(BoundedSourceLine(source.substring(start, end), lineLength > MAX_LINE_CHARACTERS))
+                index++
+                if (character == '\r' && index < source.length && source[index] == '\n') {
+                    index++
+                }
+                start = index
+            } else {
+                index++
+            }
+        }
+        val lineLength = source.length - start
+        val end = minOf(source.length, start + MAX_LINE_CHARACTERS)
+        yield(BoundedSourceLine(source.substring(start, end), lineLength > MAX_LINE_CHARACTERS))
+    }
 
     fun parse(source: String): ChordProDocument {
         var title: String? = null
@@ -45,17 +73,18 @@ object ChordProParser {
         // number of rows and the size of an individual row before Compose sees
         // them. This prevents newline-heavy or single-line 1 MB charts from
         // allocating/rendering an unbounded number of text nodes.
-        source.replace("\r\n", "\n").replace('\r', '\n').lineSequence().take(MAX_DISPLAY_LINES + 1).forEachIndexed { lineIndex, sourceLine ->
+        boundedSourceLines(source).take(MAX_DISPLAY_LINES + 1).forEachIndexed { lineIndex, sourceLine ->
             if (lineIndex >= MAX_DISPLAY_LINES) {
                 isTruncated = true
                 return@forEachIndexed
             }
-            if (sourceLine.length > MAX_LINE_CHARACTERS) isTruncated = true
+            if (sourceLine.truncated) isTruncated = true
 
+            // The line sequence already bounds each substring, so even a single
+            // malformed mega-line cannot allocate an equally large temporary copy.
             // Keep tabs and printable characters, but remove NUL and other control
             // bytes that can cause platform text renderers to behave unpredictably.
-            val rawLine = sourceLine.take(MAX_LINE_CHARACTERS)
-                .filter { it == '\t' || it >= ' ' }
+            val rawLine = sourceLine.value.filter { it == '\t' || it >= ' ' }
             val trimmed = rawLine.trim()
             val match = directive.matchEntire(trimmed)
             if (match != null) {

@@ -144,9 +144,15 @@ private val UnityHubShapes = Shapes(
 @Composable
 fun UnityHubTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: String = "system",
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) UnityHubDarkColors else UnityHubLightColors
+    val resolvedDarkTheme = when (themeMode) {
+        "dark" -> true
+        "light" -> false
+        else -> darkTheme
+    }
+    val colorScheme = if (resolvedDarkTheme) UnityHubDarkColors else UnityHubLightColors
     val view = LocalView.current
 
     SideEffect {
@@ -155,8 +161,8 @@ fun UnityHubTheme(
             window.statusBarColor = colorScheme.background.toArgb()
             window.navigationBarColor = colorScheme.surface.toArgb()
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !darkTheme
-                isAppearanceLightNavigationBars = !darkTheme
+                isAppearanceLightStatusBars = !resolvedDarkTheme
+                isAppearanceLightNavigationBars = !resolvedDarkTheme
             }
         }
     }

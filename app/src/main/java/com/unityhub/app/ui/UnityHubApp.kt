@@ -23,8 +23,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Notifications
@@ -102,7 +104,9 @@ private val destinations = listOf(
 fun UnityHubApp(
     onSignOut: () -> Unit,
     pushNavigation: UnityHubPushNavigation? = null,
-    onPushNavigationHandled: () -> Unit = {}
+    onPushNavigationHandled: () -> Unit = {},
+    themeMode: String = "system",
+    onThemeModeChanged: (String) -> Unit = {}
 ) {
     val client = remember { SupabaseClientProvider.client }
     val userId = remember { client.auth.currentSessionOrNull()?.user?.id.orEmpty() }
@@ -219,7 +223,9 @@ fun UnityHubApp(
             onRefresh = { reload() },
             onSignOut = onSignOut,
             pushNavigation = pushNavigation,
-            onPushNavigationHandled = onPushNavigationHandled
+            onPushNavigationHandled = onPushNavigationHandled,
+            themeMode = themeMode,
+            onThemeModeChanged = onThemeModeChanged
         )
     }
 }
@@ -710,13 +716,16 @@ private fun WorkspaceDashboard(
     onRefresh: () -> Unit,
     onSignOut: () -> Unit,
     pushNavigation: UnityHubPushNavigation?,
-    onPushNavigationHandled: () -> Unit
+    onPushNavigationHandled: () -> Unit,
+    themeMode: String,
+    onThemeModeChanged: (String) -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(HOME_TAB_INDEX) }
     var tabHistory by rememberSaveable { mutableStateOf(emptyList<Int>()) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
     var showTeamManagement by rememberSaveable { mutableStateOf(false) }
     var showTeamChat by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     var chatReturnDestination by rememberSaveable { mutableStateOf("home") }
     var requestedServicePlanId by remember { mutableStateOf<String?>(null) }
     var serviceNavigationRequestId by remember { mutableStateOf<String?>(null) }
@@ -755,13 +764,14 @@ private fun WorkspaceDashboard(
     }
 
     BackHandler(
-        enabled = showNotifications || showTeamManagement || showTeamChat ||
+        enabled = showNotifications || showTeamManagement || showTeamChat || showSettings ||
             tabHistory.isNotEmpty() || selectedTab != HOME_TAB_INDEX
     ) {
         when {
             showTeamChat -> returnFromTeamChat()
             showTeamManagement -> showTeamManagement = false
             showNotifications -> showNotifications = false
+            showSettings -> showSettings = false
             else -> {
                 val previousTab = AppBackNavigationRules.previousTab(selectedTab, tabHistory)
                 if (previousTab != null) {
@@ -818,13 +828,14 @@ private fun WorkspaceDashboard(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
                 navigationIcon = {
-                    if (showNotifications || showTeamManagement || showTeamChat) {
+                    if (showNotifications || showTeamManagement || showTeamChat || showSettings) {
                         IconButton(
                             onClick = {
                                 when {
                                     showTeamChat -> returnFromTeamChat()
                                     showTeamManagement -> showTeamManagement = false
-                                    else -> showNotifications = false
+                                    showNotifications -> showNotifications = false
+                                    else -> showSettings = false
                                 }
                             }
                         ) {
@@ -833,6 +844,7 @@ private fun WorkspaceDashboard(
                                 contentDescription = when {
                                     showTeamChat -> "Back"
                                     showTeamManagement -> "Back to Home"
+                                    showNotifications -> "Back to workspace"
                                     else -> "Back to workspace"
                                 }
                             )
@@ -849,6 +861,7 @@ private fun WorkspaceDashboard(
                         Text(
                             when {
                                 showNotifications -> "Notifications"
+                                showSettings -> "Settings"
                                 showTeamManagement -> "Team"
                                 showTeamChat -> "Team Chat"
                                 selectedTab == PROFILE_TAB_INDEX -> "Profile"
@@ -860,9 +873,10 @@ private fun WorkspaceDashboard(
                         Text(
                             when {
                                 showNotifications -> "Updates for your worship team"
+                                showSettings -> "Account, appearance, notifications and updates"
                                 showTeamManagement -> organization.name
                                 showTeamChat -> organization.name
-                                selectedTab == PROFILE_TAB_INDEX -> "Your account and app preferences"
+                                selectedTab == PROFILE_TAB_INDEX -> "Your profile and team membership"
                                 else -> "${roleLabel(workspace.role)} · UnityHub workspace"
                             },
                             style = MaterialTheme.typography.labelSmall,
@@ -871,7 +885,15 @@ private fun WorkspaceDashboard(
                     }
                 },
                 actions = {
-                    if (!showNotifications && !showTeamManagement && !showTeamChat) {
+                    if (!showNotifications && !showTeamManagement && !showTeamChat && !showSettings) {
+                        IconButton(
+                            onClick = {
+                                chatReturnDestination = "home"
+                                showTeamChat = true
+                            }
+                        ) {
+                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Team Chat")
+                        }
                         IconButton(onClick = { showNotifications = true }) {
                             BadgedBox(
                                 badge = {
@@ -895,12 +917,15 @@ private fun WorkspaceDashboard(
                                 )
                             }
                         }
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        }
                     }
                 }
             )
         },
         bottomBar = {
-            if (!showNotifications && !showTeamManagement && !showTeamChat) {
+            if (!showNotifications && !showTeamManagement && !showTeamChat && !showSettings) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = 3.dp
@@ -945,7 +970,6 @@ private fun WorkspaceDashboard(
                             onClick = {
                                 if (setlistAction) {
                                     createSetlistRequestId += 1
-                                    navigateToTab(SERVICES_TAB_INDEX)
                                 } else {
                                     songEditorRequestId += 1
                                     navigateToTab(SONGS_TAB_INDEX)
@@ -1006,6 +1030,14 @@ private fun WorkspaceDashboard(
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         when {
+            showSettings -> AccountSettingsScreen(
+                organizationName = organization.name,
+                role = roleLabel(workspace.role),
+                onSignOut = onSignOut,
+                themeMode = themeMode,
+                onThemeModeChanged = onThemeModeChanged,
+                modifier = Modifier.padding(innerPadding)
+            )
             showNotifications -> NotificationsScreen(
                 userId = userId,
                 currentOrganizationId = organization.id,
@@ -1102,6 +1134,8 @@ private fun WorkspaceDashboard(
                     role = workspace.role,
                     openSongEditorRequestId = songEditorRequestId,
                     onSongEditorRequestHandled = { songEditorRequestId = 0 },
+                    openCreateSetlistRequestId = createSetlistRequestId,
+                    onCreateSetlistRequestHandled = { createSetlistRequestId = 0 },
                     modifier = Modifier.padding(innerPadding)
                 )
                 SERVICES_TAB_INDEX -> ServicePlanningScreen(
@@ -1120,14 +1154,12 @@ private fun WorkspaceDashboard(
                         requestedRehearsalId = null
                         rehearsalNavigationRequestId = null
                     },
-                    openCreateSetlistRequestId = createSetlistRequestId,
-                    onOpenCreateSetlistHandled = { createSetlistRequestId = 0 },
                     modifier = Modifier.padding(innerPadding)
                 )
-                else -> AccountSettingsScreen(
+                else -> ProfileOverviewScreen(
                     organizationName = organization.name,
                     role = roleLabel(workspace.role),
-                    onSignOut = onSignOut,
+                    onOpenSettings = { showSettings = true },
                     modifier = Modifier.padding(innerPadding)
                 )
             }

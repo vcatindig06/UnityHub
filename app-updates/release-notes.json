@@ -1,9 +1,23 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 51,
-  "latestVersionName": "0.51.0",
+  "latestVersionCode": 52,
+  "latestVersionName": "0.52.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 52,
+      "versionName": "0.52.0",
+      "releasedAt": "2026-11-26",
+      "summary": "Fix saved song charts and live preview, introduce independent team song setlists, and organize account preferences in Settings.",
+      "changes": [
+        "Harden saved ChordPro chart parsing against oversized lines and newline-heavy content while preserving the original saved chart.",
+        "Make the Add Song live preview refresh from the current editor text and add a ready-to-insert sample chart with a ChordPro syntax guide.",
+        "Create team-shared setlists directly from Songs with at least two songs, add/remove songs, reorder, rename, duplicate, and delete.",
+        "Keep setlists independent from dated Services, and retain saved chart snapshots if a library song is later removed.",
+        "Add top-bar shortcuts in Chat, Notifications, Settings order; move account, appearance, notification and app-update preferences into Settings.",
+        "Add a dedicated Profile overview and persistent System, Light, and Dark appearance choices."
+      ]
+    },
     {
       "versionCode": 51,
       "versionName": "0.51.0",
