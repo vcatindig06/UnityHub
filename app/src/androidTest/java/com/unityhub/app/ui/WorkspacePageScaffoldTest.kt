@@ -61,12 +61,13 @@ class WorkspacePageScaffoldTest {
                         )
                     },
                     bottomBar = {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(64.dp)
-                                .testTag("workspace-bottom-bar")
-                        )
+                        Box(Modifier.testTag("workspace-bottom-bar")) {
+                            WorkspaceBottomNavigationBar(
+                                selectedTab = 0,
+                                onTabSelected = {},
+                                onPrimaryAction = {}
+                            )
+                        }
                     }
                 ) { innerPadding ->
                     Box(
@@ -99,6 +100,10 @@ class WorkspacePageScaffoldTest {
         assertTrue(
             "The bottom navigation must stay anchored to the bottom of the workspace.",
             bottomBounds.bottom >= rootBounds.bottom - tolerancePx
+        )
+        assertTrue(
+            "The navigation bar must remain compact so it cannot consume the page body.",
+            bottomBounds.height <= with(composeRule.density) { 100.dp.toPx() }
         )
     }
 
@@ -231,8 +236,12 @@ class WorkspacePageScaffoldTest {
             }
         }
 
-        composeRule.onNodeWithTag("notifications-heading")
-            .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading))
+        val headingNode = composeRule.onNodeWithTag("notifications-heading")
+            .fetchSemanticsNode()
+        assertTrue(
+            "The notification title must be announced as a heading.",
+            headingNode.config.contains(SemanticsProperties.Heading)
+        )
         composeRule.onNodeWithTag("open-team-action").assertHasClickAction()
         composeRule.onNodeWithText("Open Team").assertIsDisplayed()
         composeRule.onNodeWithTag("notifications-action")
