@@ -35,6 +35,23 @@ class UnityHubFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
 
+        val notificationType = message.data["notification_type"].orEmpty()
+        val category = when (notificationType) {
+            "team_message" -> "chats"
+            "assignment_created",
+            "assignment_reminder",
+            "assignment_response",
+            "rehearsal_assigned",
+            "rehearsal_response" -> "assignments"
+            "app_update" -> "app_updates"
+            else -> "team_updates"
+        }
+        val categoryPreferences = getSharedPreferences(
+            "unityhub_notification_categories",
+            MODE_PRIVATE
+        )
+        if (!categoryPreferences.getBoolean(category, true)) return
+
         val title = message.notification?.title
             ?: message.data["title"]
             ?: "UnityHub"
