@@ -130,6 +130,12 @@ class ChordProParserTest {
     }
 
     @Test
+    fun parsesSongCategoryMetadata() {
+        assertEquals("Worship", ChordProParser.parse("{category: Worship}\\n[G]Amazing").category)
+        assertEquals("Praise", ChordProParser.parse("{category: Praise}").category)
+    }
+
+    @Test
     fun ignoresOutOfRangeTempoAndInvalidTimeSignature() {
         val document = ChordProParser.parse("{tempo: 999}\n{time: fast}")
         assertEquals(null, document.tempo)

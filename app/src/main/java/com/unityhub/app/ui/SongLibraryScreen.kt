@@ -142,6 +142,9 @@ fun SongLibraryScreen(
     var tempo by rememberSaveable { mutableStateOf("") }
     var timeSignature by rememberSaveable { mutableStateOf("4/4") }
     var capo by rememberSaveable { mutableStateOf(0) }
+    var category by rememberSaveable { mutableStateOf("") }
+    var categoryFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var categoryFilterMenuExpanded by remember { mutableStateOf(false) }
     var chordpro by remember { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
@@ -222,6 +225,7 @@ fun SongLibraryScreen(
         tempo = ""
         timeSignature = "4/4"
         capo = 0
+        category = ""
         chordpro = ""
         notes = ""
         error = ""
@@ -248,6 +252,7 @@ fun SongLibraryScreen(
         tempo = song.tempo?.toString().orEmpty()
         timeSignature = song.timeSignature
         capo = ChordProParser.parse(song.chordpro).capo ?: 0
+        category = ChordProParser.parse(song.chordpro).category.orEmpty()
         chordpro = song.chordpro
         notes = song.notes
         error = ""
@@ -312,6 +317,7 @@ fun SongLibraryScreen(
                         SongEditorInputLimits.MAX_TIME_SIGNATURE_CHARACTERS
                     )
                     capo = document.capo ?: 0
+                    category = document.category.orEmpty()
                     chordpro = source
                     notes = ""
                     importMessage = "File imported. Review the song details and chart before saving."
@@ -327,7 +333,7 @@ fun SongLibraryScreen(
 
     LaunchedEffect(organizationId, userId, offlineOnly) { reload() }
 
-    LaunchedEffect(songs, search, favoriteFilter, favoriteSongIds, songSortOption) {
+    LaunchedEffect(songs, search, favoriteFilter, favoriteSongIds, songSortOption, categoryFilter) {
         filteringSongs = true
         try {
             filteredSongs = withContext(Dispatchers.Default) {
@@ -337,7 +343,9 @@ fun SongLibraryScreen(
                     favoritesOnly = favoriteFilter,
                     favoriteSongIds = favoriteSongIds,
                     sortOption = songSortOption
-                )
+                ).filter { song ->
+                    categoryFilter == null || ChordProParser.parse(song.chordpro).category == categoryFilter
+                }
             }
         } finally {
             filteringSongs = false
@@ -424,6 +432,8 @@ fun SongLibraryScreen(
             },
             capo = capo,
             onCapoChange = { capo = it },
+            category = category,
+            onCategoryChange = { category = it.take(50).replace(Regex("[\\r\\n{}]"), "").trim() },
             chordpro = chordpro,
             onChordproChange = { value ->
                 if (value.length > SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS) {
@@ -459,7 +469,7 @@ fun SongLibraryScreen(
                                 keySignature = keySignature,
                                 tempo = parsedTempo,
                                 timeSignature = timeSignature,
-                                chordpro = updateChordProCapo(chordpro, capo),
+                                chordpro = updateChordProCategory(updateChordProCapo(chordpro, capo), category),
                                 notes = notes
                             )
                             editorOpen = false
@@ -580,8 +590,18 @@ fun SongLibraryScreen(
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                     ) {
+                        Box {
+                            FilterChip(selected = categoryFilter != null, onClick = { categoryFilterMenuExpanded = true }, label = { Text(categoryFilter ?: "Categories") })
+                            DropdownMenu(expanded = categoryFilterMenuExpanded, onDismissRequest = { categoryFilterMenuExpanded = false }) {
+                                DropdownMenuItem(text = { Text("All categories") }, onClick = { categoryFilter = null; categoryFilterMenuExpanded = false })
+                                songs.mapNotNull { ChordProParser.parse(it.chordpro).category?.takeIf(String::isNotBlank) }.distinct().sorted().forEach { option ->
+                                    DropdownMenuItem(text = { Text(option) }, onClick = { categoryFilter = option; categoryFilterMenuExpanded = false })
+                                }
+                            }
+                        }
                         Box {
                             IconButton(onClick = { sortMenuExpanded = true }) {
                                 Icon(Icons.Default.Sort, contentDescription = "Sort songs: ${songSortOption.label}")
@@ -750,6 +770,8 @@ private fun SongEditor(
     onTempoChange: (String) -> Unit,
     timeSignature: String,
     onTimeSignatureChange: (String) -> Unit,
+    category: String,
+    onCategoryChange: (String) -> Unit,
     capo: Int,
     onCapoChange: (Int) -> Unit,
     chordpro: String,
@@ -765,6 +787,9 @@ private fun SongEditor(
     var timeMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var guideExpanded by rememberSaveable { mutableStateOf(false) }
     var capoMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    var categoryMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    val defaultCategories = listOf("Worship", "Praise", "Hymns", "Christmas", "Easter", "Communion", "Other")
+    val categoryOptions = (defaultCategories + category.takeIf(String::isNotBlank).orEmpty()).distinct()
     val keyOptions = listOf("C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B")
     val timeOptions = listOf("4/4", "3/4", "6/8", "2/4", "2/2", "12/8")
     Scaffold(
@@ -860,6 +885,17 @@ private fun SongEditor(
                 }
                 DropdownMenu(expanded = timeMenuExpanded, onDismissRequest = { timeMenuExpanded = false }) {
                     timeOptions.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { onTimeSignatureChange(option); timeMenuExpanded = false }) }
+                }
+            }
+        }
+        item(key = "song-editor-category") {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                OutlinedButton(onClick = { categoryMenuExpanded = true }, modifier = Modifier.fillMaxWidth(), enabled = !saving) {
+                    Text(if (category.isBlank()) "Category · None" else "Category · $category")
+                }
+                DropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
+                    DropdownMenuItem(text = { Text("No category") }, onClick = { onCategoryChange(""); categoryMenuExpanded = false })
+                    categoryOptions.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { onCategoryChange(option); categoryMenuExpanded = false }) }
                 }
             }
         }
@@ -994,4 +1030,14 @@ private fun updateChordProCapo(source: String, capo: Int): String {
         .filterNot { it.trim().matches(Regex("""\{\s*capo\s*:\s*\d+\s*}""", RegexOption.IGNORE_CASE)) }
         .joinToString("\n")
     return if (capo == 0) withoutCapo else "{capo: $capo}" + if (withoutCapo.isBlank()) "" else "\n$withoutCapo"
+}
+
+
+private fun updateChordProCategory(source: String, category: String): String {
+    val withoutCategory = source.lineSequence()
+        .filterNot { it.trim().startsWith("{category:", ignoreCase = true) }
+        .joinToString("\n")
+    val safeCategory = category.trim().replace(Regex("[\\r\\n{}]"), "").take(50)
+    return if (safeCategory.isBlank()) withoutCategory else
+        "{category: $safeCategory}" + if (withoutCategory.isBlank()) "" else "\n$withoutCategory"
 }
