@@ -3,6 +3,7 @@ package com.unityhub.app.ui
 import com.unityhub.app.domain.chordpro.ChordProParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -53,6 +54,43 @@ class LiveStageRulesTest {
         val renderedChordRow = buildChordRow(chordOnlyLine, transpose = 0)
         assertTrue(renderedChordRow.contains("G"))
         assertTrue(renderedChordRow.contains("C"))
+    }
+
+    @Test
+    fun stageContentKeyResetsStateWhenServiceOrSetlistChanges() {
+        val original = LiveStageRules.contentKey(
+            serviceTitle = "Sunday Worship",
+            itemFingerprints = listOf("song-1:0:chart-a", "song-2:1:chart-b")
+        )
+
+        assertEquals(
+            original,
+            LiveStageRules.contentKey(
+                "Sunday Worship",
+                listOf("song-1:0:chart-a", "song-2:1:chart-b")
+            )
+        )
+        assertNotEquals(
+            original,
+            LiveStageRules.contentKey(
+                "Sunday Worship",
+                listOf("song-2:0:chart-b", "song-1:1:chart-a")
+            )
+        )
+        assertNotEquals(
+            original,
+            LiveStageRules.contentKey(
+                "Sunday Worship",
+                listOf("song-1:0:chart-updated", "song-2:1:chart-b")
+            )
+        )
+        assertNotEquals(
+            original,
+            LiveStageRules.contentKey(
+                "Evening Worship",
+                listOf("song-1:0:chart-a", "song-2:1:chart-b")
+            )
+        )
     }
 
     @Test

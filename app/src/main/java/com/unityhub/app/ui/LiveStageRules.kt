@@ -4,6 +4,17 @@ import com.unityhub.app.domain.chordpro.ChordProLine
 import kotlin.math.ceil
 
 internal object LiveStageRules {
+    /**
+     * Stable, length-prefixed key for saveable Live Stage state. A changed
+     * service title, item order, or song snapshot creates a fresh stage session.
+     */
+    fun contentKey(serviceTitle: String, itemFingerprints: List<String>): String = buildString {
+        append(serviceTitle.length).append(':').append(serviceTitle)
+        itemFingerprints.forEach { fingerprint ->
+            append('|').append(fingerprint.length).append(':').append(fingerprint)
+        }
+    }
+
     fun isSectionHeader(line: ChordProLine): Boolean =
         line.section != null && line.lyrics.isBlank() && line.chords.isEmpty()
 

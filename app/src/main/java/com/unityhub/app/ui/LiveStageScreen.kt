@@ -103,14 +103,29 @@ fun LiveStageScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var currentIndex by rememberSaveable(serviceTitle) { mutableIntStateOf(0) }
-    var transpose by rememberSaveable(serviceTitle) { mutableIntStateOf(0) }
-    var textScale by rememberSaveable(serviceTitle) { mutableFloatStateOf(1f) }
-    var showChords by rememberSaveable(serviceTitle) { mutableStateOf(true) }
-    var autoScrollEnabled by rememberSaveable(serviceTitle) { mutableStateOf(false) }
-    var autoScrollSpeedIndex by rememberSaveable(serviceTitle) { mutableIntStateOf(1) }
-    var stageControlsExpanded by rememberSaveable(serviceTitle) { mutableStateOf(false) }
-    var lastAutoScrollIndex by remember { mutableIntStateOf(0) }
+    val stageStateKey = remember(serviceTitle, items) {
+        LiveStageRules.contentKey(
+            serviceTitle = serviceTitle,
+            itemFingerprints = items.map { item ->
+                listOf(
+                    item.id,
+                    item.itemOrder.toString(),
+                    item.itemType,
+                    item.title.hashCode().toString(),
+                    item.chordproSnapshot.hashCode().toString(),
+                    item.notes.hashCode().toString()
+                ).joinToString(":")
+            }
+        )
+    }
+    var currentIndex by rememberSaveable(stageStateKey) { mutableIntStateOf(0) }
+    var transpose by rememberSaveable(stageStateKey) { mutableIntStateOf(0) }
+    var textScale by rememberSaveable(stageStateKey) { mutableFloatStateOf(1f) }
+    var showChords by rememberSaveable(stageStateKey) { mutableStateOf(true) }
+    var autoScrollEnabled by rememberSaveable(stageStateKey) { mutableStateOf(false) }
+    var autoScrollSpeedIndex by rememberSaveable(stageStateKey) { mutableIntStateOf(1) }
+    var stageControlsExpanded by rememberSaveable(stageStateKey) { mutableStateOf(false) }
+    var lastAutoScrollIndex by remember(stageStateKey) { mutableIntStateOf(0) }
 
     val context = LocalContext.current
     val view = LocalView.current
@@ -120,7 +135,7 @@ fun LiveStageScreen(
     val density = LocalDensity.current.density
     val currentItem = items.getOrNull(currentIndex)
     val chartSource = currentItem?.chordproSnapshot?.takeIf(String::isNotBlank)
-    var loadedChart by remember(serviceTitle) {
+    var loadedChart by remember(stageStateKey) {
         mutableStateOf<LoadedStageChart?>(null)
     }
 
