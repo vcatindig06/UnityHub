@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
@@ -20,6 +21,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -48,6 +50,7 @@ import com.unityhub.app.ui.AppUpdateController
 import com.unityhub.app.ui.components.UnityHubLoadingScreen
 import com.unityhub.app.ui.auth.AuthScreen
 import com.unityhub.app.ui.auth.PasswordRecoveryScreen
+import com.unityhub.app.ui.theme.AppearanceMode
 import com.unityhub.app.ui.theme.UnityHubTheme
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.handleDeeplinks
@@ -69,7 +72,20 @@ class MainActivity : ComponentActivity() {
         UnityHubNotificationManager.createChannel(this)
 
         setContent {
-            UnityHubTheme {
+            val appearancePreferences = remember {
+                getSharedPreferences(AppearanceMode.PREFERENCES_NAME, MODE_PRIVATE)
+            }
+            var appearanceMode by remember {
+                mutableStateOf(
+                    AppearanceMode.fromStoredValue(
+                        appearancePreferences.getString(AppearanceMode.PREFERENCE_KEY, null)
+                    )
+                )
+            }
+
+            UnityHubTheme(
+                darkTheme = appearanceMode.usesDarkTheme(isSystemInDarkTheme())
+            ) {
                 BackHandler {
                     if (passwordRecoveryMode) {
                         passwordRecoveryMode = false
@@ -140,6 +156,13 @@ class MainActivity : ComponentActivity() {
                         )
                     } else if (authenticated) {
                         UnityHubApp(
+                            appearanceMode = appearanceMode,
+                            onAppearanceModeChange = { selectedMode ->
+                                appearanceMode = selectedMode
+                                appearancePreferences.edit()
+                                    .putString(AppearanceMode.PREFERENCE_KEY, selectedMode.preferenceValue)
+                                    .apply()
+                            },
                             pushNavigation = pendingPushNavigation,
                             onPushNavigationHandled = { pendingPushNavigation = null },
                             onSignOut = {
