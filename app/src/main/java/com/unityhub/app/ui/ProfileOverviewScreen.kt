@@ -410,9 +410,6 @@ fun ProfileOverviewScreen(
                     } else {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ContributionMetric("Songs created", summary.songsCreated)
-                            ContributionMetric("Completed services", summary.servicesServed)
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ContributionMetric("Rehearsals attended", summary.attendedRehearsals)
                         }
                     }
