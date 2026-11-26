@@ -18,6 +18,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -171,16 +172,18 @@ fun ServiceAssignmentsSection(
             suggestedRoles = suggestedRoles,
             saving = saving,
             onDismiss = { addDialogOpen = false },
-            onAssign = { member, role ->
+            onAssign = { member, roles ->
                 addDialogOpen = false
                 runAction {
-                    repository.assignMember(
-                        organizationId = organizationId,
-                        servicePlanId = servicePlanId,
-                        memberId = member.memberId,
-                        roleLabel = role,
-                        assignedBy = currentUserId
-                    )
+                    roles.forEach { role ->
+                        repository.assignMember(
+                            organizationId = organizationId,
+                            servicePlanId = servicePlanId,
+                            memberId = member.memberId,
+                            roleLabel = role,
+                            assignedBy = currentUserId
+                        )
+                    }
                 }
             }
         )
@@ -443,12 +446,13 @@ private fun AddServiceAssignmentDialog(
     suggestedRoles: List<String>,
     saving: Boolean,
     onDismiss: () -> Unit,
-    onAssign: (ServiceMemberOption, String) -> Unit
+    onAssign: (ServiceMemberOption, List<String>) -> Unit
 ) {
     var selectedMember by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var memberMenuOpen by remember { mutableStateOf(false) }
     var roleMenuOpen by remember { mutableStateOf(false) }
-    var role by rememberSaveable { mutableStateOf("") }
+    var selectedRoles by rememberSaveable { mutableStateOf(setOf<String>()) }
+    var customRole by rememberSaveable { mutableStateOf("") }
     val availableRoles = (suggestedRoles + listOf(
         "Worship Leader",
         "Main Vocal",
@@ -499,47 +503,44 @@ private fun AddServiceAssignmentDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = role,
-                    onValueChange = { role = it.take(80) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Ministry role *") },
-                    placeholder = { Text("Example: Electric Guitar") },
-                    singleLine = true,
-                    enabled = !saving
-                )
-                Box {
-                    TextButton(
-                        onClick = { roleMenuOpen = true },
-                        enabled = !saving
-                    ) {
-                        Text("Choose a suggested role")
-                    }
-                    DropdownMenu(
-                        expanded = roleMenuOpen,
-                        onDismissRequest = { roleMenuOpen = false },
-                        modifier = Modifier.heightIn(max = 300.dp)
-                    ) {
-                        availableRoles.forEach { suggested ->
-                            DropdownMenuItem(
-                                text = { Text(suggested) },
-                                onClick = {
-                                    role = suggested
-                                    roleMenuOpen = false
-                                }
-                            )
+                Text("Ministry roles", style = MaterialTheme.typography.labelLarge)
+                Text("Select every role this member will serve in.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    availableRoles.chunked(2).forEach { rowRoles ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            rowRoles.forEach { suggested ->
+                                FilterChip(
+                                    selected = suggested in selectedRoles,
+                                    onClick = {
+                                        selectedRoles = if (suggested in selectedRoles) selectedRoles - suggested else selectedRoles + suggested
+                                    },
+                                    label = { Text(suggested) },
+                                    enabled = !saving
+                                )
+                            }
                         }
                     }
                 }
+                OutlinedTextField(
+                    value = customRole,
+                    onValueChange = { customRole = it.take(80) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Other role (optional)") },
+                    placeholder = { Text("Enter another ministry role") },
+                    singleLine = true,
+                    enabled = !saving
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     val member = selectedMember ?: return@Button
-                    onAssign(member, role.trim())
+                    val roles = (selectedRoles + listOfNotNull(customRole.trim().takeIf { it.length >= 2 }))
+                        .distinctBy { it.lowercase() }
+                    onAssign(member, roles)
                 },
-                enabled = !saving && selectedMember != null && role.trim().length in 2..80
+                enabled = !saving && selectedMember != null && (selectedRoles.isNotEmpty() || customRole.trim().length in 2..80)
             ) {
                 if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else Text("Save assignment")
