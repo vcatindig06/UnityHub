@@ -36,6 +36,11 @@ data class RehearsalAssignmentDto(
     @SerialName("created_at") val createdAt: String
 )
 
+data class RehearsalAttendanceSnapshot(
+    val rehearsal: RehearsalDto,
+    val assignments: List<RehearsalAssignmentDto>
+)
+
 @Serializable
 private data class NewRehearsal(
     @SerialName("organization_id") val organizationId: String,
@@ -82,6 +87,39 @@ class RehearsalRepository(private val client: SupabaseClient) {
             }
         }.decodeList<RehearsalAssignmentDto>()
             .sortedBy { it.createdAt }
+
+    /**
+     * Loads attendance rosters for completed rehearsals in one organization-scoped
+     * assignment query. Availability responses remain in the roster as unrecorded
+     * attendance until a leader marks the member attended or absent.
+     */
+    suspend fun loadCompletedAttendance(
+        organizationId: String
+    ): List<RehearsalAttendanceSnapshot> {
+        require(organizationId.isNotBlank())
+
+        val completedRehearsals = loadRehearsals(organizationId)
+            .filter { it.status == "completed" }
+            .sortedWith(
+                compareByDescending<RehearsalDto> { it.rehearsalDate }
+                    .thenByDescending { it.startTime }
+            )
+        if (completedRehearsals.isEmpty()) return emptyList()
+
+        val completedIds = completedRehearsals.map { it.id }.toSet()
+        val assignmentsByRehearsal = client.from("rehearsal_assignments").select {
+            filter { eq("organization_id", organizationId) }
+        }.decodeList<RehearsalAssignmentDto>()
+            .filter { it.rehearsalId in completedIds }
+            .groupBy { it.rehearsalId }
+
+        return completedRehearsals.map { rehearsal ->
+            RehearsalAttendanceSnapshot(
+                rehearsal = rehearsal,
+                assignments = assignmentsByRehearsal[rehearsal.id].orEmpty()
+            )
+        }
+    }
 
     suspend fun loadTeamMembers(organizationId: String): List<ServiceMemberOption> =
         teamRepository.loadTeamMembers(organizationId)
