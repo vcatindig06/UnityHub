@@ -1,5 +1,8 @@
 package com.unityhub.app.ui
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -692,24 +695,17 @@ private fun ServicePlanEditorDialog(
                     singleLine = true,
                     enabled = !saving
                 )
-                OutlinedTextField(
+                NativeDatePickerField(
                     value = date,
-                    onValueChange = { date = it.take(10) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Date (YYYY-MM-DD)") },
-                    supportingText = { Text("Example: 2026-11-08") },
-                    singleLine = true,
-                    enabled = !saving
-                )
-                OutlinedTextField(
-                    value = time,
-                    onValueChange = { time = it.take(5) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Start time (24-hour HH:MM)") },
-                    supportingText = { Text("Example: 09:30") },
-                    singleLine = true,
+                    label = "Service date",
                     enabled = !saving,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii)
+                    onValueChange = { date = it }
+                )
+                NativeTimePickerField(
+                    value = time,
+                    label = "Service start",
+                    enabled = !saving,
+                    onValueChange = { time = it }
                 )
                 OutlinedTextField(
                     value = notes,
@@ -1600,7 +1596,7 @@ private fun OutlinedActionButton(label: String, onClick: () -> Unit, enabled: Bo
 private fun serviceDateTimeLabel(date: String?, time: String?): String {
     val dateLabel = date?.let {
         runCatching {
-            LocalDate.parse(it).format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.getDefault()))
+            LocalDate.parse(it).format(DateTimeFormatter.ofPattern("MM-dd-yyyy", Locale.getDefault()))
         }.getOrDefault(it)
     } ?: "Date not set"
     val timeLabel = time?.let {
@@ -1687,3 +1683,62 @@ private fun ConfirmCopySetlistDialog(
     )
 }
 
+
+
+@Composable
+private fun NativeDatePickerField(
+    value: String,
+    label: String,
+    enabled: Boolean,
+    onValueChange: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val selected = runCatching { LocalDate.parse(value) }.getOrDefault(LocalDate.now())
+    OutlinedButton(
+        onClick = {
+            DatePickerDialog(
+                context,
+                { _, year, month, day -> onValueChange(LocalDate.of(year, month + 1, day).toString()) },
+                selected.year,
+                selected.monthValue - 1,
+                selected.dayOfMonth
+            ).show()
+        },
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(Icons.Default.CalendarMonth, contentDescription = null)
+        Text("$label · " + runCatching {
+            LocalDate.parse(value).format(DateTimeFormatter.ofPattern("MM-dd-yyyy", Locale.getDefault()))
+        }.getOrDefault("Select date"))
+    }
+}
+
+@Composable
+private fun NativeTimePickerField(
+    value: String,
+    label: String,
+    enabled: Boolean,
+    onValueChange: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val selected = runCatching { LocalTime.parse(value) }.getOrDefault(LocalTime.of(9, 0))
+    OutlinedButton(
+        onClick = {
+            TimePickerDialog(
+                context,
+                { _, hour, minute -> onValueChange(LocalTime.of(hour, minute).format(DateTimeFormatter.ofPattern("HH:mm"))) },
+                selected.hour,
+                selected.minute,
+                false
+            ).show()
+        },
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(Icons.Default.CalendarMonth, contentDescription = null)
+        Text("$label · " + runCatching {
+            LocalTime.parse(value).format(DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
+        }.getOrDefault("Select time"))
+    }
+}

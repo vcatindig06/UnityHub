@@ -1,5 +1,8 @@
 package com.unityhub.app.ui
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -1446,10 +1449,29 @@ private fun RehearsalEditorDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedTextField(title, { title = it }, label = { Text("Rehearsal title") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !saving)
-                OutlinedTextField(date, { date = it }, label = { Text("Date (YYYY-MM-DD)") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !saving)
+                NativeDatePickerField(
+                    value = date,
+                    label = "Rehearsal date",
+                    enabled = !saving,
+                    onValueChange = { date = it }
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(startTime, { startTime = it }, label = { Text("Start (24h)") }, singleLine = true, modifier = Modifier.weight(1f), enabled = !saving)
-                    OutlinedTextField(endTime, { endTime = it }, label = { Text("End (optional)") }, singleLine = true, modifier = Modifier.weight(1f), enabled = !saving)
+                    Box(Modifier.weight(1f)) {
+                        NativeTimePickerField(
+                            value = startTime,
+                            label = "Start",
+                            enabled = !saving,
+                            onValueChange = { startTime = it }
+                        )
+                    }
+                    Box(Modifier.weight(1f)) {
+                        NativeTimePickerField(
+                            value = endTime.ifBlank { "18:00" },
+                            label = if (endTime.isBlank()) "Set end" else "End",
+                            enabled = !saving,
+                            onValueChange = { endTime = it }
+                        )
+                    }
                 }
                 OutlinedTextField(location, { location = it }, label = { Text("Location") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !saving)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1587,3 +1609,62 @@ private fun rehearsalTimeLabel(rehearsal: RehearsalDto): String =
     } else {
         "${RehearsalRules.formatTime(rehearsal.startTime)} – ${RehearsalRules.formatTime(rehearsal.endTime)}"
     }
+
+
+@Composable
+private fun NativeDatePickerField(
+    value: String,
+    label: String,
+    enabled: Boolean,
+    onValueChange: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val selected = runCatching { LocalDate.parse(value) }.getOrDefault(LocalDate.now())
+    OutlinedButton(
+        onClick = {
+            DatePickerDialog(
+                context,
+                { _, year, month, day -> onValueChange(LocalDate.of(year, month + 1, day).toString()) },
+                selected.year,
+                selected.monthValue - 1,
+                selected.dayOfMonth
+            ).show()
+        },
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(Icons.Default.CalendarMonth, contentDescription = null)
+        Text("$label · " + runCatching {
+            LocalDate.parse(value).format(java.time.format.DateTimeFormatter.ofPattern("MM-dd-yyyy", Locale.getDefault()))
+        }.getOrDefault("Select date"))
+    }
+}
+
+@Composable
+private fun NativeTimePickerField(
+    value: String,
+    label: String,
+    enabled: Boolean,
+    onValueChange: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val selected = runCatching { LocalTime.parse(value) }.getOrDefault(LocalTime.of(18, 0))
+    OutlinedButton(
+        onClick = {
+            TimePickerDialog(
+                context,
+                { _, hour, minute -> onValueChange(LocalTime.of(hour, minute).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))) },
+                selected.hour,
+                selected.minute,
+                false
+            ).show()
+        },
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(Icons.Default.CalendarMonth, contentDescription = null)
+        Text("$label · " + runCatching {
+            LocalTime.parse(value).format(java.time.format.DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
+        }.getOrDefault("Select time"))
+    }
+}
