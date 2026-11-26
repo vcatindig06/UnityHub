@@ -101,6 +101,10 @@ fun TeamManagementScreen(
     var ownershipTransferOpen by rememberSaveable { mutableStateOf(false) }
     var memberSearchQuery by rememberSaveable { mutableStateOf("") }
     var selectedPositionFilter by rememberSaveable { mutableStateOf("") }
+    var positionFilterPage by rememberSaveable { mutableStateOf(0) }
+    val positionFilterPageSize = 6
+    val positionFilterPages = (positions.size + positionFilterPageSize - 1) / positionFilterPageSize
+    val visiblePositionFilters = positions.drop(positionFilterPage * positionFilterPageSize).take(positionFilterPageSize)
 
     BackHandler(enabled = memberProfileTarget != null) {
         memberProfileTarget = null
@@ -404,29 +408,46 @@ fun TeamManagementScreen(
 
         if (positions.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = selectedPositionFilter.isBlank(),
-                        onClick = { selectedPositionFilter = "" },
-                        label = { Text("All positions") }
-                    )
-                    positions.forEach { position ->
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         FilterChip(
-                            selected = selectedPositionFilter == position.name,
-                            onClick = {
-                                selectedPositionFilter = if (selectedPositionFilter == position.name) {
-                                    ""
-                                } else {
-                                    position.name
-                                }
-                            },
-                            label = { Text(position.name) }
+                            selected = selectedPositionFilter.isBlank(),
+                            onClick = { selectedPositionFilter = "" },
+                            label = { Text("All positions") }
                         )
+                        visiblePositionFilters.forEach { position ->
+                            FilterChip(
+                                selected = selectedPositionFilter == position.name,
+                                onClick = {
+                                    selectedPositionFilter = if (selectedPositionFilter == position.name) "" else position.name
+                                },
+                                label = { Text(position.name) }
+                            )
+                        }
+                    }
+                    if (positionFilterPages > 1) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Positions ${positionFilterPage + 1} of $positionFilterPages",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(
+                                onClick = { positionFilterPage = (positionFilterPage - 1).coerceAtLeast(0) },
+                                enabled = positionFilterPage > 0
+                            ) { Text("Previous") }
+                            TextButton(
+                                onClick = { positionFilterPage = (positionFilterPage + 1).coerceAtMost(positionFilterPages - 1) },
+                                enabled = positionFilterPage < positionFilterPages - 1
+                            ) { Text("Next") }
+                        }
                     }
                 }
             }
