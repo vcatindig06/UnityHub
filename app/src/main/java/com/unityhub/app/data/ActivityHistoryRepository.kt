@@ -38,7 +38,7 @@ class ActivityHistoryRepository(private val client: SupabaseClient) {
                 eq("organization_id", organizationId)
             }
             order("created_at", Order.DESCENDING)
-            limit(limit.coerceIn(1, 100))
+            limit(limit.coerceIn(1, 100).toLong())
         }.decodeList<UserActivityDto>()
     }
 }
