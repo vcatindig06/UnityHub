@@ -36,6 +36,13 @@ object ChordProParser {
         val truncated: Boolean
     )
 
+    private fun normalizeSource(source: String): String =
+        source.removePrefix("\uFEFF")
+            .replace("\r\n", "\n")
+            .replace('\r', '\n')
+            .replace('\u2028', '\n')
+            .replace('\u2029', '\n')
+
     private fun boundedSourceLines(source: String): Sequence<BoundedSourceLine> = sequence {
         var start = 0
         var index = 0
@@ -73,7 +80,7 @@ object ChordProParser {
         // number of rows and the size of an individual row before Compose sees
         // them. This prevents newline-heavy or single-line 1 MB charts from
         // allocating/rendering an unbounded number of text nodes.
-        boundedSourceLines(source).take(MAX_DISPLAY_LINES + 1).forEachIndexed { lineIndex, sourceLine ->
+        boundedSourceLines(normalizeSource(source)).take(MAX_DISPLAY_LINES + 1).forEachIndexed { lineIndex, sourceLine ->
             if (lineIndex >= MAX_DISPLAY_LINES) {
                 isTruncated = true
                 return@forEachIndexed

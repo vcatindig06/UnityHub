@@ -380,7 +380,8 @@ internal object ChartAutoScrollRules {
 
 internal data class ChordProPreviewResult(
     val document: ChordProDocument? = null,
-    val failed: Boolean = false
+    val failed: Boolean = false,
+    val failureReason: String? = null
 )
 
 internal object ChordProPreviewRules {
@@ -396,11 +397,19 @@ internal object ChordProPreviewRules {
 
     fun parse(source: String): ChordProPreviewResult {
         if (source.isBlank()) return ChordProPreviewResult()
-        return runCatching { ChordProParser.parse(previewSource(source)) }
-            .fold(
-                onSuccess = { ChordProPreviewResult(document = it) },
-                onFailure = { ChordProPreviewResult(failed = true) }
+        return try {
+            ChordProPreviewResult(document = ChordProParser.parse(previewSource(source)))
+        } catch (failure: Throwable) {
+            if (failure is VirtualMachineError || failure is ThreadDeath) throw failure
+            val detail = failure.message
+                ?.filter { it == ' ' || it.isLetterOrDigit() || it in ".,:_-/()" }
+                ?.take(100)
+                ?.takeIf(String::isNotBlank)
+            ChordProPreviewResult(
+                failed = true,
+                failureReason = listOfNotNull(failure.javaClass.simpleName, detail).joinToString(": ")
             )
+        }
     }
 }
 
@@ -432,11 +441,20 @@ internal fun ChordProPreview(source: String, maxLines: Int = 8) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
         )
-        result.failed -> Text(
-            "The preview could not be formatted. Check the ChordPro text and try again.",
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodySmall
-        )
+        result.failed -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                "The preview could not be formatted. Check the ChordPro text and try again.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+            result.failureReason?.let { reason ->
+                Text(
+                    "Parser detail: $reason",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
         currentDocument == null || currentDocument.lines.isEmpty() -> Text(
             "No chart lines to preview yet. Add lyrics or a chord such as [G]Amazing grace.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,

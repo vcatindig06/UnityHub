@@ -33,6 +33,29 @@ class ChordProParserTest {
     }
 
     @Test
+    fun parsesTheExactVerseSampleUsedInSongEditor() {
+        val document = ChordProParser.parse(
+            "{start_of_verse}\\n[D]Amazing\\n{end_of_verse}"
+        )
+
+        assertEquals("Verse", document.lines.first().section)
+        val lyric = document.lines.first { it.lyrics == "Amazing" }
+        assertEquals("Verse", lyric.section)
+        assertEquals(listOf("D"), lyric.chords.map { it.chord })
+        assertFalse(document.isTruncated)
+    }
+
+    @Test
+    fun normalizesUnicodeLineSeparatorsAndLeadingBom() {
+        val document = ChordProParser.parse(
+            "\\uFEFF{start_of_verse}\\u2028[D]Amazing\\u2029{end_of_verse}"
+        )
+
+        assertTrue(document.lines.any { it.section == "Verse" })
+        assertTrue(document.lines.any { it.lyrics == "Amazing" && it.chords.singleOrNull()?.chord == "D" })
+    }
+
+    @Test
     fun parsesNumberedVerseChorusAndBridgeDirectives() {
         val document = ChordProParser.parse(
             """
