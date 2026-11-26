@@ -192,7 +192,7 @@ fun CommunityHubScreen(
                         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text(service.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                             Text(communityDateLabel(service.serviceDate, service.startTime, today), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(entries.size.toString() + " assigned " + if (entries.size == 1) "role" else "roles" + " · " + confirmed + " confirmed", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Text(entries.size.toString() + " assigned " + (if (entries.size == 1) "role" else "roles") + " · " + confirmed + " confirmed", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
