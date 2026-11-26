@@ -5,6 +5,16 @@
   "minimumSupportedVersionCode": 1,
   "releases": [
     {
+      "versionCode": 55,
+      "versionName": "0.55.0",
+      "releasedAt": "2026-11-26",
+      "summary": "Prevent saved-song crashes from parser initialization errors and expose the underlying preview failure.",
+      "changes": [
+        "Catch non-fatal JVM initialization/linkage errors in saved-chart parsing so a parser failure falls back to safe original ChordPro text instead of closing the app.",
+        "Show the underlying cause of preview initialization errors to make the remaining Android-specific parser issue diagnosable."
+      ]
+    },
+    {
       "versionCode": 54,
       "versionName": "0.54.0",
       "releasedAt": "2026-11-26",

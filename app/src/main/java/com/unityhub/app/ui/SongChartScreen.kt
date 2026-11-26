@@ -124,7 +124,11 @@ fun SongChartScreen(
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (failure: Throwable) {
+            // ExceptionInInitializerError and NoClassDefFoundError are Errors,
+            // not Exceptions. They must not escape this screen and crash the app.
+            // Keep cancellation handling above this branch.
+            if (failure is VirtualMachineError || failure is ThreadDeath) throw failure
             documentParseFailed = true
         } finally {
             isParsingDocument = false
@@ -401,13 +405,26 @@ internal object ChordProPreviewRules {
             ChordProPreviewResult(document = ChordProParser.parse(previewSource(source)))
         } catch (failure: Throwable) {
             if (failure is VirtualMachineError || failure is ThreadDeath) throw failure
-            val detail = failure.message
+            // Android may wrap a parser's static-initialization failure in
+            // ExceptionInInitializerError. Report the underlying cause instead
+            // of hiding the useful exception behind the wrapper.
+            var rootCause: Throwable = failure
+            repeat(8) {
+                val next = rootCause.cause ?: return@repeat
+                if (next === rootCause) return@repeat
+                rootCause = next
+            }
+            val detail = rootCause.message
                 ?.filter { it == ' ' || it.isLetterOrDigit() || it in ".,:_-/()" }
-                ?.take(100)
+                ?.take(120)
                 ?.takeIf(String::isNotBlank)
             ChordProPreviewResult(
                 failed = true,
-                failureReason = listOfNotNull(failure.javaClass.simpleName, detail).joinToString(": ")
+                failureReason = listOfNotNull(
+                    failure.javaClass.simpleName,
+                    if (rootCause !== failure) rootCause.javaClass.simpleName else null,
+                    detail
+                ).joinToString(": ")
             )
         }
     }
