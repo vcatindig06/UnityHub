@@ -879,29 +879,42 @@ private fun ServicePlanDetailScreen(
     if (songPickerOpen) {
         AlertDialog(
             onDismissRequest = { songPickerOpen = false },
-            title = { Text("Add a song") },
+            title = { Text("Add songs or a setlist") },
             text = {
-                if (songs.isEmpty()) {
-                    Text("Your song library is empty. Add songs in the Songs tab first.")
-                } else {
-                    LazyColumn(Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        items(songs, key = { it.id }) { song ->
-                            TextButton(
-                                onClick = {
-                                    songPickerOpen = false
-                                    runAction {
-                                        repository.addSongToPlan(
-                                            plan.id, organizationId, song,
-                                            (items.maxOfOrNull { it.itemOrder } ?: -1) + 1
-                                        )
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(Modifier.fillMaxWidth()) {
-                                    Text(song.title, fontWeight = FontWeight.SemiBold)
-                                    if (song.artist.isNotBlank()) {
-                                        Text(song.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (templates.isNotEmpty()) {
+                        OutlinedActionButton(
+                            label = "Add a saved setlist",
+                            onClick = {
+                                songPickerOpen = false
+                                templatePickerOpen = true
+                            },
+                            enabled = !saving && !templatesLoading
+                        )
+                    }
+                    if (songs.isEmpty()) {
+                        Text("Your song library is empty. Add songs in the Songs tab first.")
+                    } else {
+                        Text("Or choose an individual song", style = MaterialTheme.typography.labelLarge)
+                        LazyColumn(Modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            items(songs, key = { it.id }) { song ->
+                                TextButton(
+                                    onClick = {
+                                        songPickerOpen = false
+                                        runAction {
+                                            repository.addSongToPlan(
+                                                plan.id, organizationId, song,
+                                                (items.maxOfOrNull { it.itemOrder } ?: -1) + 1
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(Modifier.fillMaxWidth()) {
+                                        Text(song.title, fontWeight = FontWeight.SemiBold)
+                                        if (song.artist.isNotBlank()) {
+                                            Text(song.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
                                     }
                                 }
                             }
