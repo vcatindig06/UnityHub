@@ -901,106 +901,19 @@ private fun WorkspaceDashboard(
         },
         bottomBar = {
             if (!showNotifications && !showTeamManagement && !showTeamChat) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 3.dp
-                ) {
-                    NavigationBarItem(
-                        selected = selectedTab == HOME_TAB_INDEX,
-                        onClick = { navigateToTab(HOME_TAB_INDEX) },
-                        icon = { Icon(destinations[0].icon, contentDescription = null) },
-                        label = { Text(destinations[0].label) },
-                        alwaysShowLabel = true,
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == SONGS_TAB_INDEX,
-                        onClick = { navigateToTab(SONGS_TAB_INDEX) },
-                        icon = { Icon(destinations[1].icon, contentDescription = null) },
-                        label = { Text(destinations[1].label) },
-                        alwaysShowLabel = true,
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                    Box(
-                        // Keep the center action constrained to the NavigationBar's compact row.
-                        // fillMaxHeight() here expands the bottomBar during Scaffold measurement,
-                        // consuming the space intended for the app bar and destination content.
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val setlistAction = selectedTab == SONGS_TAB_INDEX
-                        FloatingActionButton(
-                            onClick = {
-                                if (setlistAction) {
-                                    createSetlistRequestId += 1
-                                    navigateToTab(SERVICES_TAB_INDEX)
-                                } else {
-                                    songEditorRequestId += 1
-                                    navigateToTab(SONGS_TAB_INDEX)
-                                }
-                            },
-                            modifier = Modifier.size(72.dp),
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(27.dp)
-                                )
-                                Text(
-                                    if (setlistAction) "Setlist" else "Song",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                WorkspaceBottomNavigationBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = { destination -> navigateToTab(destination) },
+                    onPrimaryAction = {
+                        if (selectedTab == SONGS_TAB_INDEX) {
+                            createSetlistRequestId += 1
+                            navigateToTab(SERVICES_TAB_INDEX)
+                        } else {
+                            songEditorRequestId += 1
+                            navigateToTab(SONGS_TAB_INDEX)
                         }
                     }
-                    NavigationBarItem(
-                        selected = selectedTab == SERVICES_TAB_INDEX,
-                        onClick = { navigateToTab(SERVICES_TAB_INDEX) },
-                        icon = { Icon(destinations[2].icon, contentDescription = null) },
-                        label = { Text(destinations[2].label) },
-                        alwaysShowLabel = true,
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == PROFILE_TAB_INDEX,
-                        onClick = { navigateToTab(PROFILE_TAB_INDEX) },
-                        icon = { Icon(destinations[3].icon, contentDescription = null) },
-                        label = { Text(destinations[3].label) },
-                        alwaysShowLabel = true,
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                }
+                )
             }
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -1134,6 +1047,106 @@ private fun WorkspaceDashboard(
         }
     }
 }
+@Composable
+internal fun WorkspaceBottomNavigationBar(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
+    onPrimaryAction: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    NavigationBar(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp
+    ) {
+        NavigationBarItem(
+            selected = selectedTab == HOME_TAB_INDEX,
+            onClick = { onTabSelected(HOME_TAB_INDEX) },
+            icon = { Icon(destinations[0].icon, contentDescription = null) },
+            label = { Text(destinations[0].label) },
+            alwaysShowLabel = true,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = MaterialTheme.colorScheme.primary,
+                selectedTextColor = MaterialTheme.colorScheme.primary,
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+        NavigationBarItem(
+            selected = selectedTab == SONGS_TAB_INDEX,
+            onClick = { onTabSelected(SONGS_TAB_INDEX) },
+            icon = { Icon(destinations[1].icon, contentDescription = null) },
+            label = { Text(destinations[1].label) },
+            alwaysShowLabel = true,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = MaterialTheme.colorScheme.primary,
+                selectedTextColor = MaterialTheme.colorScheme.primary,
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+        Box(
+            // Keep this slot width-weighted only. Expanding its height can make
+            // Scaffold measure the bottom bar as tall as the whole window.
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            FloatingActionButton(
+                onClick = onPrimaryAction,
+                modifier = Modifier.size(72.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(27.dp)
+                    )
+                    Text(
+                        if (selectedTab == SONGS_TAB_INDEX) "Setlist" else "Song",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        NavigationBarItem(
+            selected = selectedTab == SERVICES_TAB_INDEX,
+            onClick = { onTabSelected(SERVICES_TAB_INDEX) },
+            icon = { Icon(destinations[2].icon, contentDescription = null) },
+            label = { Text(destinations[2].label) },
+            alwaysShowLabel = true,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = MaterialTheme.colorScheme.primary,
+                selectedTextColor = MaterialTheme.colorScheme.primary,
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+        NavigationBarItem(
+            selected = selectedTab == PROFILE_TAB_INDEX,
+            onClick = { onTabSelected(PROFILE_TAB_INDEX) },
+            icon = { Icon(destinations[3].icon, contentDescription = null) },
+            label = { Text(destinations[3].label) },
+            alwaysShowLabel = true,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = MaterialTheme.colorScheme.primary,
+                selectedTextColor = MaterialTheme.colorScheme.primary,
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+    }
+}
+
 @Composable
 private fun HomeScreen(
     organizationName: String,

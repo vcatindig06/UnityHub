@@ -46,6 +46,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Emphasize the center Song / Setlist action and change its action based on the selected destination.
 - [x] Keep Notifications in the top-right app-bar action with an unread badge.
 - [x] Keep Team management and Team Chat reachable without consuming a core bottom-navigation slot.
+- [x] Add an Android Compose regression test for real workspace bottom-navigation height, bottom anchoring, visible page content, and the Song-to-Setlist center action.
 - [x] Support pull-to-refresh from the top of the Home dashboard.
 - [x] Remove the dashboard offline-sync status card while preserving local queues, offline caches, WorkManager retries, and background uploads.
 - [ ] Manually verify the center action, notification deep links, and Home pull-to-refresh on a physical Android phone.
