@@ -35,7 +35,7 @@ class ChordProParserTest {
     @Test
     fun parsesTheExactVerseSampleUsedInSongEditor() {
         val document = ChordProParser.parse(
-            "{start_of_verse}\\n[D]Amazing\\n{end_of_verse}"
+            "{start_of_verse}\n[D]Amazing\n{end_of_verse}"
         )
 
         assertEquals("Verse", document.lines.first().section)
@@ -48,7 +48,7 @@ class ChordProParserTest {
     @Test
     fun normalizesUnicodeLineSeparatorsAndLeadingBom() {
         val document = ChordProParser.parse(
-            "\\uFEFF{start_of_verse}\\u2028[D]Amazing\\u2029{end_of_verse}"
+            "\uFEFF{start_of_verse}\u2028[D]Amazing\u2029{end_of_verse}"
         )
 
         assertTrue(document.lines.any { it.section == "Verse" })

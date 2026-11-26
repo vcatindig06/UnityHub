@@ -39,6 +39,19 @@ class ChordProPreviewRulesTest {
     }
 
     @Test
+    fun previewAcceptsTheExactVerseSampleFromTheEditor() {
+        val result = ChordProPreviewRules.parse(
+            "{start_of_verse}\n[D]Amazing\n{end_of_verse}"
+        )
+
+        assertFalse(result.failed)
+        assertEquals("Verse", result.document?.lines?.first()?.section)
+        val lyric = result.document?.lines?.first { it.lyrics == "Amazing" }
+        assertEquals("Verse", lyric?.section)
+        assertEquals("D", lyric?.chords?.singleOrNull()?.chord)
+    }
+
+    @Test
     fun emptyPreviewDoesNotReportAParseFailure() {
         val result = ChordProPreviewRules.parse("  ")
 

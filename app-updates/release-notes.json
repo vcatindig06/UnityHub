@@ -5,6 +5,17 @@
   "minimumSupportedVersionCode": 1,
   "releases": [
     {
+      "versionCode": 54,
+      "versionName": "0.54.0",
+      "releasedAt": "2026-11-26",
+      "summary": "Harden ChordPro parsing for pasted verse text and improve chart-preview diagnostics.",
+      "changes": [
+        "Normalize pasted line endings, Unicode line separators, and a leading byte-order mark before parsing ChordPro.",
+        "Add regression tests for the exact verse example {start_of_verse}, [D]Amazing, {end_of_verse} in both the parser and live preview.",
+        "Show a concise parser diagnostic if a preview cannot be formatted and keep saved-chart parsing failures on the safe raw-text fallback path."
+      ]
+    },
+    {
       "versionCode": 53,
       "versionName": "0.53.0",
       "releasedAt": "2026-11-26",
