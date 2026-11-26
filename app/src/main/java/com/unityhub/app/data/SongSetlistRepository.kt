@@ -232,6 +232,24 @@ class SongSetlistRepository(private val client: SupabaseClient) {
         touchSetlist(setlistId, organizationId)
     }
 
+    suspend fun reorderItems(
+        setlistId: String,
+        organizationId: String,
+        orderedItemIds: List<String>
+    ) {
+        require(setlistId.isNotBlank() && organizationId.isNotBlank())
+        val current = loadItems(setlistId, organizationId)
+        require(orderedItemIds.size == current.size && orderedItemIds.toSet() == current.map { it.id }.toSet()) {
+            "The setlist order changed. Refresh and try again."
+        }
+        val byId = current.associateBy { it.id }
+        orderedItemIds.forEachIndexed { index, id ->
+            val item = byId[id] ?: return@forEachIndexed
+            if (item.itemOrder != index) updateItemOrder(item.id, setlistId, organizationId, index)
+        }
+        touchSetlist(setlistId, organizationId)
+    }
+
     suspend fun moveItem(
         setlistId: String,
         organizationId: String,

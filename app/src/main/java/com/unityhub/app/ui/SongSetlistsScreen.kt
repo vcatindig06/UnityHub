@@ -1,6 +1,8 @@
 package com.unityhub.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,8 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
@@ -48,6 +49,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -84,6 +86,7 @@ fun SongSetlistsScreen(
     }
     var selectedSetlist by remember { mutableStateOf<SongSetlistDto?>(null) }
     var selectedItems by remember { mutableStateOf<List<SongSetlistItemDto>>(emptyList()) }
+    val setlistListState = remember(selectedSetlist?.id) { LazyListState() }
     var loading by remember(organizationId) { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
@@ -319,44 +322,56 @@ fun SongSetlistsScreen(
             }
         } else {
             val currentSetlist = selectedSetlist!!
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (canManage) {
-                    Button(onClick = ::openAddSongsDialog, enabled = !saving) {
-                        Icon(Icons.Default.PlaylistAdd, contentDescription = null)
-                        Text("Add songs")
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = ::openAddSongsDialog, enabled = !saving, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Default.PlaylistAdd, contentDescription = null)
+                            Text("Add songs", maxLines = 1)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                setlistNameDraft = currentSetlist.name
+                                setlistDescriptionDraft = currentSetlist.description
+                                renameDialogOpen = true
+                            },
+                            enabled = !saving,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null)
+                            Text("Edit")
+                        }
                     }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                duplicateNameDraft = currentSetlist.name + " (copy)"
+                                duplicateDialogOpen = true
+                            },
+                            enabled = !saving,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = null)
+                            Text("Duplicate", maxLines = 1)
+                        }
+                        IconButton(onClick = { deleteCandidate = currentSetlist }, enabled = !saving) {
+                            Icon(Icons.Default.DeleteOutline, contentDescription = "Delete setlist", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                } else {
                     OutlinedButton(
                         onClick = {
-                            setlistNameDraft = currentSetlist.name
-                            setlistDescriptionDraft = currentSetlist.description
-                            renameDialogOpen = true
+                            duplicateNameDraft = currentSetlist.name + " (copy)"
+                            duplicateDialogOpen = true
                         },
-                        enabled = !saving
+                        enabled = !saving,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null)
-                        Text("Edit")
-                    }
-                }
-                OutlinedButton(
-                    onClick = {
-                        duplicateNameDraft = currentSetlist.name + " (copy)"
-                        duplicateDialogOpen = true
-                    },
-                    enabled = !saving
-                ) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = null)
-                    Text("Duplicate")
-                }
-                if (canManage) {
-                    IconButton(onClick = { deleteCandidate = currentSetlist }, enabled = !saving) {
-                        Icon(
-                            Icons.Default.DeleteOutline,
-                            contentDescription = "Delete setlist",
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                        Icon(Icons.Default.ContentCopy, contentDescription = null)
+                        Text("Duplicate")
                     }
                 }
             }
@@ -378,6 +393,7 @@ fun SongSetlistsScreen(
                 )
             } else {
                 LazyColumn(
+                    state = setlistListState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -409,6 +425,50 @@ fun SongSetlistsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                if (canManage) {
+                                    var dragOrder = selectedItems.toMutableList()
+                                    var originalOrder = selectedItems.map { it.id }
+                                    var draggedCenterY = 0f
+                                    Icon(
+                                        Icons.Default.DragHandle,
+                                        contentDescription = "Hold and drag to reorder",
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .pointerInput(item.id) {
+                                                detectDragGesturesAfterLongPress(
+                                                    onDragStart = { touchOffset ->
+                                                        dragOrder = selectedItems.toMutableList()
+                                                        originalOrder = dragOrder.map { it.id }
+                                                        val info = setlistListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == item.id }
+                                                        draggedCenterY = (info?.offset ?: 0) + touchOffset.y
+                                                    },
+                                                    onDrag = { change, dragAmount ->
+                                                        change.consume()
+                                                        draggedCenterY += dragAmount.y
+                                                        val targetInfo = setlistListState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
+                                                            draggedCenterY >= info.offset && draggedCenterY <= info.offset + info.size
+                                                        }
+                                                        val targetId = targetInfo?.key as? String
+                                                        val fromIndex = dragOrder.indexOfFirst { it.id == item.id }
+                                                        val targetIndex = dragOrder.indexOfFirst { it.id == targetId }
+                                                        if (fromIndex >= 0 && targetIndex >= 0 && fromIndex != targetIndex) {
+                                                            val moved = dragOrder.removeAt(fromIndex)
+                                                            dragOrder.add(targetIndex, moved)
+                                                            selectedItems = dragOrder.toList()
+                                                        }
+                                                    },
+                                                    onDragEnd = {
+                                                        if (dragOrder.map { it.id } != originalOrder) {
+                                                            performAction({
+                                                                repository.reorderItems(currentSetlist.id, organizationId, dragOrder.map { it.id })
+                                                            })
+                                                        }
+                                                    },
+                                                    onDragCancel = { selectedItems = dragOrder.toList() }
+                                                )
+                                            }
+                                    )
+                                }
                                 Text(
                                     (index + 1).toString().padStart(2, '0'),
                                     color = MaterialTheme.colorScheme.primary,
@@ -442,30 +502,6 @@ fun SongSetlistsScreen(
                                     }
                                 }
                                 if (canManage) {
-                                    Column {
-                                        IconButton(
-                                            onClick = {
-                                                performAction({
-                                                    repository.moveItem(currentSetlist.id, organizationId, index, -1)
-                                                })
-                                            },
-                                            enabled = !saving && index > 0,
-                                            modifier = Modifier.size(34.dp)
-                                        ) {
-                                            Icon(Icons.Default.ArrowUpward, contentDescription = "Move song up")
-                                        }
-                                        IconButton(
-                                            onClick = {
-                                                performAction({
-                                                    repository.moveItem(currentSetlist.id, organizationId, index, 1)
-                                                })
-                                            },
-                                            enabled = !saving && index < selectedItems.lastIndex,
-                                            modifier = Modifier.size(34.dp)
-                                        ) {
-                                            Icon(Icons.Default.ArrowDownward, contentDescription = "Move song down")
-                                        }
-                                    }
                                     IconButton(
                                         onClick = {
                                             performAction({
