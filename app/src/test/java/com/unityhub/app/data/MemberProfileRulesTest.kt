@@ -54,6 +54,27 @@ class MemberProfileRulesTest {
     }
 
     @Test
+    fun summaryCountsCompletedServicesAndSongsAsTeamContributions() {
+        val summary = MemberProfileRules.summarize(
+            services = listOf(
+                service("Completed and confirmed", "2026-11-20", "completed", "confirmed"),
+                service("Completed but not confirmed", "2026-11-19", "completed", "pending"),
+                service("Upcoming", "2026-11-26", "published", "confirmed")
+            ),
+            rehearsals = listOf(
+                rehearsal("Attended rehearsal", "2026-11-18", "completed", "attended"),
+                rehearsal("Missed rehearsal", "2026-11-17", "completed", "absent")
+            ),
+            today = LocalDate.parse("2026-11-23"),
+            songsCreated = 4
+        )
+
+        assertEquals(1, summary.servicesServed)
+        assertEquals(4, summary.songsCreated)
+        assertEquals(1, summary.attendedRehearsals)
+    }
+
+    @Test
     fun recentServicesAreNewestFirstAndRespectTheLimit() {
         val services = listOf(
             service("Older", "2026-11-01", "completed", "confirmed"),
