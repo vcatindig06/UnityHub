@@ -1,5 +1,13 @@
 package com.unityhub.app.data
 
+import java.time.LocalDate
+
+enum class AttendancePeriod(val label: String, val dayCount: Int?) {
+    LAST_30_DAYS("30 days", 30),
+    LAST_90_DAYS("90 days", 90),
+    ALL_TIME("All time", null)
+}
+
 enum class RehearsalRosterFilter(val label: String) {
     ALL("All"),
     AWAITING("Awaiting"),
@@ -21,6 +29,26 @@ data class RehearsalRosterSummary(
 )
 
 internal object RehearsalRosterRules {
+    fun filterByPeriod(
+        snapshots: List<RehearsalAttendanceSnapshot>,
+        period: AttendancePeriod,
+        today: LocalDate
+    ): List<RehearsalAttendanceSnapshot> =
+        snapshots.filter { snapshot ->
+            includesDate(snapshot.rehearsal.rehearsalDate, period, today)
+        }
+
+    fun includesDate(
+        dateValue: String,
+        period: AttendancePeriod,
+        today: LocalDate
+    ): Boolean {
+        val date = runCatching { LocalDate.parse(dateValue) }.getOrNull() ?: return false
+        val days = period.dayCount ?: return true
+        val firstDay = today.minusDays((days - 1).toLong())
+        return !date.isBefore(firstDay) && !date.isAfter(today)
+    }
+
     fun attendanceRate(attended: Int, absent: Int): Int? {
         val recordedOutcomes = attended + absent
         return if (recordedOutcomes > 0) attended * 100 / recordedOutcomes else null
