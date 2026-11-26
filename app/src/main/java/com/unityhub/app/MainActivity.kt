@@ -17,14 +17,17 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.messaging.FirebaseMessaging
@@ -73,7 +76,14 @@ class MainActivity : ComponentActivity() {
             var themeMode by rememberSaveable {
                 mutableStateOf(preferences.getString("theme_mode", "system") ?: "system")
             }
-            UnityHubTheme(themeMode = themeMode) {
+            var fontScale by rememberSaveable {
+                mutableFloatStateOf(preferences.getFloat("font_scale", 1.0f).coerceIn(0.9f, 1.2f))
+            }
+            val baseDensity = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides baseDensity.copy(fontScale = fontScale)
+            ) {
+                UnityHubTheme(themeMode = themeMode) {
                 BackHandler {
                     if (passwordRecoveryMode) {
                         passwordRecoveryMode = false
@@ -152,6 +162,11 @@ class MainActivity : ComponentActivity() {
                                 themeMode = normalizedMode
                                 preferences.edit().putString("theme_mode", normalizedMode).apply()
                             },
+                            fontScale = fontScale,
+                            onFontScaleChanged = { selectedScale ->
+                                fontScale = selectedScale.coerceIn(0.9f, 1.2f)
+                                preferences.edit().putFloat("font_scale", fontScale).apply()
+                            },
                             onSignOut = {
                                 scope.launch {
                                     runCatching {
@@ -226,6 +241,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     )
+                }
                 }
             }
         }
