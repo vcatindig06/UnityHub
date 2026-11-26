@@ -155,7 +155,7 @@ fun SongSetlistsScreen(
             try {
                 action()
                 val refreshedSelection = if (useUpdatedSelection) selectedSetlist?.id else selectIdAfter
-                reloadData(selectId = refreshedSelection)
+                reloadData(selectedId = refreshedSelection)
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
