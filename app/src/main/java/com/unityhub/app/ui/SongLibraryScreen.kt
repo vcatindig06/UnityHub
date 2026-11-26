@@ -141,6 +141,7 @@ fun SongLibraryScreen(
     var keySignature by rememberSaveable { mutableStateOf("") }
     var tempo by rememberSaveable { mutableStateOf("") }
     var timeSignature by rememberSaveable { mutableStateOf("4/4") }
+    var capo by rememberSaveable { mutableStateOf(0) }
     var chordpro by remember { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
@@ -220,6 +221,7 @@ fun SongLibraryScreen(
         keySignature = ""
         tempo = ""
         timeSignature = "4/4"
+        capo = 0
         chordpro = ""
         notes = ""
         error = ""
@@ -245,6 +247,7 @@ fun SongLibraryScreen(
         keySignature = song.keySignature
         tempo = song.tempo?.toString().orEmpty()
         timeSignature = song.timeSignature
+        capo = ChordProParser.parse(song.chordpro).capo ?: 0
         chordpro = song.chordpro
         notes = song.notes
         error = ""
@@ -308,6 +311,7 @@ fun SongLibraryScreen(
                         document.timeSignature ?: "4/4",
                         SongEditorInputLimits.MAX_TIME_SIGNATURE_CHARACTERS
                     )
+                    capo = document.capo ?: 0
                     chordpro = source
                     notes = ""
                     importMessage = "File imported. Review the song details and chart before saving."
@@ -418,6 +422,8 @@ fun SongLibraryScreen(
             onTimeSignatureChange = {
                 timeSignature = SongEditorInputLimits.limit(it, SongEditorInputLimits.MAX_TIME_SIGNATURE_CHARACTERS)
             },
+            capo = capo,
+            onCapoChange = { capo = it },
             chordpro = chordpro,
             onChordproChange = { value ->
                 if (value.length > SongEditorInputLimits.MAX_CHORDPRO_CHARACTERS) {
@@ -453,7 +459,7 @@ fun SongLibraryScreen(
                                 keySignature = keySignature,
                                 tempo = parsedTempo,
                                 timeSignature = timeSignature,
-                                chordpro = chordpro,
+                                chordpro = updateChordProCapo(chordpro, capo),
                                 notes = notes
                             )
                             editorOpen = false
@@ -744,6 +750,8 @@ private fun SongEditor(
     onTempoChange: (String) -> Unit,
     timeSignature: String,
     onTimeSignatureChange: (String) -> Unit,
+    capo: Int,
+    onCapoChange: (Int) -> Unit,
     chordpro: String,
     onChordproChange: (String) -> Unit,
     notes: String,
@@ -756,6 +764,7 @@ private fun SongEditor(
     var keyMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var timeMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var guideExpanded by rememberSaveable { mutableStateOf(false) }
+    var capoMenuExpanded by rememberSaveable { mutableStateOf(false) }
     val keyOptions = listOf("C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B")
     val timeOptions = listOf("4/4", "3/4", "6/8", "2/4", "2/2", "12/8")
     Scaffold(
@@ -851,6 +860,18 @@ private fun SongEditor(
                 }
                 DropdownMenu(expanded = timeMenuExpanded, onDismissRequest = { timeMenuExpanded = false }) {
                     timeOptions.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { onTimeSignatureChange(option); timeMenuExpanded = false }) }
+                }
+            }
+        }
+        item(key = "song-editor-capo") {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                OutlinedButton(onClick = { capoMenuExpanded = true }, modifier = Modifier.fillMaxWidth(), enabled = !saving) {
+                    Text(if (capo == 0) "Capo · None" else "Capo · Fret $capo")
+                }
+                DropdownMenu(expanded = capoMenuExpanded, onDismissRequest = { capoMenuExpanded = false }) {
+                    (0..12).forEach { fret ->
+                        DropdownMenuItem(text = { Text(if (fret == 0) "None" else "Fret $fret") }, onClick = { onCapoChange(fret); capoMenuExpanded = false })
+                    }
                 }
             }
         }
@@ -965,4 +986,12 @@ private fun formatOfflineSyncTime(timestamp: Long): String {
     val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy · h:mm a", java.util.Locale.getDefault())
         .withZone(ZoneId.systemDefault())
     return "Last synced ${formatter.format(Instant.ofEpochMilli(timestamp))}"
+}
+
+
+private fun updateChordProCapo(source: String, capo: Int): String {
+    val withoutCapo = source.lineSequence()
+        .filterNot { it.trim().matches(Regex("""\{\s*capo\s*:\s*\d+\s*}""", RegexOption.IGNORE_CASE)) }
+        .joinToString("\n")
+    return if (capo == 0) withoutCapo else "{capo: $capo}" + if (withoutCapo.isBlank()) "" else "\n$withoutCapo"
 }

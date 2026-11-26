@@ -70,6 +70,7 @@ fun SongChartScreen(
     var transpose by rememberSaveable(song.id) { mutableIntStateOf(0) }
     var chartScale by rememberSaveable(song.id) { mutableFloatStateOf(1f) }
     var performanceSettingsExpanded by rememberSaveable(song.id) { mutableStateOf(false) }
+    var autoScrollOptionsExpanded by rememberSaveable(song.id) { mutableStateOf(false) }
     var autoScrollEnabled by rememberSaveable(song.id) { mutableStateOf(false) }
     var autoScrollSpeed by rememberSaveable(song.id) {
         mutableFloatStateOf(ChartAutoScrollRules.DEFAULT_SPEED_DP_PER_SECOND)
@@ -199,6 +200,7 @@ fun SongChartScreen(
                         ChartMetadata("Key", displayKey ?: "—")
                         ChartMetadata("Tempo", displayTempo?.let { "$it BPM" } ?: "—")
                         ChartMetadata("Time", displayTimeSignature.ifBlank { "—" })
+                        document?.capo?.let { fret -> ChartMetadata("Capo", if (fret == 0) "None" else "Fret $fret") }
                     }
                     if (performanceSettingsExpanded) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -336,14 +338,19 @@ fun SongChartScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    TextButton(onClick = { autoScrollOptionsExpanded = !autoScrollOptionsExpanded }) {
+                        Text(if (autoScrollOptionsExpanded) "Hide options" else "Options")
+                    }
                     TextButton(
                         onClick = { autoScrollEnabled = !autoScrollEnabled },
                         enabled = document?.lines?.isNotEmpty() == true
                     ) {
                         Text(if (autoScrollEnabled) "Pause" else "Start")
                     }
+                    }
                 }
-                Row(
+                if (autoScrollOptionsExpanded) Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)

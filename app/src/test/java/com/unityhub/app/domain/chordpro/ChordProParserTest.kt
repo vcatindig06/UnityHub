@@ -123,6 +123,13 @@ class ChordProParserTest {
     }
 
     @Test
+    fun parsesCapoDirectiveAndRejectsOutOfRangeValues() {
+        assertEquals(5, ChordProParser.parse("{capo: 5}\\n[G]Amazing").capo)
+        assertEquals(null, ChordProParser.parse("{capo: 15}").capo)
+        assertEquals(null, ChordProParser.parse("{capo: no}").capo)
+    }
+
+    @Test
     fun ignoresOutOfRangeTempoAndInvalidTimeSignature() {
         val document = ChordProParser.parse("{tempo: 999}\n{time: fast}")
         assertEquals(null, document.tempo)

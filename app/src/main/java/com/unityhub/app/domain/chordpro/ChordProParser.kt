@@ -19,6 +19,7 @@ data class ChordProDocument(
     val lines: List<ChordProLine>,
     val tempo: Int? = null,
     val timeSignature: String? = null,
+    val capo: Int? = null,
     val isTruncated: Boolean = false
 )
 
@@ -72,6 +73,7 @@ object ChordProParser {
         var key: String? = null
         var tempo: Int? = null
         var timeSignature: String? = null
+        var capo: Int? = null
         var activeSection: String? = null
         var isTruncated = false
         val lines = mutableListOf<ChordProLine>()
@@ -103,6 +105,7 @@ object ChordProParser {
                         artist = value.takeIf(String::isNotBlank)
                     }
                     "key" -> key = value.takeIf(String::isNotBlank)
+                    "capo" -> capo = value.toIntOrNull()?.takeIf { it in 0..12 }
                     "tempo" -> {
                         val parsedTempo = Regex("\\d{1,3}").find(value)?.value?.toIntOrNull()
                         tempo = parsedTempo?.takeIf { it in 20..300 }
@@ -179,6 +182,7 @@ object ChordProParser {
             lines = lines,
             tempo = tempo,
             timeSignature = timeSignature,
+            capo = capo,
             isTruncated = isTruncated
         )
     }
