@@ -433,6 +433,7 @@ fun SongLibraryScreen(
             capo = capo,
             onCapoChange = { capo = it },
             category = category,
+            savedCategories = songs.mapNotNull { ChordProParser.parse(it.chordpro).category?.takeIf(String::isNotBlank) }.distinct().sorted(),
             onCategoryChange = { category = it.take(50).replace(Regex("[\\r\\n{}]"), "").trim() },
             chordpro = chordpro,
             onChordproChange = { value ->
@@ -771,6 +772,7 @@ private fun SongEditor(
     timeSignature: String,
     onTimeSignatureChange: (String) -> Unit,
     category: String,
+    savedCategories: List<String>,
     onCategoryChange: (String) -> Unit,
     capo: Int,
     onCapoChange: (Int) -> Unit,
@@ -789,7 +791,7 @@ private fun SongEditor(
     var capoMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var categoryMenuExpanded by rememberSaveable { mutableStateOf(false) }
     val defaultCategories = listOf("Worship", "Praise", "Hymns", "Christmas", "Easter", "Communion", "Other")
-    val categoryOptions = (defaultCategories + category.takeIf(String::isNotBlank).orEmpty()).distinct()
+    val categoryOptions = (defaultCategories + savedCategories + category.takeIf(String::isNotBlank).orEmpty()).distinct()
     val keyOptions = listOf("C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B")
     val timeOptions = listOf("4/4", "3/4", "6/8", "2/4", "2/2", "12/8")
     Scaffold(
