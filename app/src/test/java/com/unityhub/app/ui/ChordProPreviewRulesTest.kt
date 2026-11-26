@@ -28,6 +28,39 @@ class ChordProPreviewRulesTest {
     }
 
     @Test
+    fun chordPositionsBeyondOneHundredTwentyCharactersStayAligned() {
+        val line = ChordProLine(
+            lyrics = "x".repeat(240),
+            chords = listOf(
+                ChordPosition(0, "G"),
+                ChordPosition(200, "D")
+            )
+        )
+
+        val row = buildChordRow(line, transpose = 0)
+
+        assertEquals(200, row.indexOf("D"))
+        assertTrue(row.length <= MAX_RENDERED_CHORD_ROW_CHARACTERS)
+    }
+
+    @Test
+    fun overlappingChordPositionsNeverMoveBackwards() {
+        val line = ChordProLine(
+            lyrics = "Amazing grace",
+            chords = listOf(
+                ChordPosition(0, "Gmaj7"),
+                ChordPosition(1, "D/F#"),
+                ChordPosition(5, "Em")
+            )
+        )
+
+        val row = buildChordRow(line, transpose = 0)
+
+        assertTrue(row.indexOf("D/F#") >= row.indexOf("Gmaj7") + "Gmaj7".length)
+        assertTrue(row.indexOf("Em") >= row.indexOf("D/F#") + "D/F#".length)
+    }
+
+    @Test
     fun previewParsingUsesTheLatestEditorTextImmediately() {
         val first = ChordProPreviewRules.parse("[G]First lyric")
         val second = ChordProPreviewRules.parse("[D]Second lyric")

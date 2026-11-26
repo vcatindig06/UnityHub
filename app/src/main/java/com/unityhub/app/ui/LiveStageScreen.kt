@@ -347,7 +347,7 @@ fun LiveStageScreen(
                             when {
                                 LiveStageRules.isSectionHeader(line) -> {
                                     Text(
-                                        line.section.uppercase(),
+                                        line.section.orEmpty().uppercase(),
                                         color = StageAccent,
                                         fontSize = (16f * textScale).sp,
                                         fontWeight = FontWeight.Bold,

@@ -4,6 +4,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
@@ -519,26 +521,33 @@ internal fun ChordProChartLine(line: ChordProLine, transpose: Int, scale: Float 
         line.lyrics.isBlank() && line.chords.isEmpty() -> Spacer(Modifier.height(8.dp))
         else -> {
             val chordText = remember(line, transpose) { buildChordRow(line, transpose) }
+            val lineFontSize = (MaterialTheme.typography.bodyLarge.fontSize.value * scale).sp
+            val lineHeight = (MaterialTheme.typography.bodyLarge.lineHeight.value * scale).sp
             Column(Modifier.fillMaxWidth()) {
                 if (chordText.isNotBlank()) {
                     Text(
                         chordText,
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
                         fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontSize = (MaterialTheme.typography.labelLarge.fontSize.value * scale).sp
-                        ),
+                        fontSize = lineFontSize,
+                        lineHeight = lineHeight,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 2
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
-                Text(
-                    line.lyrics,
-                    fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = (MaterialTheme.typography.bodyLarge.fontSize.value * scale).sp
+                if (line.lyrics.isNotBlank()) {
+                    Text(
+                        line.lyrics,
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = lineFontSize,
+                        lineHeight = lineHeight,
+                        maxLines = 1,
+                        softWrap = false
                     )
-                )
+                }
             }
         }
     }
@@ -550,17 +559,23 @@ internal const val MAX_RENDERED_CHORD_ROW_CHARACTERS = 8_192
 internal fun buildChordRow(line: ChordProLine, transpose: Int): String {
     val output = StringBuilder()
     var cursor = 0
-    line.chords.take(MAX_RENDERED_CHORDS_PER_LINE).forEach { chord ->
-        if (output.length >= MAX_RENDERED_CHORD_ROW_CHARACTERS) return@forEach
+    for (chord in line.chords.take(MAX_RENDERED_CHORDS_PER_LINE)) {
+        val remainingBeforeChord = MAX_RENDERED_CHORD_ROW_CHARACTERS - output.length
+        if (remainingBeforeChord <= 0) break
+
+        // Chord positions are lyric-character offsets. Do not cap ordinary gaps
+        // at an arbitrary width: long lines need the chord to stay above its lyric.
         val target = chord.position.coerceAtLeast(cursor)
-        val spaces = (target - cursor).coerceIn(0, 120)
-            .coerceAtMost(MAX_RENDERED_CHORD_ROW_CHARACTERS - output.length)
+        val spaces = (target - cursor).coerceAtMost(remainingBeforeChord)
         repeat(spaces) { output.append(' ') }
-        cursor = target
+        cursor += spaces
+
+        val remainingAfterSpacing = MAX_RENDERED_CHORD_ROW_CHARACTERS - output.length
+        if (remainingAfterSpacing <= 0) break
         val value = ChordTransposer.transposeChord(chord.chord, transpose).take(64)
-        val remaining = MAX_RENDERED_CHORD_ROW_CHARACTERS - output.length
-        output.append(value.take(remaining))
-        cursor += value.length
+        val visibleValue = value.take(remainingAfterSpacing)
+        output.append(visibleValue)
+        cursor += visibleValue.length
     }
     return output.toString()
 }
