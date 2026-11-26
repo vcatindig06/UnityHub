@@ -98,7 +98,7 @@ private val destinations = listOf(
     AppDestination("Home", Icons.Default.Home),
     AppDestination("Songs", Icons.Default.LibraryMusic),
     AppDestination("Services", Icons.Default.CalendarMonth),
-    AppDestination("Community", Icons.Default.Groups)
+    AppDestination("Team", Icons.Default.Groups)
 )
 
 @Composable
@@ -865,7 +865,7 @@ private fun WorkspaceDashboard(
                             showPersonalProfile -> "Profile"
                             showTeamManagement -> "Team"
                             showTeamChat -> "Team Chat"
-                            selectedTab == COMMUNITY_TAB_INDEX -> "Community"
+                            selectedTab == COMMUNITY_TAB_INDEX -> "Team"
                             selectedTab == SONGS_TAB_INDEX -> "Songs"
                             selectedTab == SERVICES_TAB_INDEX -> "Services"
                             else -> "Home"
@@ -1096,7 +1096,6 @@ private fun WorkspaceDashboard(
             else -> when (selectedTab) {
                 HOME_TAB_INDEX -> HomeDashboardScreen(
                     organizationId = organization.id,
-                    organizationName = organization.name,
                     userId = userId,
                     role = workspace.role,
                     memberCount = workspace.members.size,
