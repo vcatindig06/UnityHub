@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
@@ -57,6 +60,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -66,6 +72,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.unityhub.app.BuildConfig
+import io.github.jan.supabase.auth.auth
 import com.unityhub.app.data.AccountProfile
 import com.unityhub.app.data.AccountProfileRules
 import com.unityhub.app.data.AccountRepository
@@ -87,6 +94,9 @@ fun AccountSettingsScreen(
     onSignOut: () -> Unit,
     themeMode: String = "system",
     onThemeModeChanged: (String) -> Unit = {},
+    fontScale: Float = 1f,
+    onFontScaleChanged: (Float) -> Unit = {},
+    onOpenProfileDetails: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -231,8 +241,34 @@ fun AccountSettingsScreen(
     var noticeMessage by rememberSaveable { mutableStateOf("") }
     var showEditNameDialog by rememberSaveable { mutableStateOf(false) }
     var showSignOutDialog by rememberSaveable { mutableStateOf(false) }
+    var signOutAction by rememberSaveable { mutableStateOf("sign_out") }
+    var showPasswordDialog by rememberSaveable { mutableStateOf(false) }
+    var showFaqDialog by rememberSaveable { mutableStateOf(false) }
+    var showLegalDialog by rememberSaveable { mutableStateOf(false) }
+    var currentPassword by rememberSaveable { mutableStateOf("") }
+    var newPassword by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var passwordError by rememberSaveable { mutableStateOf("") }
     var nameDraft by rememberSaveable { mutableStateOf("") }
     var editErrorMessage by rememberSaveable { mutableStateOf("") }
+
+    val notificationPreferences = remember(context) {
+        context.getSharedPreferences("unityhub_notification_categories", android.content.Context.MODE_PRIVATE)
+    }
+    var chatsPushEnabled by remember(context) { mutableStateOf(notificationPreferences.getBoolean("chats", true)) }
+    var updatesPushEnabled by remember(context) { mutableStateOf(notificationPreferences.getBoolean("app_updates", true)) }
+    var assignmentsPushEnabled by remember(context) { mutableStateOf(notificationPreferences.getBoolean("assignments", true)) }
+    var teamUpdatesPushEnabled by remember(context) { mutableStateOf(notificationPreferences.getBoolean("team_updates", true)) }
+
+    fun updateNotificationCategory(category: String, enabled: Boolean) {
+        notificationPreferences.edit().putBoolean(category, enabled).apply()
+        when (category) {
+            "chats" -> chatsPushEnabled = enabled
+            "app_updates" -> updatesPushEnabled = enabled
+            "assignments" -> assignmentsPushEnabled = enabled
+            "team_updates" -> teamUpdatesPushEnabled = enabled
+        }
+    }
 
     LaunchedEffect(repository) {
         profileLoading = true
@@ -351,16 +387,61 @@ fun AccountSettingsScreen(
         }
 
         item {
-            SettingsSection(title = "Workspace", icon = {
+            SettingsSection(title = "ACCOUNT MANAGEMENT", icon = {
                 Icon(Icons.Default.Groups, contentDescription = null)
             }) {
+                Text("Profile details", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                profile?.let { account ->
+                    SettingsValueRow(label = "Display name", value = account.displayName)
+                    SettingsValueRow(label = "Email", value = account.email.orEmpty())
+                }
                 SettingsValueRow(label = "Church or team", value = organizationName)
-                SettingsValueRow(label = "Your role", value = role)
+                SettingsValueRow(label = "Team role", value = role)
+                OutlinedButton(onClick = onOpenProfileDetails, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Edit, contentDescription = null)
+                    Text("Edit profile details", modifier = Modifier.padding(start = 8.dp))
+                }
+
+                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text("Login & Security", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Update the password used to sign in to UnityHub.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedButton(
+                    onClick = {
+                        currentPassword = ""
+                        newPassword = ""
+                        confirmPassword = ""
+                        passwordError = ""
+                        showPasswordDialog = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Change password") }
+
+                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text("Session Controls", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            signOutAction = "switch_account"
+                            showSignOutDialog = true
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Switch account") }
+                    OutlinedButton(
+                        onClick = {
+                            signOutAction = "sign_out"
+                            showSignOutDialog = true
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Logout, contentDescription = null)
+                        Text("Sign out", modifier = Modifier.padding(start = 6.dp))
+                    }
+                }
             }
         }
 
         item {
-            SettingsSection(title = "Appearance", icon = {
+            SettingsSection(title = "APPEARANCE", icon = {
                 Icon(Icons.Default.DarkMode, contentDescription = null)
             }) {
                 Text(
@@ -390,11 +471,29 @@ fun AccountSettingsScreen(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text("Font size", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Adjust text throughout the app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        0.9f to "Small",
+                        1.0f to "Default",
+                        1.1f to "Large",
+                        1.2f to "Extra large"
+                    ).forEach { (scale, label) ->
+                        FilterChip(
+                            selected = kotlin.math.abs(fontScale - scale) < 0.01f,
+                            onClick = { onFontScaleChanged(scale) },
+                            label = { Text(label) }
+                        )
+                    }
+                }
             }
         }
 
         item {
-            SettingsSection(title = "Notifications", icon = {
+            SettingsSection(title = "NOTIFICATIONS", icon = {
                 Icon(Icons.Default.Notifications, contentDescription = null)
             }) {
                 Text(
@@ -402,6 +501,33 @@ fun AccountSettingsScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                Text("Choose which UnityHub alerts you receive.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                NotificationCategoryToggle(
+                    title = "Team Chat",
+                    description = "New messages from your team.",
+                    checked = chatsPushEnabled,
+                    onCheckedChange = { updateNotificationCategory("chats", it) }
+                )
+                NotificationCategoryToggle(
+                    title = "Assignments",
+                    description = "Service and rehearsal assignments and reminders.",
+                    checked = assignmentsPushEnabled,
+                    onCheckedChange = { updateNotificationCategory("assignments", it) }
+                )
+                NotificationCategoryToggle(
+                    title = "Team updates",
+                    description = "Membership and other team activity.",
+                    checked = teamUpdatesPushEnabled,
+                    onCheckedChange = { updateNotificationCategory("team_updates", it) }
+                )
+                NotificationCategoryToggle(
+                    title = "App updates",
+                    description = "New UnityHub releases and update information.",
+                    checked = updatesPushEnabled,
+                    onCheckedChange = { updateNotificationCategory("app_updates", it) }
+                )
+                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 OutlinedButton(
                     onClick = {
                         val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -420,15 +546,68 @@ fun AccountSettingsScreen(
         }
 
         item {
-            SettingsSection(title = "App updates", icon = {
+            SettingsSection(title = "PRIVACY", icon = {
+                Icon(Icons.Default.Shield, contentDescription = null)
+            }) {
+                Text("UnityHub uses Android system permissions for notifications, media selection and network access. Review or revoke permissions in Android settings.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedButton(
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                        }
+                        runCatching { context.startActivity(intent) }
+                            .onFailure { noticeMessage = "Android app permissions could not be opened." }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Shield, contentDescription = null)
+                    Text("App permissions", modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+
+        item {
+            SettingsSection(title = "ABOUT", icon = {
                 Icon(Icons.Default.CloudDownload, contentDescription = null)
             }) {
+                Text("UnityHub helps worship teams manage songs, services, schedules and team communication.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SettingsValueRow(label = "App version", value = BuildConfig.VERSION_NAME)
+                SettingsValueRow(label = "Build number", value = BuildConfig.VERSION_CODE.toString())
+                Text("App updates", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 SettingsValueRow(label = "Installed version", value = BuildConfig.VERSION_NAME)
                 val latestRelease = updateManifest?.let(AppUpdateRules::latestRelease)
                 SettingsValueRow(
                     label = "Latest version",
                     value = latestRelease?.versionName ?: "Not checked"
                 )
+
+                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text("Help & Feedback", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                OutlinedButton(onClick = { showFaqDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Frequently asked questions")
+                }
+                OutlinedButton(
+                    onClick = {
+                        val issueUrl = "https://github.com/vcatindig06/UnityHub/issues/new?title=UnityHub%20feedback"
+                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(issueUrl))) }
+                            .onFailure { noticeMessage = "The feedback page could not be opened." }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Send feedback") }
+                OutlinedButton(
+                    onClick = {
+                        val issueUrl = "https://github.com/vcatindig06/UnityHub/issues/new?title=UnityHub%20bug%20report"
+                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(issueUrl))) }
+                            .onFailure { noticeMessage = "The bug report page could not be opened." }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Report a bug") }
+
+                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text("Legal & Policies", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                OutlinedButton(onClick = { showLegalDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Terms, privacy & open-source notices")
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -565,17 +744,6 @@ fun AccountSettingsScreen(
             }
         }
 
-        item {
-            OutlinedButton(
-                onClick = { showSignOutDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !savingProfile
-            ) {
-                Icon(Icons.Default.Logout, contentDescription = null)
-                Text("Sign out", modifier = Modifier.padding(start = 8.dp))
-            }
-            Spacer(Modifier.height(8.dp))
-        }
     }
 
     if (showEditNameDialog) {
@@ -649,12 +817,139 @@ fun AccountSettingsScreen(
         )
     }
 
+    if (showPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!savingProfile) showPasswordDialog = false },
+            title = { Text("Change password") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = currentPassword,
+                        onValueChange = { currentPassword = it; passwordError = "" },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Current password") },
+                        singleLine = true,
+                        enabled = !savingProfile,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                    )
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it; passwordError = "" },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("New password") },
+                        singleLine = true,
+                        enabled = !savingProfile,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                    )
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it; passwordError = "" },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Confirm new password") },
+                        singleLine = true,
+                        enabled = !savingProfile,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                    )
+                    if (passwordError.isNotBlank()) {
+                        Text(passwordError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Text("Use at least 8 characters. Your current password is required to confirm the change.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        when {
+                            currentPassword.isBlank() -> passwordError = "Enter your current password."
+                            newPassword.length < 8 -> passwordError = "Use at least 8 characters for your new password."
+                            newPassword != confirmPassword -> passwordError = "The new passwords do not match."
+                            else -> scope.launch {
+                                savingProfile = true
+                                passwordError = ""
+                                try {
+                                    SupabaseClientProvider.client.auth.updateUser {
+                                        password = newPassword
+                                        currentPassword = this@AccountSettingsScreen.currentPassword
+                                    }
+                                    showPasswordDialog = false
+                                    currentPassword = ""
+                                    newPassword = ""
+                                    confirmPassword = ""
+                                    noticeMessage = "Your password has been updated."
+                                } catch (exception: Exception) {
+                                    passwordError = exception.message ?: "Your password could not be changed. Try again."
+                                } finally {
+                                    savingProfile = false
+                                }
+                            }
+                        }
+                    },
+                    enabled = !savingProfile
+                ) {
+                    if (savingProfile) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else Text("Update password")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPasswordDialog = false }, enabled = !savingProfile) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showFaqDialog) {
+        AlertDialog(
+            onDismissRequest = { showFaqDialog = false },
+            title = { Text("UnityHub help") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("How do I join a team? Ask an administrator for the workspace name, then use the join-team flow.")
+                    Text("Can I view songs offline? Previously synchronized songs and service charts can be read offline.")
+                    Text("How do I report a problem? Use Report a bug to open the UnityHub issue tracker.")
+                    Text("How do I update? Open About and use Check for updates.")
+                }
+            },
+            confirmButton = { TextButton(onClick = { showFaqDialog = false }) { Text("Close") } }
+        )
+    }
+
+    if (showLegalDialog) {
+        AlertDialog(
+            onDismissRequest = { showLegalDialog = false },
+            title = { Text("Legal & open-source notices") },
+            text = {
+                Text("Terms of service and privacy policy documents have not yet been published in this app. Third-party dependency license notices are not bundled in this build. The project source and published notices can be reviewed in the UnityHub repository.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLegalDialog = false
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/vcatindig06/UnityHub")))
+                        }
+                    }
+                ) { Text("Open repository") }
+            },
+            dismissButton = { TextButton(onClick = { showLegalDialog = false }) { Text("Close") } }
+        )
+    }
+
     if (showSignOutDialog) {
+        val switchingAccount = signOutAction == "switch_account"
         AlertDialog(
             onDismissRequest = { showSignOutDialog = false },
-            title = { Text("Sign out of UnityHub?") },
+            title = { Text(if (switchingAccount) "Switch account?" else "Sign out of UnityHub?") },
             text = {
-                Text("Your offline copies will be removed from this device when you sign out. Any service responses saved only on this device and still waiting to sync will also be discarded.")
+                Text(
+                    if (switchingAccount) {
+                        "UnityHub will sign out this account and return to the sign-in screen so another account can be used. Offline copies and unsynchronized responses will be removed from this device."
+                    } else {
+                        "Your offline copies will be removed from this device when you sign out. Any service responses saved only on this device and still waiting to sync will also be discarded."
+                    }
+                )
             },
             confirmButton = {
                 TextButton(
@@ -663,12 +958,12 @@ fun AccountSettingsScreen(
                         onSignOut()
                     }
                 ) {
-                    Text("Sign out", color = MaterialTheme.colorScheme.error)
+                    Text(if (switchingAccount) "Switch account" else "Sign out", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSignOutDialog = false }) {
-                    Text("Stay signed in")
+                    Text("Cancel")
                 }
             }
         )
@@ -681,18 +976,58 @@ private fun SettingsSection(
     icon: @Composable () -> Unit,
     content: @Composable () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    var expanded by rememberSaveable(title) {
+        mutableStateOf(title == "ACCOUNT MANAGEMENT")
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            icon()
-            Text(title, modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                icon()
+                Text(
+                    title,
+                    modifier = Modifier.weight(1f).semantics { heading() },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (expanded) {
+                androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+                content()
+            }
         }
-        content()
+    }
+}
+
+@Composable
+private fun NotificationCategoryToggle(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
