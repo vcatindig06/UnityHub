@@ -867,23 +867,27 @@ fun AccountSettingsScreen(
                             currentPassword.isBlank() -> passwordError = "Enter your current password."
                             newPassword.length < 8 -> passwordError = "Use at least 8 characters for your new password."
                             newPassword != confirmPassword -> passwordError = "The new passwords do not match."
-                            else -> scope.launch {
-                                savingProfile = true
-                                passwordError = ""
-                                try {
-                                    SupabaseClientProvider.client.auth.updateUser {
-                                        password = newPassword
-                                        currentPassword = this@AccountSettingsScreen.currentPassword
+                            else -> {
+                                val currentPasswordValue = currentPassword
+                                val passwordToSet = newPassword
+                                scope.launch {
+                                    savingProfile = true
+                                    passwordError = ""
+                                    try {
+                                        SupabaseClientProvider.client.auth.updateUser {
+                                            password = passwordToSet
+                                            currentPassword = currentPasswordValue
+                                        }
+                                        showPasswordDialog = false
+                                        currentPassword = ""
+                                        newPassword = ""
+                                        confirmPassword = ""
+                                        noticeMessage = "Your password has been updated."
+                                    } catch (exception: Exception) {
+                                        passwordError = exception.message ?: "Your password could not be changed. Try again."
+                                    } finally {
+                                        savingProfile = false
                                     }
-                                    showPasswordDialog = false
-                                    currentPassword = ""
-                                    newPassword = ""
-                                    confirmPassword = ""
-                                    noticeMessage = "Your password has been updated."
-                                } catch (exception: Exception) {
-                                    passwordError = exception.message ?: "Your password could not be changed. Try again."
-                                } finally {
-                                    savingProfile = false
                                 }
                             }
                         }
