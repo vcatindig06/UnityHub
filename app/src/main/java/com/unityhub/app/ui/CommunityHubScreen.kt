@@ -246,8 +246,7 @@ private fun ParticipationSummaryCard(
     val attended = rehearsalSummaries.sumOf { it.second.attended }
     val absent = rehearsalSummaries.sumOf { it.second.absent }
     val notRecorded = rehearsalSummaries.sumOf { it.second.notRecorded }
-    val recordedOutcomes = attended + absent
-    val attendanceRate = if (recordedOutcomes > 0) attended * 100 / recordedOutcomes else null
+    val attendanceRate = RehearsalRosterRules.attendanceRate(attended = attended, absent = absent)
 
     val confirmedRoles = upcomingRoleAssignments.count { it.assignment.responseStatus == "confirmed" }
     val declinedRoles = upcomingRoleAssignments.count { it.assignment.responseStatus == "declined" }
