@@ -76,7 +76,6 @@ fun TeamManagementScreen(
     onReviewRequest: (String, Boolean) -> Unit,
     errorMessage: String,
     onWorkspaceChanged: () -> Unit = {},
-    onOpenChat: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val organizationId = workspace.organization?.id ?: return
@@ -104,6 +103,12 @@ fun TeamManagementScreen(
     val positionFilterPageSize = 6
     val positionFilterPages = (positions.size + positionFilterPageSize - 1) / positionFilterPageSize
     val visiblePositionFilters = positions.drop(positionFilterPage * positionFilterPageSize).take(positionFilterPageSize)
+    var positionListPage by rememberSaveable { mutableStateOf(0) }
+    val positionListPageSize = 6
+    val positionListPages = (positions.size + positionListPageSize - 1) / positionListPageSize
+    val visibleManagementPositions = positions
+        .drop(positionListPage * positionListPageSize)
+        .take(positionListPageSize)
 
     val assignedPositionsByMember = remember(memberPositions, positions) {
         memberPositions.groupBy { it.memberId }.mapValues { (_, assignments) ->
@@ -189,6 +194,10 @@ fun TeamManagementScreen(
 
     LaunchedEffect(organizationId) {
         refresh()
+    }
+
+    LaunchedEffect(positionListPages) {
+        positionListPage = positionListPage.coerceIn(0, (positionListPages - 1).coerceAtLeast(0))
     }
 
     if (addPositionOpen) {
@@ -368,7 +377,6 @@ fun TeamManagementScreen(
                     Text("Members · ${members.size}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onOpenChat) { Text("Team Chat") }
                     TextButton(onClick = { refresh() }, enabled = !dataLoading && !saving) {
                         Icon(Icons.Default.Refresh, contentDescription = null)
                         Text("Refresh")
@@ -532,7 +540,7 @@ fun TeamManagementScreen(
             }
         }
 
-        if (canManagePositions) {
+        if (canManagePositions || positions.isNotEmpty()) {
             item {
                 Spacer(Modifier.height(4.dp))
                 Row(
@@ -541,11 +549,18 @@ fun TeamManagementScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Ministry positions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("Assigned ministry positions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${positions.size} position${if (positions.size == 1) "" else "s"} across this team",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    Button(onClick = { addPositionOpen = true }, enabled = !saving) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Text("Add")
+                    if (canManagePositions) {
+                        Button(onClick = { addPositionOpen = true }, enabled = !saving) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Text("Add")
+                        }
                     }
                 }
             }
@@ -559,8 +574,14 @@ fun TeamManagementScreen(
                     }
                 }
             } else {
-                items(positions, key = { it.id }) { position ->
-                    val assignedCount = memberPositions.count { it.positionId == position.id }
+                items(visibleManagementPositions, key = { it.id }) { position ->
+                    val assignedMembers = memberPositions
+                        .filter { it.positionId == position.id }
+                        .mapNotNull { assignment ->
+                            members.firstOrNull { it.memberId == assignment.memberId }?.displayName
+                        }
+                        .distinct()
+                        .sortedBy { it.lowercase() }
                     Card(
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -573,34 +594,57 @@ fun TeamManagementScreen(
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(position.name, fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    "$assignedCount assigned member${if (assignedCount == 1) "" else "s"}",
+                                    if (assignedMembers.isEmpty()) "No members assigned"
+                                    else assignedMembers.joinToString(" · "),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                IconButton(
-                                    onClick = { editingPosition = position },
-                                    enabled = !saving,
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        contentDescription = "Edit ${position.name}"
-                                    )
-                                }
-                                IconButton(
-                                    onClick = { deletingPosition = position },
-                                    enabled = !saving,
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.DeleteOutline,
-                                        contentDescription = "Delete ${position.name}",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
+                            if (canManagePositions) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    IconButton(
+                                        onClick = { editingPosition = position },
+                                        enabled = !saving,
+                                        modifier = Modifier.size(48.dp)
+                                    ) {
+                                        Icon(Icons.Default.Edit, contentDescription = "Edit ${position.name}")
+                                    }
+                                    IconButton(
+                                        onClick = { deletingPosition = position },
+                                        enabled = !saving,
+                                        modifier = Modifier.size(48.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.DeleteOutline,
+                                            contentDescription = "Delete ${position.name}",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
                                 }
                             }
+                        }
+                    }
+                }
+                if (positionListPages > 1) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Text(
+                                "Positions ${positionListPage + 1} of $positionListPages",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(
+                                onClick = { positionListPage = (positionListPage - 1).coerceAtLeast(0) },
+                                enabled = positionListPage > 0
+                            ) { Text("Previous") }
+                            TextButton(
+                                onClick = { positionListPage = (positionListPage + 1).coerceAtMost(positionListPages - 1) },
+                                enabled = positionListPage < positionListPages - 1
+                            ) { Text("Next") }
                         }
                     }
                 }
