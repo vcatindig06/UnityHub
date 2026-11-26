@@ -1,9 +1,20 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 51,
-  "latestVersionName": "0.51.0",
+  "latestVersionCode": 52,
+  "latestVersionName": "0.52.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 52,
+      "versionName": "0.52.0",
+      "releasedAt": "2026-11-26",
+      "summary": "Choose System, Light, or Dark appearance for UnityHub.",
+      "changes": [
+        "Add a persistent appearance preference in Account settings with System default, Light, and Dark options.",
+        "Apply the selected palette immediately across authentication, onboarding, and the workspace, including Android status and navigation bars.",
+        "Keep System default for existing installations and follow Android appearance changes whenever that option is selected."
+      ]
+    },
     {
       "versionCode": 51,
       "versionName": "0.51.0",

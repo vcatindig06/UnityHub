@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -43,6 +45,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Switch
+import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -65,6 +68,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.unityhub.app.BuildConfig
+import com.unityhub.app.ui.theme.AppearanceMode
 import com.unityhub.app.data.AccountProfile
 import com.unityhub.app.data.AccountProfileRules
 import com.unityhub.app.data.AccountRepository
@@ -83,6 +87,8 @@ import java.io.File
 fun AccountSettingsScreen(
     organizationName: String,
     role: String,
+    appearanceMode: AppearanceMode,
+    onAppearanceModeChange: (AppearanceMode) -> Unit,
     onSignOut: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -360,7 +366,39 @@ fun AccountSettingsScreen(
             SettingsSection(title = "Appearance", icon = {
                 Icon(Icons.Default.DarkMode, contentDescription = null)
             }) {
-                SettingsValueRow(label = "Theme", value = "System default")
+                Column(
+                    modifier = Modifier.selectableGroup(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    AppearanceMode.entries.forEach { mode ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp)
+                                .selectable(
+                                    selected = appearanceMode == mode,
+                                    role = Role.RadioButton,
+                                    onClick = { onAppearanceModeChange(mode) }
+                                )
+                                .padding(horizontal = 4.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            RadioButton(
+                                selected = appearanceMode == mode,
+                                onClick = null
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(mode.label, fontWeight = FontWeight.Medium)
+                                Text(
+                                    mode.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
