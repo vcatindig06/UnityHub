@@ -42,6 +42,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.unityhub.app.data.MinistryPositionDto
 import com.unityhub.app.data.MemberMinistryPositionDto
+import com.unityhub.app.data.RehearsalAttendanceSnapshot
+import com.unityhub.app.data.RehearsalRepository
+import com.unityhub.app.data.RehearsalRosterRules
 import com.unityhub.app.data.ServiceAssignmentOverviewEntry
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceMemberOption
@@ -70,6 +73,7 @@ fun CommunityHubScreen(
     val assignmentRepository = remember { ServiceAssignmentRepository(client) }
     val teamRepository = remember { TeamManagementRepository(client) }
     val serviceRepository = remember { ServicePlanRepository(client) }
+    val rehearsalRepository = remember { RehearsalRepository(client) }
     val scope = rememberCoroutineScope()
 
     var members by remember { mutableStateOf<List<ServiceMemberOption>>(emptyList()) }
@@ -77,6 +81,7 @@ fun CommunityHubScreen(
     var memberPositions by remember { mutableStateOf<List<MemberMinistryPositionDto>>(emptyList()) }
     var upcomingServices by remember { mutableStateOf<List<ServicePlanDto>>(emptyList()) }
     var serviceAssignments by remember { mutableStateOf<List<ServiceAssignmentOverviewEntry>>(emptyList()) }
+    var attendanceSnapshots by remember { mutableStateOf<List<RehearsalAttendanceSnapshot>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var refreshing by remember { mutableStateOf(false) }
     var loadingError by remember { mutableStateOf("") }
@@ -96,6 +101,7 @@ fun CommunityHubScreen(
                         (plan.serviceDate.isNullOrBlank() || plan.serviceDate >= todayValue)
                 }.take(4)
                 serviceAssignments = assignmentRepository.loadOrganizationAssignments(organizationId)
+                attendanceSnapshots = rehearsalRepository.loadCompletedAttendance(organizationId)
             } catch (_: Exception) {
                 loadingError = "Some community information could not be loaded. Check your connection and refresh."
             } finally {
@@ -112,6 +118,10 @@ fun CommunityHubScreen(
     val teamSize = if (members.isEmpty()) memberCount else members.size
     val unassignedMembers = (teamSize - assignedMemberIds.size).coerceAtLeast(0)
     val servicesById = remember(serviceAssignments) { serviceAssignments.groupBy { it.servicePlan.id } }
+    val upcomingServiceIds = remember(upcomingServices) { upcomingServices.map { it.id }.toSet() }
+    val upcomingRoleAssignments = remember(serviceAssignments, upcomingServiceIds) {
+        serviceAssignments.filter { it.servicePlan.id in upcomingServiceIds }
+    }
     val today = LocalDate.now()
 
     PullToRefreshBox(
@@ -166,6 +176,14 @@ fun CommunityHubScreen(
                 }
             }
             item {
+                ParticipationSummaryCard(
+                    isLoading = loading,
+                    completedRehearsals = attendanceSnapshots,
+                    upcomingRoleAssignments = upcomingRoleAssignments,
+                    today = today
+                )
+            }
+            item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Upcoming services", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     TextButton(onClick = onOpenServices) { Text("View all") }
@@ -209,6 +227,99 @@ fun CommunityHubScreen(
             }
             item { CommunityDestinationCard("Team Chat", "Conversations, updates and team coordination", Icons.Default.ChatBubbleOutline, onOpenChat) }
             item { CommunityDestinationCard("My Profile", "Your personal information, contributions and links", Icons.Default.Person, onOpenProfile) }
+        }
+    }
+}
+
+@Composable
+private fun ParticipationSummaryCard(
+    isLoading: Boolean,
+    completedRehearsals: List<RehearsalAttendanceSnapshot>,
+    upcomingRoleAssignments: List<ServiceAssignmentOverviewEntry>,
+    today: LocalDate
+) {
+    val rehearsalSummaries = remember(completedRehearsals) {
+        completedRehearsals.map { rehearsal ->
+            rehearsal to RehearsalRosterRules.summary(rehearsal.assignments)
+        }
+    }
+    val attended = rehearsalSummaries.sumOf { it.second.attended }
+    val absent = rehearsalSummaries.sumOf { it.second.absent }
+    val notRecorded = rehearsalSummaries.sumOf { it.second.notRecorded }
+    val recordedOutcomes = attended + absent
+    val attendanceRate = if (recordedOutcomes > 0) attended * 100 / recordedOutcomes else null
+
+    val confirmedRoles = upcomingRoleAssignments.count { it.assignment.responseStatus == "confirmed" }
+    val declinedRoles = upcomingRoleAssignments.count { it.assignment.responseStatus == "declined" }
+    val awaitingRoles = (upcomingRoleAssignments.size - confirmedRoles - declinedRoles).coerceAtLeast(0)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(15.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Text("Participation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("Rehearsal attendance", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            when {
+                isLoading -> Text(
+                    "Loading completed rehearsal records…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                completedRehearsals.isEmpty() -> Text(
+                    "No completed rehearsal attendance is recorded yet. Complete a rehearsal and mark each roster member Attended or Absent to build this summary.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                else -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+                        CommunityMetric("Attended", attended.toString(), Modifier.weight(1f))
+                        CommunityMetric("Absent", absent.toString(), Modifier.weight(1f))
+                        CommunityMetric("Not recorded", notRecorded.toString(), Modifier.weight(1f))
+                    }
+                    Text(
+                        attendanceRate?.let { "$it% of recorded attendance outcomes are marked attended." }
+                            ?: "No attended or absent outcomes have been recorded yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text("Recent completed rehearsals", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                    rehearsalSummaries.take(3).forEach { (snapshot, summary) ->
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(snapshot.rehearsal.title, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                communityDateLabel(snapshot.rehearsal.rehearsalDate, snapshot.rehearsal.startTime, today),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "${summary.attended} attended · ${summary.absent} absent · ${summary.notRecorded} not recorded",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (upcomingRoleAssignments.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Text("Upcoming service responses", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+                    CommunityMetric("Confirmed", confirmedRoles.toString(), Modifier.weight(1f))
+                    CommunityMetric("Declined", declinedRoles.toString(), Modifier.weight(1f))
+                    CommunityMetric("Awaiting", awaitingRoles.toString(), Modifier.weight(1f))
+                }
+                Text(
+                    "Responses are commitments to serve, not attendance records.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
