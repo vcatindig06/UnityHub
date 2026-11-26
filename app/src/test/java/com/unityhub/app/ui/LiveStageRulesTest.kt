@@ -40,18 +40,30 @@ class LiveStageRulesTest {
 
     @Test
     fun chordOnlyIntroLinesRemainRenderableInLiveStage() {
-        val document = ChordProParser.parse(
-            "{start_of_intro}\\n[G] [C]\\n{end_of_intro}"
-        )
-        val introHeader = document.lines.first { it.section == "Intro" && it.chords.isEmpty() }
-        val chordOnlyLine = document.lines.first { it.section == "Intro" && it.chords.isNotEmpty() }
+        val source = listOf(
+            "{start_of_intro}",
+            "[G] [C]",
+            "{end_of_intro}"
+        ).joinToString("\\n")
+        val document = ChordProParser.parse(source)
+        val introHeader = document.lines.firstOrNull {
+            it.section == "Intro" && it.chords.isEmpty()
+        }
+        val chordOnlyLine = document.lines.firstOrNull {
+            it.section == "Intro" && it.chords.isNotEmpty()
+        }
 
-        assertTrue(LiveStageRules.isSectionHeader(introHeader))
-        assertFalse(LiveStageRules.isSectionHeader(chordOnlyLine))
-        assertTrue(LiveStageRules.hasRenderableChartContent(chordOnlyLine))
-        assertEquals(listOf("G", "C"), chordOnlyLine.chords.map { it.chord })
+        org.junit.Assert.assertNotNull("Intro header should be parsed from its own ChordPro line.", introHeader)
+        org.junit.Assert.assertNotNull("Chord-only Intro line should remain in the Intro section.", chordOnlyLine)
+        val header = requireNotNull(introHeader)
+        val chords = requireNotNull(chordOnlyLine)
 
-        val renderedChordRow = buildChordRow(chordOnlyLine, transpose = 0)
+        assertTrue(LiveStageRules.isSectionHeader(header))
+        assertFalse(LiveStageRules.isSectionHeader(chords))
+        assertTrue(LiveStageRules.hasRenderableChartContent(chords))
+        assertEquals(listOf("G", "C"), chords.chords.map { it.chord })
+
+        val renderedChordRow = buildChordRow(chords, transpose = 0)
         assertTrue(renderedChordRow.contains("G"))
         assertTrue(renderedChordRow.contains("C"))
     }
