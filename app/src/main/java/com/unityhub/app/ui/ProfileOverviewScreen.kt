@@ -485,13 +485,13 @@ fun ProfileOverviewScreen(
                             }
                             if (index < displayedActivity.lastIndex) DividerLine()
                         }
-                        if (filteredActivity.size > 8) {
-                            TextButton(
-                                onClick = { showAllActivity = !showAllActivity },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(if (showAllActivity) "Show less" else "Show all ${filteredActivity.size} activities")
-                            }
+                    }
+                    if (filteredActivity.size > 8) {
+                        TextButton(
+                            onClick = { showAllActivity = !showAllActivity },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (showAllActivity) "Show less" else "Show all ${filteredActivity.size} activities")
                         }
                     }
                 }
