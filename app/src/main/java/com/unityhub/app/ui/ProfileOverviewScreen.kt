@@ -171,7 +171,7 @@ fun ProfileOverviewScreen(
     val initials = profileInitials(profile?.displayName.orEmpty())
     val filteredActivity = activity.filter { entry ->
         when (activityFilter) {
-            "Songs" -> entry.entityType in setOf("songs", "song_setlists", "song_setlist_items", "personal_song_favorites")
+            "Songs" -> entry.entityType in setOf("songs", "song_setlists", "song_setlist_items", "song_favorites")
             "Services" -> entry.entityType.startsWith("service_") || entry.entityType in setOf("rehearsals", "rehearsal_assignments")
             "Team" -> entry.entityType in setOf("team_messages", "organization_members", "organization_join_requests", "member_positions", "ministry_positions")
             "Account" -> entry.entityType == "profiles"
