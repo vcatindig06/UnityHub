@@ -112,6 +112,7 @@ fun TeamChatScreen(
     val context = LocalContext.current
 
     var conversations by remember(organizationId) { mutableStateOf<List<ChatConversationSummary>>(emptyList()) }
+    var unreadByConversation by remember(organizationId) { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var activeConversationId by remember(organizationId) { mutableStateOf<String?>(null) }
     var showConversationList by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showNewConversationDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
@@ -138,6 +139,23 @@ fun TeamChatScreen(
     var pendingAnchorMessageId by remember { mutableStateOf<String?>(null) }
     var pendingAnchorOffset by remember { mutableStateOf(0) }
     var lastMarkedMessageId by remember(organizationId) { mutableStateOf<String?>(null) }
+
+    fun refreshConversationUnreadCounts() {
+        scope.launch {
+            runCatching { notificationsRepository.loadNotifications(userId) }
+                .onSuccess { notifications ->
+                    unreadByConversation = notifications.asSequence()
+                        .filter { notification ->
+                            notification.organizationId == organizationId &&
+                                notification.notificationType == "team_message" &&
+                                notification.readAt == null &&
+                                !notification.conversationId.isNullOrBlank()
+                        }
+                        .groupingBy { it.conversationId!! }
+                        .eachCount()
+                }
+        }
+    }
 
     fun reloadSharedFiles() {
         scope.launch {
@@ -360,6 +378,7 @@ fun TeamChatScreen(
             membersByUserId = loadedMembers.associateBy { it.userId }
             val loadedConversations = repository.loadConversations(organizationId)
             conversations = loadedConversations
+            refreshConversationUnreadCounts()
             val defaultConversationId = loadedConversations.firstOrNull {
                 it.conversation.conversationType == "organization"
             }?.conversation?.id ?: loadedConversations.firstOrNull()?.conversation?.id
@@ -522,6 +541,7 @@ fun TeamChatScreen(
                     userId = userId
                 )
             }
+            refreshConversationUnreadCounts()
         }
     }
 
@@ -756,6 +776,14 @@ fun TeamChatScreen(
                             ) {
                                 Text(title, style = MaterialTheme.typography.titleSmall)
                                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                val unreadCount = unreadByConversation[conversation.id] ?: 0
+                                if (unreadCount > 0) {
+                                    Text(
+                                        if (unreadCount == 1) "1 unread message" else "$unreadCount unread messages",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                         }
                     }
