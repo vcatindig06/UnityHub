@@ -734,9 +734,9 @@ private fun WorkspaceDashboard(
     var showTeamManagement by rememberSaveable { mutableStateOf(false) }
     var showPersonalProfile by rememberSaveable { mutableStateOf(false) }
     var showTeamChat by rememberSaveable { mutableStateOf(false) }
+    var showSharedFiles by rememberSaveable { mutableStateOf(false) }
     var requestedChatConversationId by remember { mutableStateOf<String?>(null) }
     var requestedChatMessageId by remember { mutableStateOf<String?>(null) }
-    var requestedSharedFiles by remember { mutableStateOf(false) }
     var showMemberProfile by rememberSaveable { mutableStateOf(false) }
     var selectedMemberProfile by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -772,7 +772,6 @@ private fun WorkspaceDashboard(
         showTeamChat = false
         requestedChatConversationId = null
         requestedChatMessageId = null
-        requestedSharedFiles = false
         when (chatReturnDestination) {
             "team" -> showTeamManagement = true
             "notifications" -> showNotifications = true
@@ -782,12 +781,13 @@ private fun WorkspaceDashboard(
     }
 
     BackHandler(
-        enabled = showMemberProfile || showNotifications || showTeamManagement || showTeamChat || showPersonalProfile || showSettings ||
+        enabled = showMemberProfile || showNotifications || showTeamManagement || showTeamChat || showSharedFiles || showPersonalProfile || showSettings ||
             tabHistory.isNotEmpty() || selectedTab != HOME_TAB_INDEX
     ) {
         when {
             showMemberProfile -> showMemberProfile = false
             showTeamChat -> returnFromTeamChat()
+            showSharedFiles -> showSharedFiles = false
             showSettings -> showSettings = false
             showPersonalProfile -> showPersonalProfile = false
             showTeamManagement -> showTeamManagement = false
@@ -812,6 +812,7 @@ private fun WorkspaceDashboard(
     ) {
         val navigation = pushNavigation ?: return@LaunchedEffect
         showNotifications = false
+        showSharedFiles = false
         showTeamManagement = false
         showPersonalProfile = false
         when {
@@ -857,12 +858,13 @@ private fun WorkspaceDashboard(
                     modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (showMemberProfile || showNotifications || showTeamManagement || showTeamChat || showPersonalProfile || showSettings) {
+                    if (showMemberProfile || showNotifications || showTeamManagement || showTeamChat || showSharedFiles || showPersonalProfile || showSettings) {
                         IconButton(
                             onClick = {
                                 when {
                                     showMemberProfile -> showMemberProfile = false
                                     showTeamChat -> returnFromTeamChat()
+                                    showSharedFiles -> showSharedFiles = false
                                     showSettings -> showSettings = false
                                     showPersonalProfile -> showPersonalProfile = false
                                     showTeamManagement -> showTeamManagement = false
@@ -887,6 +889,7 @@ private fun WorkspaceDashboard(
                             showPersonalProfile -> "Profile"
                             showTeamManagement -> "Team"
                             showTeamChat -> "Team Chat"
+                            showSharedFiles -> "Shared files"
                             selectedTab == COMMUNITY_TAB_INDEX -> "Community"
                             selectedTab == SONGS_TAB_INDEX -> "Songs"
                             selectedTab == SERVICES_TAB_INDEX -> "Services"
@@ -897,7 +900,7 @@ private fun WorkspaceDashboard(
                         maxLines = 1
                     )
                     Spacer(Modifier.weight(1f))
-                    if (!showNotifications && !showTeamManagement && !showTeamChat && !showPersonalProfile && !showSettings) {
+                    if (!showNotifications && !showTeamManagement && !showTeamChat && !showSharedFiles && !showPersonalProfile && !showSettings) {
                         IconButton(
                             onClick = {
                                 chatReturnDestination = if (selectedTab == COMMUNITY_TAB_INDEX) "community" else "home"
@@ -934,7 +937,7 @@ private fun WorkspaceDashboard(
             }
         },
         bottomBar = {
-            if (!showNotifications && !showTeamManagement && !showTeamChat && !showPersonalProfile && !showSettings) {
+            if (!showNotifications && !showTeamManagement && !showTeamChat && !showSharedFiles && !showPersonalProfile && !showSettings) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = 3.dp
@@ -1131,12 +1134,16 @@ private fun WorkspaceDashboard(
                 userId = userId,
                 openConversationId = requestedChatConversationId,
                 openMessageId = requestedChatMessageId,
-                openSharedFiles = requestedSharedFiles,
                 onOpenMemberProfile = { member ->
                     selectedMemberProfile = member
                     showMemberProfile = true
                 },
                 onBack = { returnFromTeamChat() },
+                modifier = Modifier.padding(innerPadding)
+            )
+            showSharedFiles -> SharedFilesScreen(
+                organizationId = organization.id,
+                userId = userId,
                 modifier = Modifier.padding(innerPadding)
             )
             else -> when (selectedTab) {
@@ -1200,14 +1207,13 @@ private fun WorkspaceDashboard(
                     memberCount = workspace.members.size,
                     onOpenTeam = { showTeamManagement = true },
                     onOpenChat = {
-                        requestedSharedFiles = false
+                        showSharedFiles = false
                         chatReturnDestination = "community"
                         showTeamChat = true
                     },
                     onOpenFiles = {
-                        requestedSharedFiles = true
-                        chatReturnDestination = "community"
-                        showTeamChat = true
+                        showTeamChat = false
+                        showSharedFiles = true
                     },
                     onOpenProfile = { showPersonalProfile = true },
                     onOpenServices = { navigateToTab(SERVICES_TAB_INDEX) },
