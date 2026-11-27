@@ -54,6 +54,20 @@ internal object NotificationRules {
     fun unreadCount(notifications: List<NotificationDto>): Int =
         notifications.count(::isUnread)
 
+    fun unreadByConversation(
+        notifications: List<NotificationDto>,
+        organizationId: String
+    ): Map<String, Int> =
+        notifications.asSequence()
+            .filter { notification ->
+                notification.organizationId == organizationId &&
+                    notification.notificationType == "team_message" &&
+                    isUnread(notification) &&
+                    !notification.conversationId.isNullOrBlank()
+            }
+            .groupingBy { it.conversationId!! }
+            .eachCount()
+
     fun newestFirst(notifications: List<NotificationDto>): List<NotificationDto> =
         notifications.sortedByDescending { it.createdAt }
 
