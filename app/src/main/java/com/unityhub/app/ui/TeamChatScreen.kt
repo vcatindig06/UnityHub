@@ -138,6 +138,7 @@ fun TeamChatScreen(
     var membersByUserId by remember(organizationId) { mutableStateOf<Map<String, ServiceMemberOption>>(emptyMap()) }
     var draft by remember(organizationId) { mutableStateOf("") }
     var loading by remember(organizationId) { mutableStateOf(true) }
+    var loadedConversationId by remember(organizationId) { mutableStateOf<String?>(null) }
     var loadingOlder by remember(organizationId) { mutableStateOf(false) }
     var hasMoreOlder by remember(organizationId) { mutableStateOf(false) }
     var sending by remember { mutableStateOf(false) }
@@ -287,6 +288,7 @@ fun TeamChatScreen(
             } catch (_: Exception) {
                 errorMessage = "This conversation could not load. Check your connection and membership, then try again."
             } finally {
+                loadedConversationId = conversationId
                 loading = false
             }
         }
@@ -418,12 +420,12 @@ fun TeamChatScreen(
     LaunchedEffect(organizationId, openConversationId, openMessageId, activeConversationId) {
         val targetConversationId = openConversationId ?: return@LaunchedEffect
         val targetMessageId = openMessageId ?: return@LaunchedEffect
-        // Wait until the first page for the requested conversation has loaded.
-        if (activeConversationId != targetConversationId || loading) {
-            snapshotFlow { activeConversationId to loading }
-                .first { (activeId, isLoading) -> activeId == targetConversationId && isLoading }
-            snapshotFlow { loading to messages.isNotEmpty() }
-                .first { (isLoading, hasMessages) -> !isLoading && hasMessages }
+        // Do not mistake the previous conversation's messages for this destination.
+        if (loadedConversationId != targetConversationId || loading) {
+            snapshotFlow { loadedConversationId to loading }
+                .first { (loadedId, isLoading) ->
+                    loadedId == targetConversationId && !isLoading
+                }
         }
 
         var pagesLoaded = 0
@@ -453,6 +455,7 @@ fun TeamChatScreen(
     LaunchedEffect(organizationId, activeConversationId) {
         val conversationId = activeConversationId ?: return@LaunchedEffect
         messages = emptyList()
+        loadedConversationId = null
         readStates = emptyList()
         reactions = emptyList()
         draft = ""
