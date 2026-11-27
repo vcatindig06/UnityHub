@@ -43,7 +43,8 @@ data class TeamChatMessageDto(
     @SerialName("attachment_path") val attachmentPath: String? = null,
     @SerialName("attachment_name") val attachmentName: String? = null,
     @SerialName("attachment_mime_type") val attachmentMimeType: String? = null,
-    @SerialName("attachment_size") val attachmentSize: Long? = null
+    @SerialName("attachment_size") val attachmentSize: Long? = null,
+    @SerialName("attachment_waveform") val attachmentWaveform: List<Float> = emptyList()
 )
 
 @Serializable
@@ -67,7 +68,8 @@ private data class NewTeamChatMessage(
     @SerialName("attachment_path") val attachmentPath: String? = null,
     @SerialName("attachment_name") val attachmentName: String? = null,
     @SerialName("attachment_mime_type") val attachmentMimeType: String? = null,
-    @SerialName("attachment_size") val attachmentSize: Long? = null
+    @SerialName("attachment_size") val attachmentSize: Long? = null,
+    @SerialName("attachment_waveform") val attachmentWaveform: List<Float> = emptyList()
 )
 
 @Serializable
@@ -507,9 +509,14 @@ class TeamChatRepository(private val client: SupabaseClient) {
         senderId: String,
         content: String,
         replyToMessageId: String? = null,
-        attachment: ChatMessageAttachment? = null
+        attachment: ChatMessageAttachment? = null,
+        attachmentWaveform: List<Float> = emptyList()
     ) {
         require(organizationId.isNotBlank() && conversationId.isNotBlank() && senderId.isNotBlank())
+        require(
+            attachmentWaveform.size <= 64 &&
+                attachmentWaveform.all { it.isFinite() && it in 0f..1f }
+        ) { "Voice-message waveform data is invalid." }
         client.from("team_messages").insert(
             NewTeamChatMessage(
                 organizationId = organizationId,
@@ -521,7 +528,8 @@ class TeamChatRepository(private val client: SupabaseClient) {
                 attachmentPath = attachment?.storagePath,
                 attachmentName = attachment?.fileName,
                 attachmentMimeType = attachment?.mimeType,
-                attachmentSize = attachment?.fileSize
+                attachmentSize = attachment?.fileSize,
+                attachmentWaveform = attachmentWaveform
             )
         )
     }
