@@ -16,6 +16,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -1871,6 +1873,26 @@ private fun TeamChatMessageBubble(
                                     }
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text("Voice message", style = MaterialTheme.typography.labelLarge)
+                                        Canvas(
+                                            modifier = Modifier.fillMaxWidth().height(30.dp)
+                                                .clickable(enabled = voiceDurationMs > 0 && !isVoicePreparing) { /* slider below provides precise seeking */ }
+                                        ) {
+                                            val count = 32
+                                            val gap = size.width / (count * 1.75f)
+                                            val barWidth = gap * 0.72f
+                                            for (index in 0 until count) {
+                                                val wave = (0.22f + 0.78f * kotlin.math.abs(kotlin.math.sin(index * 1.17f)) * (0.55f + 0.45f * kotlin.math.abs(kotlin.math.cos(index * 0.39f))))
+                                                val barHeight = size.height * wave
+                                                val left = index * gap + (gap - barWidth) / 2f
+                                                val top = (size.height - barHeight) / 2f
+                                                drawRoundRect(
+                                                    color = if (index.toFloat() / count <= voiceProgress) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                                    topLeft = androidx.compose.ui.geometry.Offset(left, top),
+                                                    size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
+                                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f)
+                                                )
+                                            }
+                                        }
                                         Slider(
                                             value = voiceProgress.coerceIn(0f, 1f),
                                             onValueChange = onSeekVoice,
