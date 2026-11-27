@@ -260,6 +260,42 @@ class TeamChatRepository(private val client: SupabaseClient) {
             ?: error("The group conversation could not be created.")
     }
 
+    suspend fun renameGroupConversation(conversationId: String, title: String) {
+        val normalizedTitle = title.trim()
+        require(normalizedTitle.length in 2..80) {
+            "Group name must contain 2 to 80 characters."
+        }
+        client.postgrest.rpc(
+            "rename_group_chat",
+            buildJsonObject {
+                put("p_conversation_id", conversationId)
+                put("p_title", normalizedTitle)
+            }
+        )
+    }
+
+    suspend fun addGroupMember(conversationId: String, userId: String) {
+        require(conversationId.isNotBlank() && userId.isNotBlank())
+        client.postgrest.rpc(
+            "add_group_chat_member",
+            buildJsonObject {
+                put("p_conversation_id", conversationId)
+                put("p_user_id", userId)
+            }
+        )
+    }
+
+    suspend fun removeGroupMember(conversationId: String, userId: String) {
+        require(conversationId.isNotBlank() && userId.isNotBlank())
+        client.postgrest.rpc(
+            "remove_group_chat_member",
+            buildJsonObject {
+                put("p_conversation_id", conversationId)
+                put("p_user_id", userId)
+            }
+        )
+    }
+
     suspend fun loadLatestMessages(
         organizationId: String,
         conversationId: String
