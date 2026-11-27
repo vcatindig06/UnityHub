@@ -1873,9 +1873,10 @@ private fun TeamChatMessageBubble(
                                     }
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text("Voice message", style = MaterialTheme.typography.labelLarge)
+                                        val playedWaveColor = MaterialTheme.colorScheme.primary
+                                        val unplayedWaveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                                         Canvas(
                                             modifier = Modifier.fillMaxWidth().height(30.dp)
-                                                .clickable(enabled = voiceDurationMs > 0 && !isVoicePreparing) { /* slider below provides precise seeking */ }
                                         ) {
                                             val count = 32
                                             val gap = size.width / (count * 1.75f)
@@ -1886,7 +1887,7 @@ private fun TeamChatMessageBubble(
                                                 val left = index * gap + (gap - barWidth) / 2f
                                                 val top = (size.height - barHeight) / 2f
                                                 drawRoundRect(
-                                                    color = if (index.toFloat() / count <= voiceProgress) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                                    color = if (index.toFloat() / count <= voiceProgress) playedWaveColor else unplayedWaveColor,
                                                     topLeft = androidx.compose.ui.geometry.Offset(left, top),
                                                     size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
                                                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f)
