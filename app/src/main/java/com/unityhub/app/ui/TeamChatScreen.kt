@@ -116,6 +116,7 @@ fun TeamChatScreen(
     var activeConversationId by remember(organizationId) { mutableStateOf<String?>(null) }
     var showConversationList by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showNewConversationDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
+    var showConversationDetails by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showSharedLibrary by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showAttachmentOptions by rememberSaveable(organizationId) { mutableStateOf(false) }
     var shareAttachmentWithTeam by rememberSaveable(organizationId) { mutableStateOf(false) }
@@ -602,6 +603,9 @@ fun TeamChatScreen(
                         reloadSharedFiles()
                     }
                 ) { Text("Files") }
+                if (!showConversationList && activeSummary != null) {
+                    TextButton(onClick = { showConversationDetails = true }) { Text("Details") }
+                }
                 TextButton(
                     onClick = { showConversationList = !showConversationList },
                     enabled = !loading
@@ -1016,6 +1020,76 @@ fun TeamChatScreen(
                 TextButton(onClick = { showAttachmentOptions = false }) { Text("Cancel") }
             }
         )
+    }
+
+    if (showConversationDetails) {
+        val detailConversation = conversations.firstOrNull {
+            it.conversation.id == activeConversationId
+        }
+        if (detailConversation != null) {
+            val conversation = detailConversation.conversation
+            val detailTitle = when (conversation.conversationType) {
+                "organization" -> organizationName
+                "direct" -> detailConversation.members.firstOrNull { it.userId != userId }
+                    ?.let { membersByUserId[it.userId]?.displayName } ?: "Direct message"
+                else -> conversation.title ?: "Group chat"
+            }
+            AlertDialog(
+                onDismissRequest = { showConversationDetails = false },
+                title = { Text(detailTitle) },
+                text = {
+                    Column(
+                        modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            when (conversation.conversationType) {
+                                "organization" -> "Organization-wide conversation"
+                                "direct" -> "Private direct conversation"
+                                else -> "Group conversation"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            if (detailConversation.members.size == 1) "1 member" else "${detailConversation.members.size} members",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        detailConversation.members
+                            .sortedBy { membersByUserId[it.userId]?.displayName?.lowercase().orEmpty() }
+                            .forEach { member ->
+                                val memberProfile = membersByUserId[member.userId]
+                                val memberName = memberProfile?.displayName
+                                    ?: if (member.userId == userId) "You" else "Team member"
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(memberName, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            if (member.userId == userId) "You · ${member.memberRole}" else member.memberRole,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (memberProfile != null && member.userId != userId) {
+                                        TextButton(onClick = { onOpenMemberProfile(memberProfile) }) {
+                                            Text("Profile")
+                                        }
+                                    }
+                                }
+                            }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showConversationDetails = false }) { Text("Done") }
+                }
+            )
+        } else {
+            showConversationDetails = false
+        }
     }
 
     if (showNewConversationDialog) {
