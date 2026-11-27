@@ -38,7 +38,12 @@ data class TeamChatMessageDto(
     @SerialName("edited_at") val editedAt: String? = null,
     @SerialName("deleted_at") val deletedAt: String? = null,
     @SerialName("pinned_at") val pinnedAt: String? = null,
-    @SerialName("pinned_by") val pinnedBy: String? = null
+    @SerialName("pinned_by") val pinnedBy: String? = null,
+    @SerialName("attachment_id") val attachmentId: String? = null,
+    @SerialName("attachment_path") val attachmentPath: String? = null,
+    @SerialName("attachment_name") val attachmentName: String? = null,
+    @SerialName("attachment_mime_type") val attachmentMimeType: String? = null,
+    @SerialName("attachment_size") val attachmentSize: Long? = null
 )
 
 @Serializable
@@ -57,7 +62,12 @@ private data class NewTeamChatMessage(
     @SerialName("conversation_id") val conversationId: String,
     @SerialName("sender_id") val senderId: String,
     val content: String,
-    @SerialName("reply_to_message_id") val replyToMessageId: String? = null
+    @SerialName("reply_to_message_id") val replyToMessageId: String? = null,
+    @SerialName("attachment_id") val attachmentId: String? = null,
+    @SerialName("attachment_path") val attachmentPath: String? = null,
+    @SerialName("attachment_name") val attachmentName: String? = null,
+    @SerialName("attachment_mime_type") val attachmentMimeType: String? = null,
+    @SerialName("attachment_size") val attachmentSize: Long? = null
 )
 
 @Serializable
@@ -460,7 +470,8 @@ class TeamChatRepository(private val client: SupabaseClient) {
         conversationId: String,
         senderId: String,
         content: String,
-        replyToMessageId: String? = null
+        replyToMessageId: String? = null,
+        attachment: ChatMessageAttachment? = null
     ) {
         require(organizationId.isNotBlank() && conversationId.isNotBlank() && senderId.isNotBlank())
         client.from("team_messages").insert(
@@ -469,7 +480,12 @@ class TeamChatRepository(private val client: SupabaseClient) {
                 conversationId = conversationId,
                 senderId = senderId,
                 content = TeamChatRules.normalizeMessage(content),
-                replyToMessageId = replyToMessageId
+                replyToMessageId = replyToMessageId,
+                attachmentId = attachment?.id,
+                attachmentPath = attachment?.storagePath,
+                attachmentName = attachment?.fileName,
+                attachmentMimeType = attachment?.mimeType,
+                attachmentSize = attachment?.fileSize
             )
         )
     }
