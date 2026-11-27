@@ -1,9 +1,22 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 67,
-  "latestVersionName": "0.67.0",
+  "latestVersionCode": 68,
+  "latestVersionName": "0.68.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 68,
+      "versionName": "0.68.0",
+      "releasedAt": "2026-11-27",
+      "summary": "Preview and manage shared team files with uploader-owned rename and delete actions.",
+      "changes": [
+        "Preview images, PDFs, plain text, and CSV files inside UnityHub; open other supported file types in an installed viewer.",
+        "Rename shared files and change their category when you are the uploader.",
+        "Delete your own organization-library files with a confirmation step.",
+        "Keep conversation attachments separate from the organization library and preserve chat attachment guards.",
+        "Restrict database edits to file name and category columns and limit Storage deletion to the uploader's own library folder."
+      ]
+    },
     {
       "versionCode": 67,
       "versionName": "0.67.0",

@@ -160,12 +160,68 @@ class ChatFileRepository(private val client: SupabaseClient) {
         )
     }
 
+    suspend fun updateSharedLibraryFile(
+        fileId: String,
+        uploaderId: String,
+        fileName: String,
+        category: SharedFileCategory
+    ): ChatSharedFileDto {
+        val normalizedName = fileName.trim()
+        require(fileId.isNotBlank() && uploaderId.isNotBlank())
+        require(normalizedName.length in 1..255) {
+            "Enter a file name with 1 to 255 characters."
+        }
+
+        val updated = client.from("chat_shared_files").update({
+            set("file_name", normalizedName)
+            set("category", category.key)
+        }) {
+            select()
+            filter {
+                eq("id", fileId)
+                eq("uploader_id", uploaderId)
+                exact("conversation_id", null)
+                eq("shared_to_team", true)
+            }
+        }.decodeList<ChatSharedFileDto>()
+
+        return updated.firstOrNull()
+            ?: error("Only the uploader can edit a file in the shared library.")
+    }
+
+    suspend fun deleteSharedLibraryFile(
+        fileId: String,
+        uploaderId: String,
+        storagePath: String
+    ) {
+        require(fileId.isNotBlank() && uploaderId.isNotBlank() && storagePath.isNotBlank())
+
+        // The database guard prevents library rows from becoming chat attachments.
+        // Delete the object while its row still satisfies Storage SELECT RLS.
+        client.storage[BUCKET].delete(storagePath)
+
+        val deleted = client.from("chat_shared_files").delete {
+            select()
+            filter {
+                eq("id", fileId)
+                eq("uploader_id", uploaderId)
+                exact("conversation_id", null)
+                eq("shared_to_team", true)
+            }
+        }.decodeList<ChatSharedFileDto>()
+
+        require(deleted.isNotEmpty()) {
+            "Only the uploader can delete a file from the shared library."
+        }
+    }
+
     suspend fun loadSharedFiles(organizationId: String): List<ChatSharedFileDto> {
         require(organizationId.isNotBlank())
         return client.from("chat_shared_files").select {
             filter {
                 eq("organization_id", organizationId)
                 eq("shared_to_team", true)
+                exact("conversation_id", null)
             }
         }.decodeList<ChatSharedFileDto>().sortedByDescending { it.createdAt }
     }

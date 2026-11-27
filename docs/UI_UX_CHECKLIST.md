@@ -75,8 +75,12 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Assign persistent categories when uploading files to the organization library.
 - [x] Search shared files by filename, MIME type, or uploader and filter by category.
 - [x] Sort shared files by newest, oldest, or filename without changing their access scope.
-- [ ] Manually verify category selection, search, filtering, sorting, and uploads on a physical Android phone.
-- [ ] Manually verify shared-file upload/open/refresh and compact Team member cards on a physical Android phone.
+- [x] Keep conversation attachments out of the organization-library query.
+- [x] Preview supported images, PDFs, plain text, and CSV files in-app; retain external viewing for other file types.
+- [x] Let uploaders rename their own library files and change categories with column-scoped database permissions.
+- [x] Let uploaders delete their own library files with confirmation and uploader-scoped Storage deletion.
+- [ ] Manually verify category selection, search, filtering, sorting, previews, rename, deletion, and uploads on a physical Android phone.
+- [ ] Manually verify shared-file upload, preview/open, rename, deletion, refresh, and compact Team member cards on a physical Android phone.
 - [ ] Manually verify keyboard behavior, TalkBack announcements, read receipts between two accounts, and incoming-message scrolling on physical Android devices.
 
 ## Release validation

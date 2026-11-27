@@ -29,6 +29,9 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Button
@@ -66,6 +69,7 @@ import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceMemberOption
 import com.unityhub.app.data.SharedFileCategory
 import com.unityhub.app.data.SharedFileLibraryRules
+import com.unityhub.app.data.SharedFilePreviewRules
 import com.unityhub.app.data.SupabaseClientProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -105,6 +109,16 @@ fun SharedFilesScreen(
     var uploadCategory by rememberSaveable(organizationId) {
         mutableStateOf(SharedFileCategory.OTHER.key)
     }
+    var preview by remember { mutableStateOf<Pair<ChatSharedFileDto, String>?>(null) }
+    var fileMenuId by remember { mutableStateOf<String?>(null) }
+    var editingFile by remember { mutableStateOf<ChatSharedFileDto?>(null) }
+    var editFileName by remember { mutableStateOf("") }
+    var editCategory by remember { mutableStateOf(SharedFileCategory.OTHER.key) }
+    var savingFile by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<ChatSharedFileDto?>(null) }
+    var deletingFileId by remember { mutableStateOf<String?>(null) }
+    var openingFileId by remember { mutableStateOf<String?>(null) }
+    var statusMessage by remember { mutableStateOf("") }
     val uploaderNames = remember(membersByUserId) {
         membersByUserId.mapValues { (_, member) -> member.displayName }
     }
@@ -129,6 +143,7 @@ fun SharedFilesScreen(
             refreshing = showIndicator
             loading = true
             errorMessage = ""
+            statusMessage = ""
             try {
                 val loadedFiles = fileRepository.loadSharedFiles(organizationId)
                 val members = memberRepository.loadTeamMembers(organizationId)
@@ -164,6 +179,7 @@ fun SharedFilesScreen(
                 selectedCategory = category.key
                 searchQuery = ""
                 sortOrder = SharedFileLibraryRules.SORT_NEWEST
+                statusMessage = "File uploaded."
             } catch (error: Exception) {
                 errorMessage = error.message ?: "The file could not be uploaded. Try again."
             } finally {
@@ -172,22 +188,82 @@ fun SharedFilesScreen(
         }
     }
 
+    fun openExternally(file: ChatSharedFileDto, signedUrl: String) {
+        runCatching {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(Uri.parse(signedUrl), file.mimeType.ifBlank { "*/*" })
+            }
+            context.startActivity(intent)
+        }.onFailure { error ->
+            errorMessage = error.message ?: "No compatible app could open this file."
+        }
+    }
+
     fun openFile(file: ChatSharedFileDto) {
         scope.launch {
-            runCatching { fileRepository.createSignedUrl(file.storagePath) }
-                .onSuccess { signedUrl ->
-                    runCatching {
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(Uri.parse(signedUrl), file.mimeType.ifBlank { "*/*" })
-                        }
-                        context.startActivity(intent)
-                    }.onFailure { error ->
-                        errorMessage = error.message ?: "No compatible app could open this file."
-                    }
+            openingFileId = file.id
+            errorMessage = ""
+            try {
+                val signedUrl = fileRepository.createSignedUrl(file.storagePath)
+                if (SharedFilePreviewRules.supportsInlinePreview(file.mimeType)) {
+                    preview = file to signedUrl
+                } else {
+                    openExternally(file, signedUrl)
                 }
-                .onFailure { error ->
-                    errorMessage = error.message ?: "This file is not available to your account."
-                }
+            } catch (error: Exception) {
+                errorMessage = error.message ?: "This file is not available to your account."
+            } finally {
+                openingFileId = null
+            }
+        }
+    }
+
+    fun saveFileChanges() {
+        val file = editingFile ?: return
+        scope.launch {
+            savingFile = true
+            errorMessage = ""
+            statusMessage = ""
+            try {
+                fileRepository.updateSharedLibraryFile(
+                    fileId = file.id,
+                    uploaderId = userId,
+                    fileName = editFileName,
+                    category = SharedFileCategory.fromKey(editCategory)
+                )
+                files = fileRepository.loadSharedFiles(organizationId)
+                selectedCategory = editCategory
+                searchQuery = ""
+                editingFile = null
+                statusMessage = "File details updated."
+            } catch (error: Exception) {
+                errorMessage = error.message ?: "The file details could not be updated."
+            } finally {
+                savingFile = false
+            }
+        }
+    }
+
+    fun deletePendingFile() {
+        val file = pendingDelete ?: return
+        scope.launch {
+            deletingFileId = file.id
+            errorMessage = ""
+            statusMessage = ""
+            try {
+                fileRepository.deleteSharedLibraryFile(
+                    fileId = file.id,
+                    uploaderId = userId,
+                    storagePath = file.storagePath
+                )
+                files = fileRepository.loadSharedFiles(organizationId)
+                pendingDelete = null
+                statusMessage = "File deleted."
+            } catch (error: Exception) {
+                errorMessage = error.message ?: "The file could not be deleted."
+            } finally {
+                deletingFileId = null
+            }
         }
     }
 
@@ -342,6 +418,16 @@ fun SharedFilesScreen(
                 }
             }
 
+            if (statusMessage.isNotBlank()) {
+                item {
+                    Text(
+                        statusMessage,
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
             if (loading && files.isEmpty()) {
                 item {
                     Box(
@@ -459,16 +545,134 @@ fun SharedFilesScreen(
                                     maxLines = 2
                                 )
                             }
-                            Icon(
-                                Icons.Default.OpenInNew,
-                                contentDescription = "Open ${file.fileName}",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            if (SharedFilePreviewRules.canManage(file, userId)) {
+                                Box {
+                                    IconButton(onClick = { fileMenuId = file.id }) {
+                                        Icon(
+                                            Icons.Default.MoreVert,
+                                            contentDescription = "Manage ${file.fileName}"
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = fileMenuId == file.id,
+                                        onDismissRequest = { fileMenuId = null }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Rename or change category") },
+                                            leadingIcon = {
+                                                Icon(Icons.Default.Edit, contentDescription = null)
+                                            },
+                                            onClick = {
+                                                fileMenuId = null
+                                                editFileName = file.fileName
+                                                editCategory = SharedFileCategory.fromKey(file.category).key
+                                                editingFile = file
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Delete file") },
+                                            leadingIcon = {
+                                                Icon(Icons.Default.Delete, contentDescription = null)
+                                            },
+                                            onClick = {
+                                                fileMenuId = null
+                                                pendingDelete = file
+                                            }
+                                        )
+                                    }
+                                }
+                            } else if (openingFileId == file.id) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(
+                                    Icons.Default.OpenInNew,
+                                    contentDescription = "Open ${file.fileName}",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    if (editingFile != null) {
+        AlertDialog(
+            onDismissRequest = { if (!savingFile) editingFile = null },
+            title = { Text("Edit shared file") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = editFileName,
+                        onValueChange = { editFileName = it.take(255) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("File name") },
+                        singleLine = true,
+                        supportingText = { Text("${editFileName.length}/255") }
+                    )
+                    Text("Category", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        SharedFileCategory.values().forEach { category ->
+                            FilterChip(
+                                selected = editCategory == category.key,
+                                onClick = { editCategory = category.key },
+                                label = { Text(category.label) }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { saveFileChanges() },
+                    enabled = !savingFile && editFileName.isNotBlank()
+                ) {
+                    if (savingFile) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingFile = null }, enabled = !savingFile) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (pendingDelete != null) {
+        AlertDialog(
+            onDismissRequest = { if (deletingFileId == null) pendingDelete = null },
+            title = { Text("Delete shared file?") },
+            text = {
+                Text(
+                    "“${pendingDelete?.fileName.orEmpty()}” will be removed from the team library. This cannot be undone."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { deletePendingFile() }, enabled = deletingFileId == null) {
+                    if (deletingFileId != null) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }, enabled = deletingFileId == null) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showUploadDialog) {
@@ -510,6 +714,15 @@ fun SharedFilesScreen(
             dismissButton = {
                 TextButton(onClick = { showUploadDialog = false }) { Text("Cancel") }
             }
+        )
+    }
+
+    preview?.let { (file, signedUrl) ->
+        SharedFilePreviewDialog(
+            file = file,
+            signedUrl = signedUrl,
+            onDismiss = { preview = null },
+            onOpenExternally = { openExternally(file, signedUrl) }
         )
     }
 }
