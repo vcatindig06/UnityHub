@@ -523,22 +523,21 @@ fun TeamChatScreen(
         }
     }
 
-    LaunchedEffect(organizationId, activeConversationId, messages.size, messages.lastOrNull()?.id, hasMoreOlder) {
-        if (messages.isEmpty()) return@LaunchedEffect
-
-        val anchorId = pendingAnchorMessageId
-        if (anchorId != null) {
-            val messageIndex = messages.indexOfFirst { it.id == anchorId }
-            if (messageIndex >= 0) {
-                listState.scrollToItem(
-                    index = messageIndex + if (hasMoreOlder) 1 else 0,
-                    scrollOffset = pendingAnchorOffset
-                )
-            }
+    LaunchedEffect(pendingAnchorMessageId, messages.size, hasMoreOlder) {
+        val anchorId = pendingAnchorMessageId ?: return@LaunchedEffect
+        val messageIndex = messages.indexOfFirst { it.id == anchorId }
+        if (messageIndex >= 0) {
+            listState.scrollToItem(
+                index = messageIndex + if (hasMoreOlder) 1 else 0,
+                scrollOffset = pendingAnchorOffset
+            )
             pendingAnchorMessageId = null
             hasPositionedChatList = true
-            return@LaunchedEffect
         }
+    }
+
+    LaunchedEffect(organizationId, activeConversationId, messages.size, messages.lastOrNull()?.id, hasMoreOlder) {
+        if (messages.isEmpty() || pendingAnchorMessageId != null) return@LaunchedEffect
 
         val messageById = messages.withIndex().associate { it.value.id to it.index }
         val lastVisibleMessageIndex = listState.layoutInfo.visibleItemsInfo
