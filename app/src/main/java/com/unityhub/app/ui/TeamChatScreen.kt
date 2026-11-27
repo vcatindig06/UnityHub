@@ -164,6 +164,9 @@ fun TeamChatScreen(
     var voicePreviewReady by remember { mutableStateOf(false) }
     var recordingStartedAt by remember { mutableStateOf(0L) }
     var recordingElapsedMs by remember { mutableStateOf(0L) }
+    var recordingWaveformLevels by remember { mutableStateOf<List<Float>>(emptyList()) }
+    var isVoicePreviewPrepared by remember { mutableStateOf(false) }
+    var voicePreviewPositionMs by remember { mutableStateOf(0) }
     var voicePreviewDurationMs by remember { mutableStateOf(0) }
     var isVoicePreviewPlaying by remember { mutableStateOf(false) }
     var recordingDragDistance by remember { mutableStateOf(0f) }
@@ -389,6 +392,7 @@ fun TeamChatScreen(
             voicePreviewReady = false
             recordingStartedAt = SystemClock.elapsedRealtime()
             recordingElapsedMs = 0L
+            recordingWaveformLevels = emptyList()
             recordingDragDistance = 0f
             errorMessage = ""
         } catch (error: Exception) {
@@ -414,7 +418,47 @@ fun TeamChatScreen(
         isVoicePreviewPlaying = false
         recordingElapsedMs = 0L
         voicePreviewDurationMs = 0
+        voicePreviewPositionMs = 0
+        isVoicePreviewPrepared = false
+        recordingWaveformLevels = emptyList()
         recordingDragDistance = 0f
+    }
+
+    fun prepareVoicePreviewPlayer(output: File) {
+        runCatching { voicePlayer?.release() }
+        voicePlayer = null
+        isVoicePreviewPrepared = false
+        isVoicePreviewPlaying = false
+        voicePreviewPositionMs = 0
+        try {
+            val preview = MediaPlayer()
+            voicePlayer = preview
+            preview.setOnPreparedListener { player ->
+                voicePreviewDurationMs = player.duration.coerceAtLeast(0)
+                voicePreviewPositionMs = 0
+                isVoicePreviewPrepared = true
+            }
+            preview.setOnCompletionListener { player ->
+                isVoicePreviewPlaying = false
+                voicePreviewPositionMs = 0
+                runCatching { player.seekTo(0) }
+            }
+            preview.setOnErrorListener { player, _, _ ->
+                isVoicePreviewPlaying = false
+                isVoicePreviewPrepared = false
+                runCatching { player.release() }
+                voicePlayer = null
+                errorMessage = "The recording preview could not be played."
+                true
+            }
+            preview.setDataSource(output.absolutePath)
+            preview.prepareAsync()
+        } catch (error: Exception) {
+            runCatching { voicePlayer?.release() }
+            voicePlayer = null
+            isVoicePreviewPrepared = false
+            errorMessage = error.message ?: "The recording preview could not be prepared."
+        }
     }
 
     fun stopVoiceRecordingForPreview() {
@@ -432,25 +476,7 @@ fun TeamChatScreen(
                 return
             }
             voicePreviewReady = true
-            runCatching {
-                val preview = MediaPlayer()
-                preview.setDataSource(output.absolutePath)
-                preview.setOnPreparedListener { player ->
-                    voicePreviewDurationMs = player.duration.coerceAtLeast(0)
-                    player.release()
-                    voicePlayer = null
-                }
-                preview.setOnErrorListener { player, _, _ ->
-                    player.release()
-                    voicePlayer = null
-                    errorMessage = "The recording was saved, but its preview could not be prepared."
-                    true
-                }
-                voicePlayer = preview
-                preview.prepareAsync()
-            }.onFailure {
-                errorMessage = "The recording was saved, but its preview could not be prepared."
-            }
+            prepareVoicePreviewPlayer(output)
         } catch (error: Exception) {
             runCatching { recorder.release() }
             output.delete()
@@ -463,38 +489,31 @@ fun TeamChatScreen(
     }
 
     fun toggleVoicePreview() {
-        val output = recordingFile ?: return
+        val player = voicePlayer
+        if (!isVoicePreviewPrepared || player == null) return
         if (isVoicePreviewPlaying) {
-            runCatching { voicePlayer?.pause() }
+            runCatching { player.pause() }
             isVoicePreviewPlaying = false
-            return
+        } else {
+            runCatching {
+                if (voicePreviewPositionMs >= voicePreviewDurationMs && voicePreviewDurationMs > 0) {
+                    player.seekTo(0)
+                    voicePreviewPositionMs = 0
+                }
+                player.start()
+                isVoicePreviewPlaying = true
+            }.onFailure {
+                errorMessage = "The recording preview could not be played."
+            }
         }
-        runCatching { voicePlayer?.release() }
-        val player = MediaPlayer()
-        voicePlayer = player
-        player.setOnPreparedListener {
-            it.start()
-            isVoicePreviewPlaying = true
-        }
-        player.setOnCompletionListener {
-            isVoicePreviewPlaying = false
-            runCatching { it.seekTo(0) }
-        }
-        player.setOnErrorListener { mediaPlayer, _, _ ->
-            isVoicePreviewPlaying = false
-            runCatching { mediaPlayer.release() }
-            voicePlayer = null
-            errorMessage = "The recording preview could not be played."
-            true
-        }
-        runCatching {
-            player.setDataSource(output.absolutePath)
-            player.prepareAsync()
-        }.onFailure {
-            runCatching { player.release() }
-            voicePlayer = null
-            errorMessage = "The recording preview could not be played."
-        }
+    }
+
+    fun seekVoicePreview(fraction: Float) {
+        val player = voicePlayer ?: return
+        if (!isVoicePreviewPrepared || voicePreviewDurationMs <= 0) return
+        val target = (fraction.coerceIn(0f, 1f) * voicePreviewDurationMs).toInt()
+        runCatching { player.seekTo(target) }
+        voicePreviewPositionMs = target
     }
 
     fun sendVoicePreview() {
@@ -507,6 +526,8 @@ fun TeamChatScreen(
         runCatching { voicePlayer?.release() }
         voicePlayer = null
         isVoicePreviewPlaying = false
+        isVoicePreviewPrepared = false
+        voicePreviewPositionMs = 0
         voicePreviewReady = false
         recordingFile = null
         scope.launch {
@@ -550,6 +571,7 @@ fun TeamChatScreen(
                 errorMessage = error.message ?: "The voice message could not be sent. Try again."
                 recordingFile = output
                 voicePreviewReady = true
+                prepareVoicePreviewPlayer(output)
             } finally {
                 if (!voicePreviewReady) {
                     output.delete()
@@ -770,18 +792,33 @@ fun TeamChatScreen(
         }
     }
 
-    LaunchedEffect(activeVoiceMessageId, isVoicePlaying) {
     LaunchedEffect(isRecordingVoice, recordingStartedAt) {
         while (isRecordingVoice) {
             recordingElapsedMs = (SystemClock.elapsedRealtime() - recordingStartedAt).coerceAtLeast(0L)
-            delay(200)
+            val amplitude = runCatching { voiceRecorder?.maxAmplitude ?: 0 }.getOrDefault(0)
+            val normalized = if (amplitude <= 0) {
+                0.06f
+            } else {
+                (kotlin.math.ln(1f + amplitude.toFloat()) / kotlin.math.ln(32768f)).coerceIn(0.06f, 1f)
+            }
+            recordingWaveformLevels = (recordingWaveformLevels + normalized).takeLast(42)
+            delay(120)
         }
     }
 
+    LaunchedEffect(activeVoiceMessageId, isVoicePlaying) {
         while (activeVoiceMessageId != null && isVoicePlaying) {
             val player = voicePlayer ?: break
             voicePositionMs = runCatching { player.currentPosition }.getOrDefault(voicePositionMs)
             delay(200)
+        }
+    }
+
+    LaunchedEffect(voicePreviewReady, isVoicePreviewPlaying) {
+        while (voicePreviewReady && isVoicePreviewPlaying) {
+            val player = voicePlayer ?: break
+            voicePreviewPositionMs = runCatching { player.currentPosition }.getOrDefault(voicePreviewPositionMs)
+            delay(150)
         }
     }
 
@@ -1395,6 +1432,11 @@ fun TeamChatScreen(
                             style = MaterialTheme.typography.labelSmall
                         )
                         Spacer(Modifier.weight(1f))
+                        VoiceWaveform(
+                            levels = recordingWaveformLevels,
+                            progress = 1f,
+                            modifier = Modifier.weight(1f).height(30.dp)
+                        )
                         Text(formatVoiceTime(recordingElapsedMs.toInt()), style = MaterialTheme.typography.labelLarge)
                     }
                     IconButton(onClick = { discardVoiceRecording() }) {
@@ -1404,19 +1446,40 @@ fun TeamChatScreen(
                         Icon(Icons.Default.Stop, contentDescription = "Finish recording and preview")
                     }
                 } else if (voicePreviewReady) {
-                    IconButton(onClick = { toggleVoicePreview() }, enabled = !sending && !uploadingAttachment) {
-                        Icon(
-                            if (isVoicePreviewPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (isVoicePreviewPlaying) "Pause preview" else "Play preview"
-                        )
+                    IconButton(
+                        onClick = { toggleVoicePreview() },
+                        enabled = !sending && !uploadingAttachment && isVoicePreviewPrepared
+                    ) {
+                        if (!isVoicePreviewPrepared) {
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(
+                                if (isVoicePreviewPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (isVoicePreviewPlaying) "Pause preview" else "Play preview"
+                            )
+                        }
                     }
-                    Column(Modifier.weight(1f)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         Text("Voice preview", style = MaterialTheme.typography.labelMedium)
-                        Text(
-                            formatVoiceTime(voicePreviewDurationMs.takeIf { it > 0 } ?: recordingElapsedMs.toInt()),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        VoiceWaveform(
+                            levels = recordingWaveformLevels,
+                            progress = if (voicePreviewDurationMs > 0)
+                                voicePreviewPositionMs.toFloat() / voicePreviewDurationMs else 0f,
+                            modifier = Modifier.fillMaxWidth().height(24.dp)
                         )
+                        Slider(
+                            value = if (voicePreviewDurationMs > 0)
+                                (voicePreviewPositionMs.toFloat() / voicePreviewDurationMs).coerceIn(0f, 1f) else 0f,
+                            onValueChange = { seekVoicePreview(it) },
+                            enabled = isVoicePreviewPrepared
+                        )
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(formatVoiceTime(voicePreviewPositionMs), style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatVoiceTime(voicePreviewDurationMs.takeIf { it > 0 } ?: recordingElapsedMs.toInt()),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                     IconButton(onClick = { discardVoiceRecording() }) {
                         Icon(Icons.Default.Close, contentDescription = "Discard voice preview")
@@ -2283,6 +2346,34 @@ private fun readPickedChatFile(context: Context, uri: Uri): PickedChatFile {
 
     require(bytes.isNotEmpty()) { "The selected file is empty." }
     return PickedChatFile(fileName, mimeType, bytes)
+}
+
+@Composable
+private fun VoiceWaveform(
+    levels: List<Float>,
+    progress: Float,
+    modifier: Modifier = Modifier
+) {
+    val playedColor = MaterialTheme.colorScheme.primary
+    val remainingColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f)
+    Canvas(modifier = modifier) {
+        val count = levels.size.coerceAtLeast(1)
+        val gap = size.width / (count * 1.45f)
+        val barWidth = (gap * 0.66f).coerceAtLeast(2f)
+        for (index in 0 until count) {
+            val level = levels.getOrNull(index)?.coerceIn(0.04f, 1f) ?: 0.08f
+            val barHeight = size.height * (0.14f + level * 0.86f)
+            val left = index * gap + (gap - barWidth) / 2f
+            val top = (size.height - barHeight) / 2f
+            val fraction = if (count <= 1) 1f else index.toFloat() / (count - 1)
+            drawRoundRect(
+                color = if (fraction <= progress.coerceIn(0f, 1f)) playedColor else remainingColor,
+                topLeft = androidx.compose.ui.geometry.Offset(left, top),
+                size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f)
+            )
+        }
+    }
 }
 
 private fun formatVoiceTime(milliseconds: Int): String {
