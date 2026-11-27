@@ -1,5 +1,13 @@
 package com.unityhub.app.ui
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -52,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -59,6 +68,9 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.unityhub.app.data.AccountRepository
 import com.unityhub.app.data.ChatConversationSummary
+import com.unityhub.app.data.ChatFileRepository
+import com.unityhub.app.data.ChatMessageAttachment
+import com.unityhub.app.data.ChatSharedFileDto
 import com.unityhub.app.data.NotificationsRepository
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceMemberOption
@@ -70,9 +82,12 @@ import com.unityhub.app.data.TeamChatRealtimeEvent
 import com.unityhub.app.data.TeamChatRepository
 import com.unityhub.app.data.TeamChatRules
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -91,13 +106,22 @@ fun TeamChatScreen(
     val repository = remember { TeamChatRepository(client) }
     val memberRepository = remember { ServiceAssignmentRepository(client) }
     val notificationsRepository = remember { NotificationsRepository(client) }
+    val fileRepository = remember { ChatFileRepository(client) }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    val context = LocalContext.current
 
     var conversations by remember(organizationId) { mutableStateOf<List<ChatConversationSummary>>(emptyList()) }
     var activeConversationId by remember(organizationId) { mutableStateOf<String?>(null) }
     var showConversationList by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showNewConversationDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
+    var showSharedLibrary by rememberSaveable(organizationId) { mutableStateOf(false) }
+    var showAttachmentOptions by rememberSaveable(organizationId) { mutableStateOf(false) }
+    var shareAttachmentWithTeam by rememberSaveable(organizationId) { mutableStateOf(false) }
+    var nextPickIsLibrary by remember { mutableStateOf(false) }
+    var sharedFiles by remember(organizationId) { mutableStateOf<List<ChatSharedFileDto>>(emptyList()) }
+    var loadingSharedFiles by remember { mutableStateOf(false) }
+    var uploadingAttachment by remember { mutableStateOf(false) }
     var messages by remember(organizationId) { mutableStateOf<List<TeamChatMessageDto>>(emptyList()) }
     var readStates by remember(organizationId) { mutableStateOf<List<TeamChatReadStateDto>>(emptyList()) }
     var reactions by remember(organizationId) { mutableStateOf<List<TeamChatReactionDto>>(emptyList()) }
@@ -114,6 +138,117 @@ fun TeamChatScreen(
     var pendingAnchorMessageId by remember { mutableStateOf<String?>(null) }
     var pendingAnchorOffset by remember { mutableStateOf(0) }
     var lastMarkedMessageId by remember(organizationId) { mutableStateOf<String?>(null) }
+
+    fun reloadSharedFiles() {
+        scope.launch {
+            loadingSharedFiles = true
+            runCatching { fileRepository.loadSharedFiles(organizationId) }
+                .onSuccess { sharedFiles = it }
+                .onFailure { errorMessage = it.message ?: "Shared files could not be loaded." }
+            loadingSharedFiles = false
+        }
+    }
+
+    fun openStorageFile(path: String, mimeType: String) {
+        scope.launch {
+            runCatching { fileRepository.createSignedUrl(path) }
+                .onSuccess { signedUrl ->
+                    runCatching {
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(Uri.parse(signedUrl), mimeType.ifBlank { "*/*" })
+                        }
+                        context.startActivity(intent)
+                    }.onFailure { error ->
+                        errorMessage = error.message ?: "No compatible app could open this file."
+                    }
+                }
+                .onFailure { error ->
+                    errorMessage = error.message ?: "This file is not available to your account."
+                }
+        }
+    }
+
+    fun uploadPickedFile(uri: Uri, toLibrary: Boolean) {
+        if (uploadingAttachment) return
+        val conversationId = activeConversationId
+        if (!toLibrary && conversationId.isNullOrBlank()) {
+            errorMessage = "Open a conversation before attaching a file."
+            return
+        }
+        scope.launch {
+            uploadingAttachment = true
+            sending = !toLibrary
+            errorMessage = ""
+            try {
+                val picked = withContext(Dispatchers.IO) { readPickedChatFile(context, uri) }
+                if (toLibrary) {
+                    fileRepository.uploadSharedLibraryFile(
+                        organizationId = organizationId,
+                        uploaderId = userId,
+                        fileName = picked.fileName,
+                        mimeType = picked.mimeType,
+                        bytes = picked.bytes
+                    )
+                    sharedFiles = fileRepository.loadSharedFiles(organizationId)
+                    showSharedLibrary = true
+                    showConversationList = false
+                } else {
+                    val file = fileRepository.uploadChatAttachment(
+                        organizationId = organizationId,
+                        conversationId = conversationId!!,
+                        uploaderId = userId,
+                        fileName = picked.fileName,
+                        mimeType = picked.mimeType,
+                        bytes = picked.bytes,
+                        sharedToTeam = shareAttachmentWithTeam
+                    )
+                    repository.sendMessage(
+                        organizationId = organizationId,
+                        conversationId = conversationId,
+                        senderId = userId,
+                        content = draft.trim().ifBlank { "Shared an attachment" },
+                        replyToMessageId = replyToMessageId,
+                        attachment = ChatMessageAttachment(
+                            id = file.id,
+                            storagePath = file.storagePath,
+                            fileName = file.fileName,
+                            mimeType = file.mimeType,
+                            fileSize = file.fileSize
+                        )
+                    )
+                    draft = ""
+                    replyToMessageId = null
+                    shareAttachmentWithTeam = false
+                    runCatching { repository.loadLatestMessages(organizationId, conversationId) }
+                        .onSuccess { page ->
+                            messages = TeamChatRules.mergeMessages(messages, page.messages)
+                        }
+                    if (file.sharedToTeam) {
+                        sharedFiles = runCatching { fileRepository.loadSharedFiles(organizationId) }
+                            .getOrDefault(sharedFiles)
+                    }
+                }
+            } catch (error: Exception) {
+                errorMessage = error.message ?: "The file could not be uploaded. Try again."
+            } finally {
+                uploadingAttachment = false
+                sending = false
+            }
+        }
+    }
+
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) uploadPickedFile(uri, toLibrary = nextPickIsLibrary)
+        nextPickIsLibrary = false
+    }
+    val documentPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) uploadPickedFile(uri, toLibrary = nextPickIsLibrary)
+        nextPickIsLibrary = false
+    }
 
     fun reload() {
         val conversationId = activeConversationId ?: return
