@@ -595,7 +595,6 @@ fun TeamChatScreen(
     }
 
     LaunchedEffect(organizationId, activeConversationId) {
-        val conversationId = activeConversationId ?: return@LaunchedEffect
         if (isRecordingVoice) {
             runCatching { voiceRecorder?.stop() }
             runCatching { voiceRecorder?.release() }
@@ -604,6 +603,7 @@ fun TeamChatScreen(
             recordingFile = null
             isRecordingVoice = false
         }
+        val conversationId = activeConversationId ?: return@LaunchedEffect
         messages = emptyList()
         loadedConversationId = null
         readStates = emptyList()
