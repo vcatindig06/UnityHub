@@ -22,7 +22,8 @@ data class ChatSharedFileDto(
     @SerialName("mime_type") val mimeType: String,
     @SerialName("file_size") val fileSize: Long,
     @SerialName("shared_to_team") val sharedToTeam: Boolean,
-    @SerialName("created_at") val createdAt: String
+    @SerialName("created_at") val createdAt: String,
+    val category: String = SharedFileCategory.OTHER.key
 )
 
 @Serializable
@@ -35,7 +36,8 @@ private data class NewChatSharedFile(
     @SerialName("file_name") val fileName: String,
     @SerialName("mime_type") val mimeType: String,
     @SerialName("file_size") val fileSize: Long,
-    @SerialName("shared_to_team") val sharedToTeam: Boolean
+    @SerialName("shared_to_team") val sharedToTeam: Boolean,
+    val category: String
 )
 
 data class ChatMessageAttachment(
@@ -66,6 +68,7 @@ class ChatFileRepository(private val client: SupabaseClient) {
             mimeType = mimeType,
             bytes = bytes,
             sharedToTeam = sharedToTeam,
+            category = SharedFileCategory.OTHER,
             folder = conversationId
         )
     }
@@ -75,7 +78,8 @@ class ChatFileRepository(private val client: SupabaseClient) {
         uploaderId: String,
         fileName: String,
         mimeType: String,
-        bytes: ByteArray
+        bytes: ByteArray,
+        category: SharedFileCategory = SharedFileCategory.OTHER
     ): ChatSharedFileDto {
         require(organizationId.isNotBlank() && uploaderId.isNotBlank())
         return upload(
@@ -86,6 +90,7 @@ class ChatFileRepository(private val client: SupabaseClient) {
             mimeType = mimeType,
             bytes = bytes,
             sharedToTeam = true,
+            category = category,
             folder = "library"
         )
     }
@@ -98,6 +103,7 @@ class ChatFileRepository(private val client: SupabaseClient) {
         mimeType: String,
         bytes: ByteArray,
         sharedToTeam: Boolean,
+        category: SharedFileCategory,
         folder: String
     ): ChatSharedFileDto {
         require(bytes.isNotEmpty()) { "The selected file is empty." }
@@ -120,7 +126,8 @@ class ChatFileRepository(private val client: SupabaseClient) {
             fileName = fileName.take(255),
             mimeType = mimeType,
             fileSize = bytes.size.toLong(),
-            sharedToTeam = sharedToTeam
+            sharedToTeam = sharedToTeam,
+            category = category.key
         )
 
         client.from("chat_shared_files").insert(metadata)
@@ -148,7 +155,8 @@ class ChatFileRepository(private val client: SupabaseClient) {
             mimeType = mimeType,
             fileSize = bytes.size.toLong(),
             sharedToTeam = sharedToTeam,
-            createdAt = Instant.now().toString()
+            createdAt = Instant.now().toString(),
+            category = category.key
         )
     }
 
