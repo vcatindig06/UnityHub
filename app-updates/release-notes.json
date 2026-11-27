@@ -1,9 +1,21 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 68,
-  "latestVersionName": "0.68.0",
+  "latestVersionCode": 69,
+  "latestVersionName": "0.69.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 69,
+      "versionName": "0.69.0",
+      "releasedAt": "2026-11-27",
+      "summary": "Protect the workspace layout and primary navigation with Android emulator regression tests.",
+      "changes": [
+        "Add emulator tests against UnityHub's actual production bottom navigation.",
+        "Verify the workspace header and page content remain visible while the navigation stays compact and anchored to the bottom.",
+        "Verify the center action displays Song or Setlist for the selected destination and remains clickable.",
+        "Run the Compose UI regression suite on an Android 36 emulator in GitHub Actions."
+      ]
+    },
     {
       "versionCode": 68,
       "versionName": "0.68.0",
