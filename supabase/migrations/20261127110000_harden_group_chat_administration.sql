@@ -32,7 +32,7 @@ create policy chat_conversations_update_group_owner
         and private.is_chat_conversation_member(id)
         and exists (
             select 1 from public.chat_conversation_members as owner
-             where owner.conversation_id = id
+             where owner.conversation_id = chat_conversations.id
                and owner.user_id = (select auth.uid())
                and owner.member_role = 'owner'
         )
@@ -59,13 +59,13 @@ create policy chat_conversation_members_insert_group_owner
         and private.is_chat_conversation_member(conversation_id)
         and exists (
             select 1 from public.chat_conversations as conversation
-             where conversation.id = conversation_id
-               and conversation.organization_id = organization_id
+             where conversation.id = chat_conversation_members.conversation_id
+               and conversation.organization_id = chat_conversation_members.organization_id
                and conversation.conversation_type = 'group'
         )
         and exists (
             select 1 from public.chat_conversation_members as owner
-             where owner.conversation_id = conversation_id
+             where owner.conversation_id = chat_conversation_members.conversation_id
                and owner.user_id = (select auth.uid())
                and owner.member_role = 'owner'
         )
