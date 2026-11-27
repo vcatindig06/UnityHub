@@ -4,6 +4,7 @@ import android.content.Context
 import android.Manifest
 import android.content.pm.PackageManager
 import android.media.MediaRecorder
+import android.media.MediaPlayer
 import android.os.Build
 import android.content.Intent
 import android.net.Uri
@@ -51,6 +52,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
@@ -63,7 +65,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -152,6 +156,9 @@ fun TeamChatScreen(
     var isRecordingVoice by remember { mutableStateOf(false) }
     var voiceRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var recordingFile by remember { mutableStateOf<File?>(null) }
+    var voicePlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    var activeVoiceMessageId by remember { mutableStateOf<String?>(null) }
+    var isVoicePlaying by remember { mutableStateOf(false) }
     var messages by remember(organizationId) { mutableStateOf<List<TeamChatMessageDto>>(emptyList()) }
     var readStates by remember(organizationId) { mutableStateOf<List<TeamChatReadStateDto>>(emptyList()) }
     var reactions by remember(organizationId) { mutableStateOf<List<TeamChatReactionDto>>(emptyList()) }
@@ -189,6 +196,57 @@ fun TeamChatScreen(
                 .onSuccess { sharedFiles = it }
                 .onFailure { errorMessage = it.message ?: "Shared files could not be loaded." }
             loadingSharedFiles = false
+        }
+    }
+
+    fun playVoiceMessage(path: String, messageId: String) {
+        if (activeVoiceMessageId == messageId && voicePlayer != null) {
+            val player = voicePlayer
+            if (player?.isPlaying == true) {
+                player.pause()
+                isVoicePlaying = false
+            } else {
+                runCatching { player?.start() }
+                isVoicePlaying = true
+            }
+            return
+        }
+        scope.launch {
+            runCatching {
+                voicePlayer?.release()
+                voicePlayer = null
+                isVoicePlaying = false
+                activeVoiceMessageId = messageId
+                val signedUrl = fileRepository.createSignedUrl(path)
+                val player = MediaPlayer()
+                voicePlayer = player
+                player.setOnPreparedListener {
+                    it.start()
+                    isVoicePlaying = true
+                }
+                player.setOnCompletionListener {
+                    isVoicePlaying = false
+                    activeVoiceMessageId = null
+                    voicePlayer?.release()
+                    voicePlayer = null
+                }
+                player.setOnErrorListener { mediaPlayer, _, _ ->
+                    isVoicePlaying = false
+                    activeVoiceMessageId = null
+                    runCatching { mediaPlayer.release() }
+                    voicePlayer = null
+                    errorMessage = "This voice message could not be played."
+                    true
+                }
+                player.setDataSource(signedUrl)
+                player.prepareAsync()
+            }.onFailure { error ->
+                voicePlayer?.release()
+                voicePlayer = null
+                activeVoiceMessageId = null
+                isVoicePlaying = false
+                errorMessage = error.message ?: "This voice message could not be loaded."
+            }
         }
     }
 
@@ -593,6 +651,14 @@ fun TeamChatScreen(
             showConversationList = false
         } else {
             errorMessage = "The linked message is no longer available, but the conversation is open."
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            runCatching { voicePlayer?.release() }
+            voicePlayer = null
+            isVoicePlaying = false
         }
     }
 
@@ -1115,7 +1181,12 @@ fun TeamChatScreen(
                             if (!path.isNullOrBlank()) {
                                 openStorageFile(path, message.attachmentMimeType ?: "*/*")
                             }
-                        }
+                        },
+                        onPlayVoice = {
+                            val path = message.attachmentPath
+                            if (!path.isNullOrBlank()) playVoiceMessage(path, message.id)
+                        },
+                        isVoicePlaying = activeVoiceMessageId == message.id && isVoicePlaying
                     )
                 }
             }
@@ -1631,7 +1702,9 @@ private fun TeamChatMessageBubble(
     onDelete: () -> Unit,
     onPin: (Boolean) -> Unit,
     onReact: (String) -> Unit,
-    onOpenAttachment: () -> Unit
+    onOpenAttachment: () -> Unit,
+    onPlayVoice: () -> Unit,
+    isVoicePlaying: Boolean
 ) {
     var menuExpanded by remember(message.id) { mutableStateOf(false) }
     var showEmojiPicker by remember(message.id) { mutableStateOf(false) }
@@ -1727,7 +1800,36 @@ private fun TeamChatMessageBubble(
                                 color = if (isDeleted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        if (!isDeleted && !message.attachmentPath.isNullOrBlank()) {
+                        if (!isDeleted && !message.attachmentPath.isNullOrBlank() &&
+                            message.attachmentMimeType?.startsWith("audio/") == true
+                        ) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    IconButton(onClick = onPlayVoice) {
+                                        Icon(
+                                            imageVector = if (isVoicePlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                            contentDescription = if (isVoicePlaying) "Pause voice message" else "Play voice message"
+                                        )
+                                    }
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text("Voice message", style = MaterialTheme.typography.labelLarge)
+                                        Text(
+                                            formatChatFileSize(message.attachmentSize ?: 0L),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        } else if (!isDeleted && !message.attachmentPath.isNullOrBlank()) {
                             Card(
                                 modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenAttachment),
                                 colors = CardDefaults.cardColors(
