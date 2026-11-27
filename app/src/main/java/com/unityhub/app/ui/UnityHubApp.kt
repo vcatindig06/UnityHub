@@ -736,6 +736,7 @@ private fun WorkspaceDashboard(
     var showTeamChat by rememberSaveable { mutableStateOf(false) }
     var requestedChatConversationId by remember { mutableStateOf<String?>(null) }
     var requestedChatMessageId by remember { mutableStateOf<String?>(null) }
+    var requestedSharedFiles by remember { mutableStateOf(false) }
     var showMemberProfile by rememberSaveable { mutableStateOf(false) }
     var selectedMemberProfile by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -771,6 +772,7 @@ private fun WorkspaceDashboard(
         showTeamChat = false
         requestedChatConversationId = null
         requestedChatMessageId = null
+        requestedSharedFiles = false
         when (chatReturnDestination) {
             "team" -> showTeamManagement = true
             "notifications" -> showNotifications = true
@@ -1129,6 +1131,7 @@ private fun WorkspaceDashboard(
                 userId = userId,
                 openConversationId = requestedChatConversationId,
                 openMessageId = requestedChatMessageId,
+                openSharedFiles = requestedSharedFiles,
                 onOpenMemberProfile = { member ->
                     selectedMemberProfile = member
                     showMemberProfile = true
@@ -1197,6 +1200,12 @@ private fun WorkspaceDashboard(
                     memberCount = workspace.members.size,
                     onOpenTeam = { showTeamManagement = true },
                     onOpenChat = {
+                        requestedSharedFiles = false
+                        chatReturnDestination = "community"
+                        showTeamChat = true
+                    },
+                    onOpenFiles = {
+                        requestedSharedFiles = true
                         chatReturnDestination = "community"
                         showTeamChat = true
                     },
