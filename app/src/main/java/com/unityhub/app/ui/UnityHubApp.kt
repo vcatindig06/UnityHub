@@ -1133,6 +1133,7 @@ private fun WorkspaceDashboard(
                     selectedMemberProfile = member
                     showMemberProfile = true
                 },
+                onBack = { returnFromTeamChat() },
                 modifier = Modifier.padding(innerPadding)
             )
             else -> when (selectedTab) {
