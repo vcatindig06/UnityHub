@@ -83,7 +83,14 @@ object UnityHubNotificationManager {
             putExtra(EXTRA_ORGANIZATION_ID, organizationId)
             putExtra(EXTRA_CONVERSATION_ID, conversationId)
         }
-        val requestCode = notificationId?.hashCode() ?: 0
+        val identity = listOfNotNull(
+            notificationId,
+            teamMessageId,
+            conversationId,
+            servicePlanId,
+            rehearsalId
+        ).joinToString(":").ifBlank { "$title:$message" }
+        val requestCode = identity.hashCode()
         val pendingIntent = PendingIntent.getActivity(
             context,
             requestCode,
