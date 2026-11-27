@@ -32,6 +32,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,6 +59,7 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SharedFilesScreen(
     organizationId: String,
