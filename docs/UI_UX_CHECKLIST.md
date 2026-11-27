@@ -72,6 +72,10 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Keep the organization shared-files library in its own Community destination instead of embedding it in Team Chat.
 - [x] Separate organization reference-file uploads from conversation attachment uploads.
 - [x] Keep the four core bottom-navigation destinations unchanged when opening Community resources.
+- [x] Assign persistent categories when uploading files to the organization library.
+- [x] Search shared files by filename, MIME type, or uploader and filter by category.
+- [x] Sort shared files by newest, oldest, or filename without changing their access scope.
+- [ ] Manually verify category selection, search, filtering, sorting, and uploads on a physical Android phone.
 - [ ] Manually verify shared-file upload/open/refresh and compact Team member cards on a physical Android phone.
 - [ ] Manually verify keyboard behavior, TalkBack announcements, read receipts between two accounts, and incoming-message scrolling on physical Android devices.
 
