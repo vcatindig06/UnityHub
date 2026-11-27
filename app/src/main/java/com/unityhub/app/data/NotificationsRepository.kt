@@ -27,6 +27,7 @@ data class NotificationDto(
     @SerialName("rehearsal_id") val rehearsalId: String? = null,
     @SerialName("rehearsal_assignment_id") val rehearsalAssignmentId: String? = null,
     @SerialName("team_message_id") val teamMessageId: String? = null,
+    @SerialName("conversation_id") val conversationId: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("read_at") val readAt: String? = null
 )

@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +27,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -40,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -52,6 +58,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.unityhub.app.data.AccountRepository
+import com.unityhub.app.data.ChatConversationSummary
 import com.unityhub.app.data.NotificationsRepository
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceMemberOption
@@ -76,6 +83,7 @@ fun TeamChatScreen(
     organizationId: String,
     organizationName: String,
     userId: String,
+    openConversationId: String? = null,
     onOpenMemberProfile: (ServiceMemberOption) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -86,6 +94,10 @@ fun TeamChatScreen(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
+    var conversations by remember(organizationId) { mutableStateOf<List<ChatConversationSummary>>(emptyList()) }
+    var activeConversationId by remember(organizationId) { mutableStateOf<String?>(null) }
+    var showConversationList by rememberSaveable(organizationId) { mutableStateOf(false) }
+    var showNewConversationDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
     var messages by remember(organizationId) { mutableStateOf<List<TeamChatMessageDto>>(emptyList()) }
     var readStates by remember(organizationId) { mutableStateOf<List<TeamChatReadStateDto>>(emptyList()) }
     var reactions by remember(organizationId) { mutableStateOf<List<TeamChatReactionDto>>(emptyList()) }
@@ -104,20 +116,21 @@ fun TeamChatScreen(
     var lastMarkedMessageId by remember(organizationId) { mutableStateOf<String?>(null) }
 
     fun reload() {
+        val conversationId = activeConversationId ?: return
         scope.launch {
             loading = true
             errorMessage = ""
             try {
                 val hadLoadedMessages = messages.isNotEmpty()
-                val page = repository.loadLatestMessages(organizationId)
+                val page = repository.loadLatestMessages(organizationId, conversationId)
                 messages = TeamChatRules.mergeMessages(messages, page.messages)
                 if (!hadLoadedMessages) hasMoreOlder = page.hasMore
-                readStates = repository.loadReadStates(organizationId)
+                readStates = repository.loadReadStates(organizationId, conversationId)
                 reactions = repository.loadReactions(organizationId)
                 membersByUserId = memberRepository.loadTeamMembers(organizationId)
                     .associateBy { it.userId }
             } catch (_: Exception) {
-                errorMessage = "Team Chat could not load. Check your connection and make sure the Team Chat database migration has been applied."
+                errorMessage = "This conversation could not load. Check your connection and membership, then try again."
             } finally {
                 loading = false
             }
@@ -145,7 +158,8 @@ fun TeamChatScreen(
             loadingOlder = true
             errorMessage = ""
             try {
-                val page = repository.loadOlderMessages(organizationId, oldest)
+                val conversationId = activeConversationId ?: return@launch
+                val page = repository.loadOlderMessages(organizationId, conversationId, oldest)
                 messages = TeamChatRules.mergeMessages(page.messages, messages)
                 hasMoreOlder = page.hasMore
             } catch (_: Exception) {
@@ -165,6 +179,7 @@ fun TeamChatScreen(
             sending
         ) return
 
+        val conversationId = activeConversationId ?: return
         scope.launch {
             sending = true
             errorMessage = ""
@@ -180,6 +195,7 @@ fun TeamChatScreen(
                 } else {
                     repository.sendMessage(
                         organizationId = organizationId,
+                        conversationId = conversationId,
                         senderId = userId,
                         content = content,
                         replyToMessageId = replyToMessageId
@@ -191,7 +207,7 @@ fun TeamChatScreen(
                 // Realtime supplies the inserted message. Refresh is only a
                 // fallback and must not turn a successful send into an error.
                 runCatching {
-                    repository.loadLatestMessages(organizationId)
+                    repository.loadLatestMessages(organizationId, conversationId)
                 }.onSuccess { page ->
                     messages = TeamChatRules.mergeMessages(messages, page.messages)
                 }
@@ -203,9 +219,50 @@ fun TeamChatScreen(
         }
     }
 
-    LaunchedEffect(organizationId) {
+    LaunchedEffect(organizationId, userId) {
         try {
-            repository.observeNewMessages(organizationId).collect { event ->
+            val loadedMembers = memberRepository.loadTeamMembers(organizationId)
+            membersByUserId = loadedMembers.associateBy { it.userId }
+            val loadedConversations = repository.loadConversations(organizationId)
+            conversations = loadedConversations
+            val defaultConversationId = loadedConversations.firstOrNull {
+                it.conversation.conversationType == "organization"
+            }?.conversation?.id ?: loadedConversations.firstOrNull()?.conversation?.id
+            if (activeConversationId == null) activeConversationId = defaultConversationId
+        } catch (_: CancellationException) {
+            throw CancellationException()
+        } catch (_: Exception) {
+            errorMessage = "Conversations could not load. Check your connection and try again."
+        }
+    }
+
+    LaunchedEffect(openConversationId, conversations) {
+        val requestedId = openConversationId ?: return@LaunchedEffect
+        if (conversations.any { it.conversation.id == requestedId }) {
+            activeConversationId = requestedId
+            showConversationList = false
+        }
+    }
+
+    LaunchedEffect(organizationId, activeConversationId) {
+        val conversationId = activeConversationId ?: return@LaunchedEffect
+        messages = emptyList()
+        readStates = emptyList()
+        reactions = emptyList()
+        draft = ""
+        replyToMessageId = null
+        editingMessageId = null
+        hasMoreOlder = false
+        hasPositionedChatList = false
+        lastMarkedMessageId = null
+        loading = true
+        reload()
+    }
+
+    LaunchedEffect(organizationId, activeConversationId) {
+        val conversationId = activeConversationId ?: return@LaunchedEffect
+        try {
+            repository.observeNewMessages(conversationId).collect { event ->
                 when (event) {
                     TeamChatRealtimeEvent.Connected -> reload()
                     is TeamChatRealtimeEvent.MessageReceived -> {
@@ -230,7 +287,8 @@ fun TeamChatScreen(
         }
     }
 
-    LaunchedEffect(organizationId) {
+    LaunchedEffect(organizationId, activeConversationId) {
+        val conversationId = activeConversationId ?: return@LaunchedEffect
         try {
             repository.observeReactions(organizationId).collect { incoming ->
                 reactions = incoming
@@ -243,20 +301,21 @@ fun TeamChatScreen(
         }
     }
 
-    LaunchedEffect(organizationId) {
+    LaunchedEffect(organizationId, activeConversationId) {
+        val conversationId = activeConversationId ?: return@LaunchedEffect
         try {
-            repository.observeReadStates(organizationId).collect { incoming ->
+            repository.observeReadStates(organizationId, conversationId).collect { incoming ->
                 readStates = incoming
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            runCatching { repository.loadReadStates(organizationId) }
+            runCatching { repository.loadReadStates(organizationId, conversationId) }
                 .onSuccess { readStates = it }
         }
     }
 
-    LaunchedEffect(organizationId, messages.size, messages.lastOrNull()?.id, hasMoreOlder) {
+    LaunchedEffect(organizationId, activeConversationId, messages.size, messages.lastOrNull()?.id, hasMoreOlder) {
         if (messages.isEmpty()) return@LaunchedEffect
 
         val anchorId = pendingAnchorMessageId
@@ -291,7 +350,7 @@ fun TeamChatScreen(
 
     // The highest chronological message currently visible becomes the member's
     // read cursor. The database rejects backward cursor movement.
-    LaunchedEffect(organizationId, userId) {
+    LaunchedEffect(organizationId, activeConversationId, userId) {
         snapshotFlow {
             val messageById = messages.associateBy { it.id }
             listState.layoutInfo.visibleItemsInfo
@@ -311,7 +370,7 @@ fun TeamChatScreen(
                 ownCursor.lastReadMessageId
             } else {
                 val readResult = runCatching {
-                    repository.markAsRead(organizationId, userId, visibleMessage.id)
+                    repository.markAsRead(activeConversationId ?: return@collect, userId, visibleMessage.id)
                 }
                 if (readResult.isFailure) return@collect
                 visibleMessage.id
@@ -340,20 +399,42 @@ fun TeamChatScreen(
         modifier = modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        val activeSummary = conversations.firstOrNull {
+            it.conversation.id == activeConversationId
+        }
+        val activeConversation = activeSummary?.conversation
+        val activeTitle = when (activeConversation?.conversationType) {
+            "organization" -> organizationName
+            "direct" -> activeSummary.members.firstOrNull { it.userId != userId }
+                ?.let { membersByUserId[it.userId]?.displayName } ?: "Direct message"
+            else -> activeConversation?.title ?: "Group chat"
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Team conversation", style = MaterialTheme.typography.titleMedium)
+                Text(if (showConversationList) "Conversations" else activeTitle, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    organizationName,
+                    if (showConversationList) "Direct messages, ministry groups, and Everyone"
+                    else when (activeConversation?.conversationType) {
+                        "organization" -> "Organization-wide chat"
+                        "direct" -> "Private direct message"
+                        else -> "${activeSummary?.members?.size ?: 0} group members"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            TextButton(onClick = { reload() }, enabled = !loading) { Text("Refresh") }
+            TextButton(
+                onClick = { showConversationList = !showConversationList },
+                enabled = !loading
+            ) { Text(if (showConversationList) "Back to chat" else "Chats") }
+            TextButton(
+                onClick = { showNewConversationDialog = true },
+                enabled = membersByUserId.isNotEmpty()
+            ) { Text("New") }
         }
 
         if (recentUnreadCount > 0) {
@@ -387,7 +468,61 @@ fun TeamChatScreen(
             Text(errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
 
-        if (loading && messages.isEmpty()) {
+        if (showConversationList) {
+            if (conversations.isEmpty()) {
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(Modifier.size(28.dp))
+                    Text("Loading conversations", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(conversations, key = { it.conversation.id }) { entry ->
+                        val conversation = entry.conversation
+                        val title = when (conversation.conversationType) {
+                            "organization" -> organizationName
+                            "direct" -> entry.members.firstOrNull { it.userId != userId }
+                                ?.let { membersByUserId[it.userId]?.displayName } ?: "Direct message"
+                            else -> conversation.title ?: "Group chat"
+                        }
+                        val subtitle = when (conversation.conversationType) {
+                            "organization" -> "Everyone in the organization"
+                            "direct" -> "Direct message"
+                            else -> entry.members.mapNotNull { membersByUserId[it.userId]?.displayName }
+                                .take(4).joinToString(" · ")
+                        }
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                activeConversationId = conversation.id
+                                showConversationList = false
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (conversation.id == activeConversationId) {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                }
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Text(title, style = MaterialTheme.typography.titleSmall)
+                                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (loading && messages.isEmpty()) {
             Column(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -470,9 +605,10 @@ fun TeamChatScreen(
                         },
                         onDelete = {
                             scope.launch {
+                                val conversationId = activeConversationId ?: return@launch
                                 runCatching {
                                     repository.deleteMessage(organizationId, message.id, userId)
-                                    val page = repository.loadLatestMessages(organizationId)
+                                    val page = repository.loadLatestMessages(organizationId, conversationId)
                                     messages = TeamChatRules.mergeMessages(messages, page.messages)
                                 }.onFailure {
                                     errorMessage = "This message could not be deleted. Try again."
@@ -481,9 +617,10 @@ fun TeamChatScreen(
                         },
                         onPin = { shouldPin ->
                             scope.launch {
+                                val conversationId = activeConversationId ?: return@launch
                                 runCatching {
                                     repository.setPinned(organizationId, message.id, userId, shouldPin)
-                                    val page = repository.loadLatestMessages(organizationId)
+                                    val page = repository.loadLatestMessages(organizationId, conversationId)
                                     messages = TeamChatRules.mergeMessages(messages, page.messages)
                                 }.onFailure { error ->
                                     errorMessage = error.message ?: "The pin change could not be saved."
@@ -504,7 +641,7 @@ fun TeamChatScreen(
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (!showConversationList) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (editingMessageId != null || replyToMessageId != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -562,6 +699,167 @@ fun TeamChatScreen(
             )
         }
     }
+    
+    if (showNewConversationDialog) {
+        NewChatConversationDialog(
+            members = membersByUserId.values.sortedBy { it.displayName.lowercase() },
+            currentUserId = userId,
+            onDismiss = { showNewConversationDialog = false },
+            onOpenDirect = { otherUserId ->
+                scope.launch {
+                    runCatching {
+                        repository.getOrCreateDirectConversation(organizationId, otherUserId)
+                    }.onSuccess { conversationId ->
+                        conversations = repository.loadConversations(organizationId)
+                        activeConversationId = conversationId
+                        showConversationList = false
+                        showNewConversationDialog = false
+                    }.onFailure { error ->
+                        errorMessage = error.message ?: "The direct message could not be opened."
+                    }
+                }
+            },
+            onCreateGroup = { title, selectedUserIds ->
+                scope.launch {
+                    runCatching {
+                        repository.createGroupConversation(organizationId, title, selectedUserIds)
+                    }.onSuccess { conversationId ->
+                        conversations = repository.loadConversations(organizationId)
+                        activeConversationId = conversationId
+                        showConversationList = false
+                        showNewConversationDialog = false
+                    }.onFailure { error ->
+                        errorMessage = error.message ?: "The group could not be created."
+                    }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun NewChatConversationDialog(
+    members: List<ServiceMemberOption>,
+    currentUserId: String,
+    onDismiss: () -> Unit,
+    onOpenDirect: (String) -> Unit,
+    onCreateGroup: (String, List<String>) -> Unit
+) {
+    var mode by remember { mutableStateOf("Direct message") }
+    var groupType by remember { mutableStateOf("Musicians") }
+    var customTitle by remember { mutableStateOf("") }
+    var selectedMembers by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val groupTypes = listOf("Musicians", "Instrumentalists", "Singers", "Dancers", "Multimedia", "Custom")
+    val groupTitle = if (groupType == "Custom") customTitle.trim() else groupType
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New conversation") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = mode == "Direct message",
+                        onClick = { mode = "Direct message" },
+                        label = { Text("Direct") }
+                    )
+                    FilterChip(
+                        selected = mode == "Group chat",
+                        onClick = { mode = "Group chat" },
+                        label = { Text("Group") }
+                    )
+                }
+                if (mode == "Direct message") {
+                    Text("Choose a team member to start or reopen your private conversation.")
+                    Column(
+                        modifier = Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        members.filter { it.userId != currentUserId }.forEach { member ->
+                            TextButton(
+                                onClick = { onOpenDirect(member.userId) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(member.displayName)
+                                    Text("Message", color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Text("Choose a ministry group or create a custom group.")
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        groupTypes.forEach { option ->
+                            FilterChip(
+                                selected = groupType == option,
+                                onClick = { groupType = option },
+                                label = { Text(option) }
+                            )
+                        }
+                    }
+                    if (groupType == "Custom") {
+                        OutlinedTextField(
+                            value = customTitle,
+                            onValueChange = { if (it.length <= 80) customTitle = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("Group name") }
+                        )
+                    }
+                    Text("Select group members", style = MaterialTheme.typography.labelLarge)
+                    Column(
+                        modifier = Modifier.heightIn(max = 250.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        members.filter { it.userId != currentUserId }.forEach { member ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    selectedMembers = if (member.userId in selectedMembers) {
+                                        selectedMembers - member.userId
+                                    } else {
+                                        selectedMembers + member.userId
+                                    }
+                                },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = member.userId in selectedMembers,
+                                    onCheckedChange = { checked ->
+                                        selectedMembers = if (checked) selectedMembers + member.userId
+                                        else selectedMembers - member.userId
+                                    }
+                                )
+                                Text(member.displayName)
+                            }
+                        }
+                    }
+                    Text(
+                        "You will be included as the group creator.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (mode == "Group chat") {
+                TextButton(
+                    onClick = { onCreateGroup(groupTitle, selectedMembers.toList()) },
+                    enabled = groupTitle.length in 2..80 && selectedMembers.isNotEmpty()
+                ) { Text("Create group") }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)

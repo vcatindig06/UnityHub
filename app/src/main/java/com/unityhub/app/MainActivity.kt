@@ -260,6 +260,8 @@ class MainActivity : ComponentActivity() {
             ?: source.getStringExtra("team_message_id")
         val organizationId = source.getStringExtra(UnityHubNotificationManager.EXTRA_ORGANIZATION_ID)
             ?: source.getStringExtra("organization_id")
+        val conversationId = source.getStringExtra(UnityHubNotificationManager.EXTRA_CONVERSATION_ID)
+            ?: source.getStringExtra("conversation_id")
         if (!notificationId.isNullOrBlank() || !servicePlanId.isNullOrBlank() ||
             !rehearsalId.isNullOrBlank() || !teamMessageId.isNullOrBlank()
         ) {
@@ -268,7 +270,8 @@ class MainActivity : ComponentActivity() {
                 servicePlanId = servicePlanId,
                 rehearsalId = rehearsalId,
                 teamMessageId = teamMessageId,
-                organizationId = organizationId
+                organizationId = organizationId,
+                conversationId = conversationId
             )
         }
     }

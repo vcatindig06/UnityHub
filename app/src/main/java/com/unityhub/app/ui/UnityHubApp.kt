@@ -734,6 +734,7 @@ private fun WorkspaceDashboard(
     var showTeamManagement by rememberSaveable { mutableStateOf(false) }
     var showPersonalProfile by rememberSaveable { mutableStateOf(false) }
     var showTeamChat by rememberSaveable { mutableStateOf(false) }
+    var requestedChatConversationId by remember { mutableStateOf<String?>(null) }
     var showMemberProfile by rememberSaveable { mutableStateOf(false) }
     var selectedMemberProfile by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -767,6 +768,7 @@ private fun WorkspaceDashboard(
 
     fun returnFromTeamChat() {
         showTeamChat = false
+        requestedChatConversationId = null
         when (chatReturnDestination) {
             "team" -> showTeamManagement = true
             "notifications" -> showNotifications = true
@@ -801,7 +803,8 @@ private fun WorkspaceDashboard(
         pushNavigation?.servicePlanId,
         pushNavigation?.rehearsalId,
         pushNavigation?.teamMessageId,
-        pushNavigation?.organizationId
+        pushNavigation?.organizationId,
+        pushNavigation?.conversationId
     ) {
         val navigation = pushNavigation ?: return@LaunchedEffect
         showNotifications = false
@@ -815,6 +818,7 @@ private fun WorkspaceDashboard(
                     requestedRehearsalId = null
                     rehearsalNavigationRequestId = null
                     chatReturnDestination = "home"
+                    requestedChatConversationId = navigation.conversationId
                     showTeamChat = true
                 } else {
                     showNotifications = true
@@ -1077,6 +1081,7 @@ private fun WorkspaceDashboard(
                         requestedRehearsalId = null
                         rehearsalNavigationRequestId = null
                         chatReturnDestination = "notifications"
+                        requestedChatConversationId = notification.conversationId
                         showNotifications = false
                         showTeamChat = true
                     }
@@ -1115,6 +1120,7 @@ private fun WorkspaceDashboard(
                 organizationId = organization.id,
                 organizationName = organization.name,
                 userId = userId,
+                openConversationId = requestedChatConversationId,
                 onOpenMemberProfile = { member ->
                     selectedMemberProfile = member
                     showMemberProfile = true

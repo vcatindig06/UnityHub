@@ -1,9 +1,22 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 63,
-  "latestVersionName": "0.63.0",
+  "latestVersionCode": 64,
+  "latestVersionName": "0.64.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 64,
+      "versionName": "0.64.0",
+      "releasedAt": "2026-11-27",
+      "summary": "Add direct messages and private ministry/custom group conversations alongside the existing Everyone channel.",
+      "changes": [
+        "Preserve the existing organization-wide Team Chat as the Everyone conversation, including its message history.",
+        "Start or reopen private one-to-one conversations with current organization members.",
+        "Create ministry and custom group chats for Musicians, Instrumentalists, Singers, Dancers, Multimedia, or a custom name.",
+        "Scope messages, reactions, read cursors, pinned messages, and conversation membership to each conversation with database RLS.",
+        "Route chat notifications to conversation members and open the exact conversation from in-app and push notifications."
+      ]
+    },
     {
       "versionCode": 63,
       "versionName": "0.63.0",
