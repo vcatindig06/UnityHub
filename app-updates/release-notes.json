@@ -1,9 +1,21 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 65,
-  "latestVersionName": "0.65.0",
+  "latestVersionCode": 66,
+  "latestVersionName": "0.66.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 66,
+      "versionName": "0.66.0",
+      "releasedAt": "2026-11-27",
+      "summary": "Move shared reference files into their own Community destination and streamline the Team directory.",
+      "changes": [
+        "Open the organization shared library from Community instead of inside Team Chat.",
+        "Upload, browse, and refresh team reference files on a dedicated screen while keeping conversation attachments in chat.",
+        "Display member photos, access roles, ministry positions, and management actions in a more compact Team directory card.",
+        "Keep the four core bottom navigation destinations unchanged."
+      ]
+    },
     {
       "versionCode": 65,
       "versionName": "0.65.0",
