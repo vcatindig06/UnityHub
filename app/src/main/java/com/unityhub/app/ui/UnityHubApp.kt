@@ -815,7 +815,9 @@ private fun WorkspaceDashboard(
         showPersonalProfile = false
         when {
             !navigation.teamMessageId.isNullOrBlank() -> {
-                if (navigation.organizationId == organization.id) {
+                if (navigation.organizationId == organization.id &&
+                    !navigation.conversationId.isNullOrBlank()
+                ) {
                     requestedServicePlanId = null
                     serviceNavigationRequestId = null
                     requestedRehearsalId = null
@@ -1078,7 +1080,8 @@ private fun WorkspaceDashboard(
                 onOpenTeamChat = { notification ->
                     if (
                         notification.organizationId == organization.id &&
-                        !notification.teamMessageId.isNullOrBlank()
+                        !notification.teamMessageId.isNullOrBlank() &&
+                        !notification.conversationId.isNullOrBlank()
                     ) {
                         requestedServicePlanId = null
                         serviceNavigationRequestId = null
