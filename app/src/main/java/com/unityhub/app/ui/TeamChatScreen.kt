@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
@@ -159,6 +160,7 @@ fun TeamChatScreen(
     var voicePlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var activeVoiceMessageId by remember { mutableStateOf<String?>(null) }
     var isVoicePlaying by remember { mutableStateOf(false) }
+    var isVoicePreparing by remember { mutableStateOf(false) }
     var messages by remember(organizationId) { mutableStateOf<List<TeamChatMessageDto>>(emptyList()) }
     var readStates by remember(organizationId) { mutableStateOf<List<TeamChatReadStateDto>>(emptyList()) }
     var reactions by remember(organizationId) { mutableStateOf<List<TeamChatReactionDto>>(emptyList()) }
@@ -216,22 +218,26 @@ fun TeamChatScreen(
                 voicePlayer?.release()
                 voicePlayer = null
                 isVoicePlaying = false
+                isVoicePreparing = true
                 activeVoiceMessageId = messageId
                 val signedUrl = fileRepository.createSignedUrl(path)
                 val player = MediaPlayer()
                 voicePlayer = player
                 player.setOnPreparedListener {
+                    isVoicePreparing = false
                     it.start()
                     isVoicePlaying = true
                 }
                 player.setOnCompletionListener {
                     isVoicePlaying = false
+                    isVoicePreparing = false
                     activeVoiceMessageId = null
                     voicePlayer?.release()
                     voicePlayer = null
                 }
                 player.setOnErrorListener { mediaPlayer, _, _ ->
                     isVoicePlaying = false
+                    isVoicePreparing = false
                     activeVoiceMessageId = null
                     runCatching { mediaPlayer.release() }
                     voicePlayer = null
@@ -245,6 +251,7 @@ fun TeamChatScreen(
                 voicePlayer = null
                 activeVoiceMessageId = null
                 isVoicePlaying = false
+                isVoicePreparing = false
                 errorMessage = error.message ?: "This voice message could not be loaded."
             }
         }
@@ -663,6 +670,11 @@ fun TeamChatScreen(
     }
 
     LaunchedEffect(organizationId, activeConversationId) {
+        runCatching { voicePlayer?.release() }
+        voicePlayer = null
+        activeVoiceMessageId = null
+        isVoicePlaying = false
+        isVoicePreparing = false
         if (isRecordingVoice) {
             runCatching { voiceRecorder?.stop() }
             runCatching { voiceRecorder?.release() }
@@ -1186,7 +1198,8 @@ fun TeamChatScreen(
                             val path = message.attachmentPath
                             if (!path.isNullOrBlank()) playVoiceMessage(path, message.id)
                         },
-                        isVoicePlaying = activeVoiceMessageId == message.id && isVoicePlaying
+                        isVoicePlaying = activeVoiceMessageId == message.id && isVoicePlaying,
+                        isVoicePreparing = activeVoiceMessageId == message.id && isVoicePreparing
                     )
                 }
             }
@@ -1704,7 +1717,8 @@ private fun TeamChatMessageBubble(
     onReact: (String) -> Unit,
     onOpenAttachment: () -> Unit,
     onPlayVoice: () -> Unit,
-    isVoicePlaying: Boolean
+    isVoicePlaying: Boolean,
+    isVoicePreparing: Boolean
 ) {
     var menuExpanded by remember(message.id) { mutableStateOf(false) }
     var showEmojiPicker by remember(message.id) { mutableStateOf(false) }
@@ -1813,11 +1827,15 @@ private fun TeamChatMessageBubble(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    IconButton(onClick = onPlayVoice) {
-                                        Icon(
-                                            imageVector = if (isVoicePlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
-                                            contentDescription = if (isVoicePlaying) "Pause voice message" else "Play voice message"
-                                        )
+                                    IconButton(onClick = onPlayVoice, enabled = !isVoicePreparing) {
+                                        if (isVoicePreparing) {
+                                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            Icon(
+                                                imageVector = if (isVoicePlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                contentDescription = if (isVoicePlaying) "Pause voice message" else "Play voice message"
+                                            )
+                                        }
                                     }
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text("Voice message", style = MaterialTheme.typography.labelLarge)
