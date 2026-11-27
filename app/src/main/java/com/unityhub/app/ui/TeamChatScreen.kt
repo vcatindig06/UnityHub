@@ -71,7 +71,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -553,8 +552,10 @@ fun TeamChatScreen(
                 recordingFile = output
                 voicePreviewReady = true
             } finally {
-                output.delete()
-                if (!voicePreviewReady) recordingFile = null
+                if (!voicePreviewReady) {
+                    output.delete()
+                    recordingFile = null
+                }
                 uploadingAttachment = false
                 sending = false
             }
