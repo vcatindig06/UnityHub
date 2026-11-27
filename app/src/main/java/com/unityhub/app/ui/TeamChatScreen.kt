@@ -550,29 +550,50 @@ fun TeamChatScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(if (showConversationList) "Conversations" else activeTitle, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    if (showConversationList) "Direct messages, ministry groups, and Everyone"
-                    else when (activeConversation?.conversationType) {
-                        "organization" -> "Organization-wide chat"
-                        "direct" -> "Private direct message"
-                        else -> "${activeSummary?.members?.size ?: 0} group members"
+                    when {
+                        showSharedLibrary -> "Shared library"
+                        showConversationList -> "Conversations"
+                        else -> activeTitle
+                    },
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    when {
+                        showSharedLibrary -> "Files shared with your organization"
+                        showConversationList -> "Direct messages, ministry groups, and Everyone"
+                        else -> when (activeConversation?.conversationType) {
+                            "organization" -> "Organization-wide chat"
+                            "direct" -> "Private direct message"
+                            else -> "${activeSummary?.members?.size ?: 0} group members"
+                        }
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            TextButton(
-                onClick = { showConversationList = !showConversationList },
-                enabled = !loading
-            ) { Text(if (showConversationList) "Back to chat" else "Chats") }
-            TextButton(
-                onClick = { showNewConversationDialog = true },
-                enabled = membersByUserId.isNotEmpty()
-            ) { Text("New") }
+            if (showSharedLibrary) {
+                TextButton(onClick = { showSharedLibrary = false }) { Text("Back to chat") }
+            } else {
+                TextButton(
+                    onClick = {
+                        showSharedLibrary = true
+                        showConversationList = false
+                        reloadSharedFiles()
+                    }
+                ) { Text("Files") }
+                TextButton(
+                    onClick = { showConversationList = !showConversationList },
+                    enabled = !loading
+                ) { Text(if (showConversationList) "Back" else "Chats") }
+                TextButton(
+                    onClick = { showNewConversationDialog = true },
+                    enabled = membersByUserId.isNotEmpty()
+                ) { Text("New") }
+            }
         }
 
-        if (recentUnreadCount > 0) {
+        if (!showSharedLibrary && recentUnreadCount > 0) {
             Text(
                 "$recentUnreadCount unread messages in the loaded history",
                 style = MaterialTheme.typography.labelMedium,
@@ -580,7 +601,7 @@ fun TeamChatScreen(
             )
         }
 
-        messages.lastOrNull { it.pinnedAt != null }?.let { pinnedMessage ->
+        if (!showSharedLibrary) messages.lastOrNull { it.pinnedAt != null }?.let { pinnedMessage ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
@@ -603,7 +624,90 @@ fun TeamChatScreen(
             Text(errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
 
-        if (showConversationList) {
+        if (showSharedLibrary) {
+            Column(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Team reference files", style = MaterialTheme.typography.titleSmall)
+                    Button(
+                        onClick = {
+                            nextPickIsLibrary = true
+                            documentPicker.launch(arrayOf("*/*"))
+                        },
+                        enabled = !uploadingAttachment
+                    ) { Text(if (uploadingAttachment) "Uploading" else "Upload file") }
+                }
+                Text(
+                    "Documents and photos saved for everyone in this organization.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                when {
+                    loadingSharedFiles -> Box(
+                        Modifier.weight(1f).fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(Modifier.size(26.dp))
+                    }
+                    sharedFiles.isEmpty() -> Card(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text("No shared files yet", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Upload a song reference, document, rehearsal guide, or photo for your team.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    else -> LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(sharedFiles, key = { it.id }) { file ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    openStorageFile(file.storagePath, file.mimeType)
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(
+                                        Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Text(file.fileName, style = MaterialTheme.typography.titleSmall, maxLines = 2)
+                                        Text(
+                                            "${formatChatFileSize(file.fileSize)} · ${membersByUserId[file.uploaderId]?.displayName ?: "Team member"}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Text("Open", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (showConversationList) {
             if (conversations.isEmpty()) {
                 Column(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -776,7 +880,7 @@ fun TeamChatScreen(
             }
         }
 
-        if (!showConversationList) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (!showConversationList && !showSharedLibrary) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (editingMessageId != null || replyToMessageId != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -799,8 +903,12 @@ fun TeamChatScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                TextButton(
+                    onClick = { showAttachmentOptions = true },
+                    enabled = !sending && !uploadingAttachment && editingMessageId == null
+                ) { Text("Attach") }
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { if (it.length <= TeamChatRules.MAX_MESSAGE_LENGTH) draft = it },
