@@ -806,8 +806,7 @@ private fun WorkspaceDashboard(
         pushNavigation?.rehearsalId,
         pushNavigation?.teamMessageId,
         pushNavigation?.organizationId,
-        pushNavigation?.conversationId,
-        pushNavigation?.teamMessageId
+        pushNavigation?.conversationId
     ) {
         val navigation = pushNavigation ?: return@LaunchedEffect
         showNotifications = false
