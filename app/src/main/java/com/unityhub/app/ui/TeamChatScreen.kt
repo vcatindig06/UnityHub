@@ -111,6 +111,7 @@ fun TeamChatScreen(
     userId: String,
     openConversationId: String? = null,
     openMessageId: String? = null,
+    openSharedFiles: Boolean = false,
     onOpenMemberProfile: (ServiceMemberOption) -> Unit = {},
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -386,6 +387,14 @@ fun TeamChatScreen(
         }
     }
 
+    LaunchedEffect(openSharedFiles) {
+        if (openSharedFiles) {
+            showSharedLibrary = true
+            showConversationList = false
+            reloadSharedFiles()
+        }
+    }
+
     LaunchedEffect(organizationId, userId) {
         try {
             notificationsRepository.observeNotifications(userId).collect { incoming ->
@@ -635,7 +644,7 @@ fun TeamChatScreen(
         ) {
             IconButton(onClick = {
                 when {
-                    showSharedLibrary -> showSharedLibrary = false
+                    showSharedLibrary -> if (openSharedFiles) onBack() else showSharedLibrary = false
                     !showConversationList -> showConversationList = true
                     else -> onBack()
                 }
