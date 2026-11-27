@@ -890,7 +890,7 @@ private fun TeamMemberProfileCard(
                         TextButton(
                             onClick = onManagePositions,
                             enabled = !saving,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
                             Text("Positions")
                         }
@@ -899,7 +899,7 @@ private fun TeamMemberProfileCard(
                         TextButton(
                             onClick = onManageAccess,
                             enabled = !saving,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
                             Text("Manage access")
                         }
