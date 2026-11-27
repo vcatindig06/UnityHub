@@ -1087,8 +1087,6 @@ fun TeamChatScreen(
                     TextButton(onClick = { showConversationDetails = false }) { Text("Done") }
                 }
             )
-        } else {
-            showConversationDetails = false
         }
     }
 
