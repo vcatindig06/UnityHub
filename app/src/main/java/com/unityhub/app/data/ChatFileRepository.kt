@@ -4,6 +4,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.from
 import io.github.jan.supabase.storage.storage
+import io.ktor.http.ContentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.Instant
@@ -125,6 +126,7 @@ class ChatFileRepository(private val client: SupabaseClient) {
         try {
             client.storage.from(BUCKET).upload(path, bytes) {
                 upsert = false
+                contentType = ContentType.parse(mimeType)
             }
         } catch (error: Exception) {
             runCatching {
