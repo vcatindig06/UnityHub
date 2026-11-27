@@ -61,6 +61,40 @@ class NotificationRulesTest {
     }
 
     @Test
+    fun unreadConversationCountsAreScopedToOrganizationAndConversation() {
+        val chatA = notification().copy(
+            id = "chat-a",
+            organizationId = "org-a",
+            notificationType = "team_message",
+            teamMessageId = "message-a",
+            conversationId = "conversation-a"
+        )
+        val chatASecond = chatA.copy(id = "chat-a-2", teamMessageId = "message-a-2")
+        val chatB = chatA.copy(
+            id = "chat-b",
+            organizationId = "org-a",
+            conversationId = "conversation-b"
+        )
+        val otherOrganization = chatA.copy(
+            id = "other-org",
+            organizationId = "org-b",
+            conversationId = "conversation-a"
+        )
+        val alreadyRead = chatA.copy(
+            id = "read",
+            readAt = "2026-11-04T05:00:00Z"
+        )
+
+        assertEquals(
+            mapOf("conversation-a" to 2, "conversation-b" to 1),
+            NotificationRules.unreadByConversation(
+                listOf(chatA, chatASecond, chatB, otherOrganization, alreadyRead),
+                "org-a"
+            )
+        )
+    }
+
+    @Test
     fun newestFirstOrdersNotificationsByCreatedTimestamp() {
         val older = notification().copy(id = "older")
         val newer = notification().copy(id = "newer", createdAt = "2026-11-05T04:00:00Z")
