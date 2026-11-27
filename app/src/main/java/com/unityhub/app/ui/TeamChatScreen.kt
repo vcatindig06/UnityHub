@@ -94,7 +94,6 @@ import com.unityhub.app.data.AccountRepository
 import com.unityhub.app.data.ChatConversationSummary
 import com.unityhub.app.data.ChatFileRepository
 import com.unityhub.app.data.ChatMessageAttachment
-import com.unityhub.app.data.ChatSharedFileDto
 import com.unityhub.app.data.NotificationRules
 import com.unityhub.app.data.NotificationsRepository
 import com.unityhub.app.data.ServiceAssignmentRepository
@@ -128,7 +127,6 @@ fun TeamChatScreen(
     userId: String,
     openConversationId: String? = null,
     openMessageId: String? = null,
-    openSharedFiles: Boolean = false,
     onOpenMemberProfile: (ServiceMemberOption) -> Unit = {},
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -151,12 +149,6 @@ fun TeamChatScreen(
     var showAddGroupMemberDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
     var pendingGroupRemoval by remember { mutableStateOf<ServiceMemberOption?>(null) }
     var groupTitleDraft by remember(activeConversationId) { mutableStateOf("") }
-    var showSharedLibrary by rememberSaveable(organizationId) { mutableStateOf(false) }
-    var showAttachmentOptions by rememberSaveable(organizationId) { mutableStateOf(false) }
-    var shareAttachmentWithTeam by rememberSaveable(organizationId) { mutableStateOf(false) }
-    var nextPickIsLibrary by remember { mutableStateOf(false) }
-    var sharedFiles by remember(organizationId) { mutableStateOf<List<ChatSharedFileDto>>(emptyList()) }
-    var loadingSharedFiles by remember { mutableStateOf(false) }
     var uploadingAttachment by remember { mutableStateOf(false) }
     var isRecordingVoice by remember { mutableStateOf(false) }
     var voiceRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
@@ -203,16 +195,6 @@ fun TeamChatScreen(
                         organizationId
                     )
                 }
-        }
-    }
-
-    fun reloadSharedFiles() {
-        scope.launch {
-            loadingSharedFiles = true
-            runCatching { fileRepository.loadSharedFiles(organizationId) }
-                .onSuccess { sharedFiles = it }
-                .onFailure { errorMessage = it.message ?: "Shared files could not be loaded." }
-            loadingSharedFiles = false
         }
     }
 
@@ -293,66 +275,46 @@ fun TeamChatScreen(
         }
     }
 
-    fun uploadPickedFile(uri: Uri, toLibrary: Boolean) {
+    fun uploadPickedFile(uri: Uri) {
         if (uploadingAttachment) return
         val conversationId = activeConversationId
-        if (!toLibrary && conversationId.isNullOrBlank()) {
+        if (conversationId.isNullOrBlank()) {
             errorMessage = "Open a conversation before attaching a file."
             return
         }
         scope.launch {
             uploadingAttachment = true
-            sending = !toLibrary
+            sending = true
             errorMessage = ""
             try {
                 val picked = withContext(Dispatchers.IO) { readPickedChatFile(context, uri) }
-                if (toLibrary) {
-                    fileRepository.uploadSharedLibraryFile(
-                        organizationId = organizationId,
-                        uploaderId = userId,
-                        fileName = picked.fileName,
-                        mimeType = picked.mimeType,
-                        bytes = picked.bytes
+                val file = fileRepository.uploadChatAttachment(
+                    organizationId = organizationId,
+                    conversationId = conversationId,
+                    uploaderId = userId,
+                    fileName = picked.fileName,
+                    mimeType = picked.mimeType,
+                    bytes = picked.bytes,
+                    sharedToTeam = false
+                )
+                repository.sendMessage(
+                    organizationId = organizationId,
+                    conversationId = conversationId,
+                    senderId = userId,
+                    content = draft.trim().ifBlank { "Shared an attachment" },
+                    replyToMessageId = replyToMessageId,
+                    attachment = ChatMessageAttachment(
+                        id = file.id,
+                        storagePath = file.storagePath,
+                        fileName = file.fileName,
+                        mimeType = file.mimeType,
+                        fileSize = file.fileSize
                     )
-                    sharedFiles = fileRepository.loadSharedFiles(organizationId)
-                    showSharedLibrary = true
-                    showConversationList = false
-                } else {
-                    val file = fileRepository.uploadChatAttachment(
-                        organizationId = organizationId,
-                        conversationId = conversationId!!,
-                        uploaderId = userId,
-                        fileName = picked.fileName,
-                        mimeType = picked.mimeType,
-                        bytes = picked.bytes,
-                        sharedToTeam = shareAttachmentWithTeam
-                    )
-                    repository.sendMessage(
-                        organizationId = organizationId,
-                        conversationId = conversationId,
-                        senderId = userId,
-                        content = draft.trim().ifBlank { "Shared an attachment" },
-                        replyToMessageId = replyToMessageId,
-                        attachment = ChatMessageAttachment(
-                            id = file.id,
-                            storagePath = file.storagePath,
-                            fileName = file.fileName,
-                            mimeType = file.mimeType,
-                            fileSize = file.fileSize
-                        )
-                    )
-                    draft = ""
-                    replyToMessageId = null
-                    shareAttachmentWithTeam = false
-                    runCatching { repository.loadLatestMessages(organizationId, conversationId) }
-                        .onSuccess { page ->
-                            messages = TeamChatRules.mergeMessages(messages, page.messages)
-                        }
-                    if (file.sharedToTeam) {
-                        sharedFiles = runCatching { fileRepository.loadSharedFiles(organizationId) }
-                            .getOrDefault(sharedFiles)
-                    }
-                }
+                )
+                draft = ""
+                replyToMessageId = null
+                runCatching { repository.loadLatestMessages(organizationId, conversationId) }
+                    .onSuccess { page -> messages = TeamChatRules.mergeMessages(messages, page.messages) }
             } catch (error: Exception) {
                 errorMessage = error.message ?: "The file could not be uploaded. Try again."
             } finally {
@@ -545,7 +507,7 @@ fun TeamChatScreen(
                     fileName = fileName,
                     mimeType = "audio/mp4",
                     bytes = bytes,
-                    sharedToTeam = shareAttachmentWithTeam
+                    sharedToTeam = false
                 )
                 repository.sendMessage(
                     organizationId = organizationId,
@@ -564,7 +526,6 @@ fun TeamChatScreen(
                 )
                 draft = ""
                 replyToMessageId = null
-                shareAttachmentWithTeam = false
                 recordingElapsedMs = 0L
                 voicePreviewDurationMs = 0
                 runCatching { repository.loadLatestMessages(organizationId, conversationId) }
@@ -595,14 +556,12 @@ fun TeamChatScreen(
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        if (uri != null) uploadPickedFile(uri, toLibrary = nextPickIsLibrary)
-        nextPickIsLibrary = false
+        if (uri != null) uploadPickedFile(uri)
     }
     val documentPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri != null) uploadPickedFile(uri, toLibrary = nextPickIsLibrary)
-        nextPickIsLibrary = false
+        if (uri != null) uploadPickedFile(uri)
     }
 
     fun reload() {
@@ -707,14 +666,6 @@ fun TeamChatScreen(
             } finally {
                 sending = false
             }
-        }
-    }
-
-    LaunchedEffect(openSharedFiles) {
-        if (openSharedFiles) {
-            showSharedLibrary = true
-            showConversationList = false
-            reloadSharedFiles()
         }
     }
 
@@ -1017,51 +968,39 @@ fun TeamChatScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             IconButton(onClick = {
-                when {
-                    showSharedLibrary -> if (openSharedFiles) onBack() else showSharedLibrary = false
-                    !showConversationList -> showConversationList = true
-                    else -> onBack()
-                }
+                if (!showConversationList) showConversationList = true else onBack()
             }) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back")
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    when {
-                        showSharedLibrary -> "Shared files"
-                        showConversationList -> "Messages"
-                        else -> activeTitle
-                    },
+                    if (showConversationList) "Messages" else activeTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                 )
                 Text(
-                    when {
-                        showSharedLibrary -> "Files shared with your organization"
-                        showConversationList -> organizationName
-                        else -> when (activeConversation?.conversationType) {
-                            "organization" -> "Church-wide conversation"
-                            "direct" -> "Private direct message"
-                            else -> "${activeSummary?.members?.size ?: 0} group members"
-                        }
+                    if (showConversationList) organizationName else when (activeConversation?.conversationType) {
+                        "organization" -> "Church-wide conversation"
+                        "direct" -> "Private direct message"
+                        else -> "${activeSummary?.members?.size ?: 0} group members"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (!showSharedLibrary && !showConversationList && activeSummary != null) {
+            if (!showConversationList && activeSummary != null) {
                 IconButton(onClick = { showConversationDetails = true }) {
                     Icon(Icons.Default.Info, contentDescription = "Conversation details")
                 }
             }
-            if (!showSharedLibrary && showConversationList) {
+            if (showConversationList) {
                 IconButton(onClick = { showNewConversationDialog = true }, enabled = membersByUserId.isNotEmpty()) {
                     Icon(Icons.Default.Add, contentDescription = "New message or group")
                 }
             }
         }
 
-        if (!showSharedLibrary && recentUnreadCount > 0) {
+        if (recentUnreadCount > 0) {
             Text(
                 "$recentUnreadCount unread messages in the loaded history",
                 style = MaterialTheme.typography.labelMedium,
@@ -1069,7 +1008,7 @@ fun TeamChatScreen(
             )
         }
 
-        if (!showSharedLibrary) messages.lastOrNull { it.pinnedAt != null }?.let { pinnedMessage ->
+        messages.lastOrNull { it.pinnedAt != null }?.let { pinnedMessage ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
@@ -1092,90 +1031,7 @@ fun TeamChatScreen(
             Text(errorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
 
-        if (showSharedLibrary) {
-            Column(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Team reference files", style = MaterialTheme.typography.titleSmall)
-                    Button(
-                        onClick = {
-                            nextPickIsLibrary = true
-                            documentPicker.launch(arrayOf("*/*"))
-                        },
-                        enabled = !uploadingAttachment
-                    ) { Text(if (uploadingAttachment) "Uploading" else "Upload file") }
-                }
-                Text(
-                    "Documents and photos saved for everyone in this organization.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                when {
-                    loadingSharedFiles -> Box(
-                        Modifier.weight(1f).fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(Modifier.size(26.dp))
-                    }
-                    sharedFiles.isEmpty() -> Card(
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text("No shared files yet", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "Upload a song reference, document, rehearsal guide, or photo for your team.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    else -> LazyColumn(
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(sharedFiles, key = { it.id }) { file ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth().clickable {
-                                    openStorageFile(file.storagePath, file.mimeType)
-                                },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(14.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(
-                                        Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.spacedBy(3.dp)
-                                    ) {
-                                        Text(file.fileName, style = MaterialTheme.typography.titleSmall, maxLines = 2)
-                                        Text(
-                                            "${formatChatFileSize(file.fileSize)} · ${membersByUserId[file.uploaderId]?.displayName ?: "Team member"}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    Text("Open", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } else if (showConversationList) {
+        if (showConversationList) {
             if (conversations.isEmpty()) {
                 Column(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -1380,7 +1236,7 @@ fun TeamChatScreen(
             }
         }
 
-        if (!showConversationList && !showSharedLibrary) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (!showConversationList) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (editingMessageId != null || replyToMessageId != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1547,47 +1403,6 @@ fun TeamChatScreen(
         }
     }
     
-    if (showAttachmentOptions) {
-        AlertDialog(
-            onDismissRequest = { showAttachmentOptions = false },
-            title = { Text("Attach to chat") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Choose a photo from your gallery or a document from your device.")
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = shareAttachmentWithTeam,
-                            onCheckedChange = { shareAttachmentWithTeam = it }
-                        )
-                        Text(
-                            "Also save to the team reference library",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = {
-                        nextPickIsLibrary = false
-                        showAttachmentOptions = false
-                        photoPicker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    }) { Text("Photo") }
-                    TextButton(onClick = {
-                        nextPickIsLibrary = false
-                        showAttachmentOptions = false
-                        documentPicker.launch(arrayOf("*/*"))
-                    }) { Text("File") }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAttachmentOptions = false }) { Text("Cancel") }
-            }
-        )
-    }
-
     if (showConversationDetails) {
         val detailConversation = conversations.firstOrNull {
             it.conversation.id == activeConversationId
