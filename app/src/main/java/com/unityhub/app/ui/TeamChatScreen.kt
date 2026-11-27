@@ -119,7 +119,7 @@ fun TeamChatScreen(
     var showConversationDetails by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showAddGroupMemberDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
     var pendingGroupRemoval by remember { mutableStateOf<ServiceMemberOption?>(null) }
-    var groupTitleDraft by remember(organizationId) { mutableStateOf("") }
+    var groupTitleDraft by remember(activeConversationId) { mutableStateOf("") }
     var showSharedLibrary by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showAttachmentOptions by rememberSaveable(organizationId) { mutableStateOf(false) }
     var shareAttachmentWithTeam by rememberSaveable(organizationId) { mutableStateOf(false) }
