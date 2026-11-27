@@ -1,9 +1,21 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 66,
-  "latestVersionName": "0.66.0",
+  "latestVersionCode": 67,
+  "latestVersionName": "0.67.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 67,
+      "versionName": "0.67.0",
+      "releasedAt": "2026-11-27",
+      "summary": "Organize shared team resources with persistent categories, search, and sorting.",
+      "changes": [
+        "Choose a category when uploading shared files: Songs & charts, Services, Rehearsals, Media, Documents, or Other.",
+        "Search the library by filename, file type, or uploader name.",
+        "Filter the library by category and sort by newest, oldest, or filename.",
+        "Keep shared files scoped to current organization members with existing private Storage links and row-level security."
+      ]
+    },
     {
       "versionCode": 66,
       "versionName": "0.66.0",
