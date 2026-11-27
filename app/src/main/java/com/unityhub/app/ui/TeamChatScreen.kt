@@ -596,6 +596,14 @@ fun TeamChatScreen(
 
     LaunchedEffect(organizationId, activeConversationId) {
         val conversationId = activeConversationId ?: return@LaunchedEffect
+        if (isRecordingVoice) {
+            runCatching { voiceRecorder?.stop() }
+            runCatching { voiceRecorder?.release() }
+            recordingFile?.delete()
+            voiceRecorder = null
+            recordingFile = null
+            isRecordingVoice = false
+        }
         messages = emptyList()
         loadedConversationId = null
         readStates = emptyList()
@@ -1136,7 +1144,7 @@ fun TeamChatScreen(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                if (draft.isBlank() && editingMessageId == null) {
+                if (draft.isBlank() && editingMessageId == null && !isRecordingVoice) {
                     IconButton(onClick = { documentPicker.launch(arrayOf("*/*")) },
                         enabled = !sending && !uploadingAttachment) {
                         Icon(Icons.Default.AttachFile, contentDescription = "Attach a file")
@@ -1190,29 +1198,32 @@ fun TeamChatScreen(
                         Icon(Icons.Default.Mic, contentDescription = "Record a voice message")
                     }
                 }
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { if (it.length <= TeamChatRules.MAX_MESSAGE_LENGTH) draft = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Write a message…") },
-                    label = { Text(if (editingMessageId != null) "Edit message" else "Message") },
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences,
-                        imeAction = ImeAction.Send
-                    ),
-                    keyboardActions = KeyboardActions(onSend = { sendDraft() }),
-                    minLines = 1,
-                    maxLines = 4,
-                    enabled = !sending
-                )
-                Button(
-                    onClick = { sendDraft() },
-                    modifier = Modifier.heightIn(min = 48.dp),
-                    enabled = normalizedDraft.isNotEmpty() &&
-                        normalizedDraft.length <= TeamChatRules.MAX_MESSAGE_LENGTH &&
-                        !sending
-                ) {
-                    Text(if (sending) "Saving" else if (editingMessageId != null) "Save" else "Send")
+                if (!isRecordingVoice) {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { if (it.length <= TeamChatRules.MAX_MESSAGE_LENGTH) draft = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Write a message…") },
+                        label = { Text(if (editingMessageId != null) "Edit message" else "Message") },
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Sentences,
+                            imeAction = ImeAction.Send
+                        ),
+                        keyboardActions = KeyboardActions(onSend = { sendDraft() }),
+                        minLines = 1,
+                        maxLines = 4,
+                        enabled = !sending
+                    )
+                    Button(
+                        onClick = { sendDraft() },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        enabled = normalizedDraft.isNotEmpty() &&
+                            normalizedDraft.length <= TeamChatRules.MAX_MESSAGE_LENGTH &&
+                            !sending
+                    ) {
+                        Text(if (sending) "Saving" else if (editingMessageId != null) "Save" else "Send")
+                    }
+    
                 }
             }
             Text(
