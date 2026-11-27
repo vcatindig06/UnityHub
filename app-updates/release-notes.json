@@ -1,9 +1,22 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 64,
-  "latestVersionName": "0.64.0",
+  "latestVersionCode": 65,
+  "latestVersionName": "0.65.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 65,
+      "versionName": "0.65.0",
+      "releasedAt": "2026-11-27",
+      "summary": "Add secure chat file attachments and a team-wide shared reference library.",
+      "changes": [
+        "Attach gallery photos and common documents to Everyone, direct, and ministry group conversations.",
+        "Open chat attachments with short-lived signed links from private Supabase Storage.",
+        "Upload team reference files and browse the shared library from Team Chat.",
+        "Keep conversation attachments private to conversation members and reference-library files visible only to current organization members.",
+        "Limit uploads to 25 MB and supported image, PDF, Office document, text, and audio formats."
+      ]
+    },
     {
       "versionCode": 64,
       "versionName": "0.64.0",
