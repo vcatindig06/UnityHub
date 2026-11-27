@@ -67,6 +67,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -109,6 +110,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -161,6 +163,8 @@ fun TeamChatScreen(
     var activeVoiceMessageId by remember { mutableStateOf<String?>(null) }
     var isVoicePlaying by remember { mutableStateOf(false) }
     var isVoicePreparing by remember { mutableStateOf(false) }
+    var voiceDurationMs by remember { mutableStateOf(0) }
+    var voicePositionMs by remember { mutableStateOf(0) }
     var messages by remember(organizationId) { mutableStateOf<List<TeamChatMessageDto>>(emptyList()) }
     var readStates by remember(organizationId) { mutableStateOf<List<TeamChatReadStateDto>>(emptyList()) }
     var reactions by remember(organizationId) { mutableStateOf<List<TeamChatReactionDto>>(emptyList()) }
@@ -224,6 +228,8 @@ fun TeamChatScreen(
                 val player = MediaPlayer()
                 voicePlayer = player
                 player.setOnPreparedListener {
+                    voiceDurationMs = it.duration.coerceAtLeast(0)
+                    voicePositionMs = 0
                     isVoicePreparing = false
                     it.start()
                     isVoicePlaying = true
@@ -661,6 +667,14 @@ fun TeamChatScreen(
         }
     }
 
+    LaunchedEffect(activeVoiceMessageId, isVoicePlaying) {
+        while (activeVoiceMessageId != null && isVoicePlaying) {
+            val player = voicePlayer ?: break
+            voicePositionMs = runCatching { player.currentPosition }.getOrDefault(voicePositionMs)
+            delay(200)
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             runCatching { voicePlayer?.release() }
@@ -675,6 +689,8 @@ fun TeamChatScreen(
         activeVoiceMessageId = null
         isVoicePlaying = false
         isVoicePreparing = false
+        voiceDurationMs = 0
+        voicePositionMs = 0
         if (isRecordingVoice) {
             runCatching { voiceRecorder?.stop() }
             runCatching { voiceRecorder?.release() }
@@ -1199,7 +1215,19 @@ fun TeamChatScreen(
                             if (!path.isNullOrBlank()) playVoiceMessage(path, message.id)
                         },
                         isVoicePlaying = activeVoiceMessageId == message.id && isVoicePlaying,
-                        isVoicePreparing = activeVoiceMessageId == message.id && isVoicePreparing
+                        isVoicePreparing = activeVoiceMessageId == message.id && isVoicePreparing,
+                        voiceProgress = if (activeVoiceMessageId == message.id && voiceDurationMs > 0)
+                            voicePositionMs.toFloat() / voiceDurationMs.toFloat() else 0f,
+                        voicePositionMs = if (activeVoiceMessageId == message.id) voicePositionMs else 0,
+                        voiceDurationMs = if (activeVoiceMessageId == message.id) voiceDurationMs else 0,
+                        onSeekVoice = { fraction ->
+                            val player = voicePlayer
+                            if (player != null && voiceDurationMs > 0) {
+                                val target = (fraction * voiceDurationMs).toInt().coerceIn(0, voiceDurationMs)
+                                runCatching { player.seekTo(target) }
+                                voicePositionMs = target
+                            }
+                        }
                     )
                 }
             }
@@ -1718,7 +1746,11 @@ private fun TeamChatMessageBubble(
     onOpenAttachment: () -> Unit,
     onPlayVoice: () -> Unit,
     isVoicePlaying: Boolean,
-    isVoicePreparing: Boolean
+    isVoicePreparing: Boolean,
+    voiceProgress: Float,
+    voicePositionMs: Int,
+    voiceDurationMs: Int,
+    onSeekVoice: (Float) -> Unit
 ) {
     var menuExpanded by remember(message.id) { mutableStateOf(false) }
     var showEmojiPicker by remember(message.id) { mutableStateOf(false) }
@@ -1839,11 +1871,20 @@ private fun TeamChatMessageBubble(
                                     }
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text("Voice message", style = MaterialTheme.typography.labelLarge)
-                                        Text(
-                                            formatChatFileSize(message.attachmentSize ?: 0L),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        Slider(
+                                            value = voiceProgress.coerceIn(0f, 1f),
+                                            onValueChange = onSeekVoice,
+                                            enabled = voiceDurationMs > 0 && !isVoicePreparing
                                         )
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(formatVoiceTime(voicePositionMs), style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(formatVoiceTime(voiceDurationMs), style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
                                     }
                                 }
                             }
@@ -2093,6 +2134,11 @@ private fun readPickedChatFile(context: Context, uri: Uri): PickedChatFile {
 
     require(bytes.isNotEmpty()) { "The selected file is empty." }
     return PickedChatFile(fileName, mimeType, bytes)
+}
+
+private fun formatVoiceTime(milliseconds: Int): String {
+    val totalSeconds = milliseconds.coerceAtLeast(0) / 1000
+    return "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
 }
 
 private fun formatChatFileSize(bytes: Long): String = when {
