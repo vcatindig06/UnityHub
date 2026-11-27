@@ -188,7 +188,7 @@ Saved charts are parsed away from the main UI thread. Display parsing is bounded
 
 ### Team and shared resources
 
-The Community destination provides separate entry points for Team management, Team Chat, Shared files, and the member's own Profile. Shared files no longer open as a mode inside Team Chat: members browse and upload organization reference documents, song resources, rehearsal guides, and photos from a dedicated screen. The screen supports pull-to-refresh and opens files using short-lived signed links from the private `chat-attachments` storage bucket. Uploads are limited to 25 MB and the file types accepted by the app. Conversation attachments remain inside their conversation and are not automatically placed in the organization library.
+The Community destination provides separate entry points for Team management, Team Chat, Shared files, and the member's own Profile. Shared files no longer open as a mode inside Team Chat: members browse and upload organization reference documents, song resources, rehearsal guides, and photos from a dedicated screen. Each upload can be assigned to Songs & charts, Services, Rehearsals, Media, Documents, or Other. The library can be searched by filename, file type, or uploader and filtered by category, with newest, oldest, and filename sort orders. The screen supports pull-to-refresh and opens files using short-lived signed links from the private `chat-attachments` storage bucket. Uploads are limited to 25 MB and the file types accepted by the app. Conversation attachments remain inside their conversation and are not automatically placed in the organization library.
 
 ### Team Chat
 
