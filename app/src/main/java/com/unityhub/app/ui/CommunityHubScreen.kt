@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -67,6 +68,7 @@ fun CommunityHubScreen(
     memberCount: Int,
     onOpenTeam: () -> Unit,
     onOpenChat: () -> Unit,
+    onOpenFiles: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenServices: () -> Unit,
     onOpenServicePlan: (String) -> Unit,
@@ -232,6 +234,7 @@ fun CommunityHubScreen(
                 CommunityDestinationCard("Team", "Members, ministry roles, requests and team access", Icons.Default.Groups, onOpenTeam)
             }
             item { CommunityDestinationCard("Team Chat", "Conversations, updates and team coordination", Icons.Default.ChatBubbleOutline, onOpenChat) }
+            item { CommunityDestinationCard("Shared files", "Documents, photos and team reference materials", Icons.Default.FolderOpen, onOpenFiles) }
             item { CommunityDestinationCard("My Profile", "Your personal information, contributions and links", Icons.Default.Person, onOpenProfile) }
         }
     }
