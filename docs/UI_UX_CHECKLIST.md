@@ -42,8 +42,9 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 
 ## Navigation and refresh
 
-- [x] Keep four core bottom destinations: Home, Songs, Services, and Profile.
+- [x] Keep four core bottom destinations: Home, Songs, Services, and Community.
 - [x] Emphasize the center Song / Setlist action and change its action based on the selected destination.
+- [x] Run Android Compose emulator regression tests for visible workspace content, compact bottom-navigation height, bottom anchoring, and the Song-to-Setlist action.
 - [x] Keep Notifications in the top-right app-bar action with an unread badge.
 - [x] Keep Team management and Team Chat reachable without consuming a core bottom-navigation slot.
 - [x] Support pull-to-refresh from the top of the Home dashboard.
@@ -85,7 +86,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 
 ## Release validation
 
-- [x] Automated unit tests and the debug APK build run in GitHub Actions.
+- [x] Automated JVM unit tests, Android Compose emulator UI tests, and the debug APK build run in GitHub Actions.
 - [ ] Perform a manual TalkBack pass.
 - [ ] Check the smallest supported phone width and larger font scale (at least 1.3x and 2.0x).
 - [ ] Verify light and dark appearance on a physical Android device.
