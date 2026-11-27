@@ -1,6 +1,7 @@
 package com.unityhub.app.data
 
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.annotations.SupabaseExperimental
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 import io.ktor.http.ContentType
@@ -45,6 +46,7 @@ data class ChatMessageAttachment(
     val fileSize: Long
 )
 
+@OptIn(SupabaseExperimental::class)
 class ChatFileRepository(private val client: SupabaseClient) {
     suspend fun uploadChatAttachment(
         organizationId: String,
