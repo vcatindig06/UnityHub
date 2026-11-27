@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.media.MediaRecorder
 import android.media.MediaPlayer
 import android.os.Build
+import android.os.SystemClock
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -18,6 +19,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -161,6 +163,12 @@ fun TeamChatScreen(
     var isRecordingVoice by remember { mutableStateOf(false) }
     var voiceRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var recordingFile by remember { mutableStateOf<File?>(null) }
+    var voicePreviewReady by remember { mutableStateOf(false) }
+    var recordingStartedAt by remember { mutableStateOf(0L) }
+    var recordingElapsedMs by remember { mutableStateOf(0L) }
+    var voicePreviewDurationMs by remember { mutableStateOf(0) }
+    var isVoicePreviewPlaying by remember { mutableStateOf(false) }
+    var recordingDragDistance by remember { mutableStateOf(0f) }
     var voicePlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var activeVoiceMessageId by remember { mutableStateOf<String?>(null) }
     var isVoicePlaying by remember { mutableStateOf(false) }
@@ -380,6 +388,10 @@ fun TeamChatScreen(
             voiceRecorder = recorder
             recordingFile = output
             isRecordingVoice = true
+            voicePreviewReady = false
+            recordingStartedAt = SystemClock.elapsedRealtime()
+            recordingElapsedMs = 0L
+            recordingDragDistance = 0f
             errorMessage = ""
         } catch (error: Exception) {
             runCatching { createdRecorder?.release() }
@@ -391,30 +403,114 @@ fun TeamChatScreen(
         }
     }
 
-    fun stopAndSendVoiceRecording() {
+    fun discardVoiceRecording() {
+        runCatching { voiceRecorder?.stop() }
+        runCatching { voiceRecorder?.release() }
+        runCatching { voicePlayer?.release() }
+        recordingFile?.delete()
+        voiceRecorder = null
+        voicePlayer = null
+        recordingFile = null
+        isRecordingVoice = false
+        voicePreviewReady = false
+        isVoicePreviewPlaying = false
+        recordingElapsedMs = 0L
+        voicePreviewDurationMs = 0
+        recordingDragDistance = 0f
+    }
+
+    fun stopVoiceRecordingForPreview() {
         val recorder = voiceRecorder ?: return
         val output = recordingFile ?: return
         try {
             recorder.stop()
-        } catch (error: Exception) {
-            output.delete()
-            errorMessage = "The recording was too short or could not be saved. Please record again."
-            voiceRecorder = null
-            recordingFile = null
-            isRecordingVoice = false
             runCatching { recorder.release() }
+            voiceRecorder = null
+            isRecordingVoice = false
+            if (!output.exists() || output.length() <= 0L) {
+                output.delete()
+                recordingFile = null
+                errorMessage = "The recording is empty. Please try again."
+                return
+            }
+            voicePreviewReady = true
+            runCatching {
+                val preview = MediaPlayer()
+                preview.setDataSource(output.absolutePath)
+                preview.setOnPreparedListener { player ->
+                    voicePreviewDurationMs = player.duration.coerceAtLeast(0)
+                    player.release()
+                    voicePlayer = null
+                }
+                preview.setOnErrorListener { player, _, _ ->
+                    player.release()
+                    voicePlayer = null
+                    errorMessage = "The recording was saved, but its preview could not be prepared."
+                    true
+                }
+                voicePlayer = preview
+                preview.prepareAsync()
+            }.onFailure {
+                errorMessage = "The recording was saved, but its preview could not be prepared."
+            }
+        } catch (error: Exception) {
+            runCatching { recorder.release() }
+            output.delete()
+            recordingFile = null
+            voiceRecorder = null
+            isRecordingVoice = false
+            voicePreviewReady = false
+            errorMessage = error.message ?: "The recording could not be saved. Please try again."
+        }
+    }
+
+    fun toggleVoicePreview() {
+        val output = recordingFile ?: return
+        if (isVoicePreviewPlaying) {
+            runCatching { voicePlayer?.pause() }
+            isVoicePreviewPlaying = false
             return
         }
-        runCatching { recorder.release() }
-        voiceRecorder = null
-        recordingFile = null
-        isRecordingVoice = false
+        runCatching { voicePlayer?.release() }
+        val player = MediaPlayer()
+        voicePlayer = player
+        player.setOnPreparedListener {
+            it.start()
+            isVoicePreviewPlaying = true
+        }
+        player.setOnCompletionListener {
+            isVoicePreviewPlaying = false
+            runCatching { it.seekTo(0) }
+        }
+        player.setOnErrorListener { mediaPlayer, _, _ ->
+            isVoicePreviewPlaying = false
+            runCatching { mediaPlayer.release() }
+            voicePlayer = null
+            errorMessage = "The recording preview could not be played."
+            true
+        }
+        runCatching {
+            player.setDataSource(output.absolutePath)
+            player.prepareAsync()
+        }.onFailure {
+            runCatching { player.release() }
+            voicePlayer = null
+            errorMessage = "The recording preview could not be played."
+        }
+    }
 
+    fun sendVoicePreview() {
+        val output = recordingFile ?: return
         val conversationId = activeConversationId ?: run {
-            output.delete()
+            discardVoiceRecording()
             errorMessage = "Open a conversation before sending a voice message."
             return
         }
+        runCatching { voicePlayer?.release() }
+        voicePlayer = null
+        isVoicePreviewPlaying = false
+        voicePreviewReady = false
+        recordingFile = null
         scope.launch {
             uploadingAttachment = true
             sending = true
@@ -448,12 +544,17 @@ fun TeamChatScreen(
                 draft = ""
                 replyToMessageId = null
                 shareAttachmentWithTeam = false
+                recordingElapsedMs = 0L
+                voicePreviewDurationMs = 0
                 runCatching { repository.loadLatestMessages(organizationId, conversationId) }
                     .onSuccess { page -> messages = TeamChatRules.mergeMessages(messages, page.messages) }
             } catch (error: Exception) {
                 errorMessage = error.message ?: "The voice message could not be sent. Try again."
+                recordingFile = output
+                voicePreviewReady = true
             } finally {
                 output.delete()
+                if (!voicePreviewReady) recordingFile = null
                 uploadingAttachment = false
                 sending = false
             }
@@ -670,6 +771,13 @@ fun TeamChatScreen(
     }
 
     LaunchedEffect(activeVoiceMessageId, isVoicePlaying) {
+    LaunchedEffect(isRecordingVoice, recordingStartedAt) {
+        while (isRecordingVoice) {
+            recordingElapsedMs = (SystemClock.elapsedRealtime() - recordingStartedAt).coerceAtLeast(0L)
+            delay(200)
+        }
+    }
+
         while (activeVoiceMessageId != null && isVoicePlaying) {
             val player = voicePlayer ?: break
             voicePositionMs = runCatching { player.currentPosition }.getOrDefault(voicePositionMs)
@@ -693,14 +801,7 @@ fun TeamChatScreen(
         isVoicePreparing = false
         voiceDurationMs = 0
         voicePositionMs = 0
-        if (isRecordingVoice) {
-            runCatching { voiceRecorder?.stop() }
-            runCatching { voiceRecorder?.release() }
-            recordingFile?.delete()
-            voiceRecorder = null
-            recordingFile = null
-            isRecordingVoice = false
-        }
+        if (isRecordingVoice || voicePreviewReady) discardVoiceRecording()
         val conversationId = activeConversationId ?: return@LaunchedEffect
         messages = emptyList()
         loadedConversationId = null
@@ -1272,31 +1373,56 @@ fun TeamChatScreen(
                     }
                 }
                 if (isRecordingVoice) {
-                    Text(
-                        "Recording voice message…",
-                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                    IconButton(
-                        onClick = {
-                            val recorder = voiceRecorder
-                            val output = recordingFile
-                            runCatching { recorder?.stop() }
-                            runCatching { recorder?.release() }
-                            output?.delete()
-                            voiceRecorder = null
-                            recordingFile = null
-                            isRecordingVoice = false
-                        }
+                    Row(
+                        modifier = Modifier.weight(1f).padding(horizontal = 6.dp)
+                            .pointerInput(isRecordingVoice) {
+                                detectHorizontalDragGestures(
+                                    onHorizontalDrag = { _, dragAmount ->
+                                        recordingDragDistance = (recordingDragDistance + dragAmount).coerceAtMost(0f)
+                                    },
+                                    onDragEnd = {
+                                        if (recordingDragDistance < -120f) discardVoiceRecording()
+                                        recordingDragDistance = 0f
+                                    },
+                                    onDragCancel = { recordingDragDistance = 0f }
+                                )
+                            },
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Text(
+                            if (recordingDragDistance < -24f) "Release to cancel" else "‹ Swipe left to cancel",
+                            color = if (recordingDragDistance < -24f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(formatVoiceTime(recordingElapsedMs.toInt()), style = MaterialTheme.typography.labelLarge)
+                    }
+                    IconButton(onClick = { discardVoiceRecording() }) {
                         Icon(Icons.Default.Close, contentDescription = "Discard recording")
                     }
-                    IconButton(
-                        onClick = { stopAndSendVoiceRecording() },
-                        enabled = !sending && !uploadingAttachment
-                    ) {
-                        Icon(Icons.Default.Stop, contentDescription = "Stop and send voice message")
+                    IconButton(onClick = { stopVoiceRecordingForPreview() }, enabled = !sending && !uploadingAttachment) {
+                        Icon(Icons.Default.Stop, contentDescription = "Finish recording and preview")
+                    }
+                } else if (voicePreviewReady) {
+                    IconButton(onClick = { toggleVoicePreview() }, enabled = !sending && !uploadingAttachment) {
+                        Icon(
+                            if (isVoicePreviewPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isVoicePreviewPlaying) "Pause preview" else "Play preview"
+                        )
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text("Voice preview", style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            formatVoiceTime(voicePreviewDurationMs.takeIf { it > 0 } ?: recordingElapsedMs.toInt()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = { discardVoiceRecording() }) {
+                        Icon(Icons.Default.Close, contentDescription = "Discard voice preview")
+                    }
+                    Button(onClick = { sendVoicePreview() }, enabled = !sending && !uploadingAttachment) {
+                        Text(if (sending || uploadingAttachment) "Sending" else "Send")
                     }
                 } else if (draft.isBlank() && editingMessageId == null) {
                     IconButton(
