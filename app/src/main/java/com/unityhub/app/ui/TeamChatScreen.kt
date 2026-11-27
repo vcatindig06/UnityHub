@@ -288,12 +288,14 @@ fun TeamChatScreen(
         }
         if (isRecordingVoice || uploadingAttachment || sending) return
         val output = File(context.cacheDir, "unityhub_voice_${System.currentTimeMillis()}.m4a")
+        var createdRecorder: MediaRecorder? = null
         try {
             val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 MediaRecorder(context)
             } else {
                 MediaRecorder()
             }
+            createdRecorder = recorder
             recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
             recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
@@ -307,7 +309,7 @@ fun TeamChatScreen(
             isRecordingVoice = true
             errorMessage = ""
         } catch (error: Exception) {
-            runCatching { voiceRecorder?.release() }
+            runCatching { createdRecorder?.release() }
             voiceRecorder = null
             output.delete()
             recordingFile = null
@@ -1182,7 +1184,7 @@ fun TeamChatScreen(
                     ) {
                         Icon(Icons.Default.Stop, contentDescription = "Stop and send voice message")
                     }
-                } else {
+                } else if (draft.isBlank() && editingMessageId == null) {
                     IconButton(
                         onClick = {
                             if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
