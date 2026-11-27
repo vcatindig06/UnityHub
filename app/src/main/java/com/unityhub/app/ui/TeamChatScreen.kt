@@ -421,9 +421,12 @@ fun TeamChatScreen(
         if (targetConversationId != activeConversationId) return@LaunchedEffect
 
         // Wait until the first page for the requested conversation has loaded.
-        snapshotFlow { loading }.first { it }
-        snapshotFlow { loading to messages.isNotEmpty() }
-            .first { (isLoading, hasMessages) -> !isLoading && hasMessages }
+        if (activeConversationId != targetConversationId || loading) {
+            snapshotFlow { activeConversationId to loading }
+                .first { (activeId, isLoading) -> activeId == targetConversationId && isLoading }
+            snapshotFlow { loading to messages.isNotEmpty() }
+                .first { (isLoading, hasMessages) -> !isLoading && hasMessages }
+        }
 
         var pagesLoaded = 0
         while (messages.none { it.id == targetMessageId } && hasMoreOlder && pagesLoaded < 100) {
