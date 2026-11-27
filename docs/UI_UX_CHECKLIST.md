@@ -69,6 +69,10 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Restrict read-state visibility to current organization members and updates to the signed-in member's own cursor.
 - [x] Support the Android keyboard Send action as well as the visible Send button.
 - [x] Retain an unsent draft after a message-send failure and keep the Send action at least 48 dp high.
+- [x] Keep the organization shared-files library in its own Community destination instead of embedding it in Team Chat.
+- [x] Separate organization reference-file uploads from conversation attachment uploads.
+- [x] Keep the four core bottom-navigation destinations unchanged when opening Community resources.
+- [ ] Manually verify shared-file upload/open/refresh and compact Team member cards on a physical Android phone.
 - [ ] Manually verify keyboard behavior, TalkBack announcements, read receipts between two accounts, and incoming-message scrolling on physical Android devices.
 
 ## Release validation
