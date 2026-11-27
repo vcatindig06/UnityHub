@@ -874,6 +874,12 @@ fun TeamChatScreen(
                                     errorMessage = "Your reaction could not be saved. Try again."
                                 }
                             }
+                        },
+                        onOpenAttachment = {
+                            val path = message.attachmentPath
+                            if (!path.isNullOrBlank()) {
+                                openStorageFile(path, message.attachmentMimeType ?: "*/*")
+                            }
                         }
                     )
                 }
@@ -943,6 +949,47 @@ fun TeamChatScreen(
         }
     }
     
+    if (showAttachmentOptions) {
+        AlertDialog(
+            onDismissRequest = { showAttachmentOptions = false },
+            title = { Text("Attach to chat") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Choose a photo from your gallery or a document from your device.")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = shareAttachmentWithTeam,
+                            onCheckedChange = { shareAttachmentWithTeam = it }
+                        )
+                        Text(
+                            "Also save to the team reference library",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = {
+                        nextPickIsLibrary = false
+                        showAttachmentOptions = false
+                        photoPicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }) { Text("Photo") }
+                    TextButton(onClick = {
+                        nextPickIsLibrary = false
+                        showAttachmentOptions = false
+                        documentPicker.launch(arrayOf("*/*"))
+                    }) { Text("File") }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAttachmentOptions = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     if (showNewConversationDialog) {
         NewChatConversationDialog(
             members = membersByUserId.values.sortedBy { it.displayName.lowercase() },
@@ -1121,7 +1168,8 @@ private fun TeamChatMessageBubble(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onPin: (Boolean) -> Unit,
-    onReact: (String) -> Unit
+    onReact: (String) -> Unit,
+    onOpenAttachment: () -> Unit
 ) {
     var menuExpanded by remember(message.id) { mutableStateOf(false) }
     var showEmojiPicker by remember(message.id) { mutableStateOf(false) }
@@ -1218,11 +1266,49 @@ private fun TeamChatMessageBubble(
                                 maxLines = 2
                             )
                         }
-                        Text(
-                            message.content,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (isDeleted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
-                        )
+                        if (message.content.isNotBlank()) {
+                            Text(
+                                message.content,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (isDeleted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        if (!isDeleted && !message.attachmentPath.isNullOrBlank()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenAttachment),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(
+                                        Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Text(
+                                            message.attachmentName ?: "Attachment",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            maxLines = 2
+                                        )
+                                        Text(
+                                            "${message.attachmentMimeType ?: "File"} · ${formatChatFileSize(message.attachmentSize ?: 0L)}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Text(
+                                        "Open",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
                         val receipt = buildString {
                             append(formatChatTime(message.createdAt))
                             if (message.editedAt != null && !isDeleted) append(" · Edited")
@@ -1366,6 +1452,66 @@ private fun TeamChatMessageBubble(
             }
         )
     }
+}
+
+private data class PickedChatFile(
+    val fileName: String,
+    val mimeType: String,
+    val bytes: ByteArray
+)
+
+private fun readPickedChatFile(context: Context, uri: Uri): PickedChatFile {
+    val fileName = context.contentResolver.query(
+        uri,
+        arrayOf(OpenableColumns.DISPLAY_NAME),
+        null,
+        null,
+        null
+    )?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
+        } else {
+            null
+        }
+    }?.takeIf(String::isNotBlank)
+        ?: uri.lastPathSegment?.substringAfterLast('/')
+        ?: "attachment"
+
+    val extension = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+    val detectedMime = context.contentResolver.getType(uri)?.lowercase(Locale.ROOT)
+    val mimeType = detectedMime
+        ?.takeIf { it != "application/octet-stream" }
+        ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+        ?: "application/octet-stream"
+
+    require(ChatFileRepository.isSupportedMimeType(mimeType)) {
+        "This file type is not supported. Choose an image, PDF, Office document, text file, or audio recording."
+    }
+
+    val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(8 * 1024)
+        var total = 0
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            total += count
+            require(total <= ChatFileRepository.MAX_FILE_SIZE_BYTES) {
+                "Files must be 25 MB or smaller."
+            }
+            output.write(buffer, 0, count)
+        }
+        output.toByteArray()
+    } ?: error("The selected file could not be opened.")
+
+    require(bytes.isNotEmpty()) { "The selected file is empty." }
+    return PickedChatFile(fileName, mimeType, bytes)
+}
+
+private fun formatChatFileSize(bytes: Long): String = when {
+    bytes >= 1024L * 1024L -> String.format(Locale.getDefault(), "%.1f MB", bytes / (1024f * 1024f))
+    bytes >= 1024L -> "${bytes / 1024L} KB"
+    else -> "$bytes B"
 }
 
 private fun formatChatTime(value: String): String {
