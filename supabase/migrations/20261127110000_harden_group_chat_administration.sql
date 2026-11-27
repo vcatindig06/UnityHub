@@ -42,7 +42,7 @@ create policy chat_conversations_update_group_owner
         and private.is_chat_conversation_member(id)
         and exists (
             select 1 from public.chat_conversation_members as owner
-             where owner.conversation_id = id
+             where owner.conversation_id = chat_conversations.id
                and owner.user_id = (select auth.uid())
                and owner.member_role = 'owner'
         )
