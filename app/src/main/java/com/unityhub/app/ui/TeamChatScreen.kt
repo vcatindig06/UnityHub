@@ -1,6 +1,10 @@
 package com.unityhub.app.ui
 
 import android.content.Context
+import android.Manifest
+import android.content.pm.PackageManager
+import android.media.MediaRecorder
+import android.os.Build
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -8,6 +12,7 @@ import android.webkit.MimeTypeMap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -44,6 +49,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
@@ -99,6 +106,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -141,6 +149,9 @@ fun TeamChatScreen(
     var sharedFiles by remember(organizationId) { mutableStateOf<List<ChatSharedFileDto>>(emptyList()) }
     var loadingSharedFiles by remember { mutableStateOf(false) }
     var uploadingAttachment by remember { mutableStateOf(false) }
+    var isRecordingVoice by remember { mutableStateOf(false) }
+    var voiceRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var recordingFile by remember { mutableStateOf<File?>(null) }
     var messages by remember(organizationId) { mutableStateOf<List<TeamChatMessageDto>>(emptyList()) }
     var readStates by remember(organizationId) { mutableStateOf<List<TeamChatReadStateDto>>(emptyList()) }
     var reactions by remember(organizationId) { mutableStateOf<List<TeamChatReactionDto>>(emptyList()) }
@@ -267,6 +278,118 @@ fun TeamChatScreen(
                 sending = false
             }
         }
+    }
+
+    @Suppress("DEPRECATION")
+    fun beginVoiceRecording() {
+        if (activeConversationId.isNullOrBlank()) {
+            errorMessage = "Open a conversation before recording a voice message."
+            return
+        }
+        if (isRecordingVoice || uploadingAttachment || sending) return
+        val output = File(context.cacheDir, "unityhub_voice_${System.currentTimeMillis()}.m4a")
+        try {
+            val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MediaRecorder(context)
+            } else {
+                MediaRecorder()
+            }
+            recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            recorder.setAudioEncodingBitRate(96_000)
+            recorder.setAudioSamplingRate(44_100)
+            recorder.setOutputFile(output.absolutePath)
+            recorder.prepare()
+            recorder.start()
+            voiceRecorder = recorder
+            recordingFile = output
+            isRecordingVoice = true
+            errorMessage = ""
+        } catch (error: Exception) {
+            runCatching { voiceRecorder?.release() }
+            voiceRecorder = null
+            output.delete()
+            recordingFile = null
+            isRecordingVoice = false
+            errorMessage = error.message ?: "The microphone could not start. Check microphone access and try again."
+        }
+    }
+
+    fun stopAndSendVoiceRecording() {
+        val recorder = voiceRecorder ?: return
+        val output = recordingFile ?: return
+        try {
+            recorder.stop()
+        } catch (error: Exception) {
+            output.delete()
+            errorMessage = "The recording was too short or could not be saved. Please record again."
+            voiceRecorder = null
+            recordingFile = null
+            isRecordingVoice = false
+            runCatching { recorder.release() }
+            return
+        }
+        runCatching { recorder.release() }
+        voiceRecorder = null
+        recordingFile = null
+        isRecordingVoice = false
+
+        val conversationId = activeConversationId ?: run {
+            output.delete()
+            errorMessage = "Open a conversation before sending a voice message."
+            return
+        }
+        scope.launch {
+            uploadingAttachment = true
+            sending = true
+            errorMessage = ""
+            try {
+                val bytes = withContext(Dispatchers.IO) { output.readBytes() }
+                val fileName = "voice_message_${System.currentTimeMillis()}.m4a"
+                val uploaded = fileRepository.uploadChatAttachment(
+                    organizationId = organizationId,
+                    conversationId = conversationId,
+                    uploaderId = userId,
+                    fileName = fileName,
+                    mimeType = "audio/mp4",
+                    bytes = bytes,
+                    sharedToTeam = shareAttachmentWithTeam
+                )
+                repository.sendMessage(
+                    organizationId = organizationId,
+                    conversationId = conversationId,
+                    senderId = userId,
+                    content = draft.trim().ifBlank { "Voice message" },
+                    replyToMessageId = replyToMessageId,
+                    attachment = ChatMessageAttachment(
+                        id = uploaded.id,
+                        storagePath = uploaded.storagePath,
+                        fileName = uploaded.fileName,
+                        mimeType = uploaded.mimeType,
+                        fileSize = uploaded.fileSize
+                    )
+                )
+                draft = ""
+                replyToMessageId = null
+                shareAttachmentWithTeam = false
+                runCatching { repository.loadLatestMessages(organizationId, conversationId) }
+                    .onSuccess { page -> messages = TeamChatRules.mergeMessages(messages, page.messages) }
+            } catch (error: Exception) {
+                errorMessage = error.message ?: "The voice message could not be sent. Try again."
+            } finally {
+                output.delete()
+                uploadingAttachment = false
+                sending = false
+            }
+        }
+    }
+
+    val microphonePermission = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) beginVoiceRecording()
+        else errorMessage = "Microphone permission is needed to record a voice message."
     }
 
     val photoPicker = rememberLauncherForActivityResult(
@@ -1023,9 +1146,48 @@ fun TeamChatScreen(
                     }, enabled = !sending && !uploadingAttachment) {
                         Icon(Icons.Default.Image, contentDescription = "Choose a photo")
                     }
-                    IconButton(onClick = { documentPicker.launch(arrayOf("audio/*")) },
-                        enabled = !sending && !uploadingAttachment) {
-                        Icon(Icons.Default.Mic, contentDescription = "Attach an audio recording")
+                }
+                if (isRecordingVoice) {
+                    Text(
+                        "Recording voice message…",
+                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    IconButton(
+                        onClick = {
+                            val recorder = voiceRecorder
+                            val output = recordingFile
+                            runCatching { recorder?.stop() }
+                            runCatching { recorder?.release() }
+                            output?.delete()
+                            voiceRecorder = null
+                            recordingFile = null
+                            isRecordingVoice = false
+                        }
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Discard recording")
+                    }
+                    IconButton(
+                        onClick = { stopAndSendVoiceRecording() },
+                        enabled = !sending && !uploadingAttachment
+                    ) {
+                        Icon(Icons.Default.Stop, contentDescription = "Stop and send voice message")
+                    }
+                } else {
+                    IconButton(
+                        onClick = {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                                PackageManager.PERMISSION_GRANTED
+                            ) {
+                                beginVoiceRecording()
+                            } else {
+                                microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        },
+                        enabled = !sending && !uploadingAttachment && editingMessageId == null
+                    ) {
+                        Icon(Icons.Default.Mic, contentDescription = "Record a voice message")
                     }
                 }
                 OutlinedTextField(
