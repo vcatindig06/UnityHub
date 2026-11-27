@@ -270,7 +270,7 @@ private fun renderPdfPage(
         }
     }
 
-    ParcelFileDescriptor.open(destination, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+    return ParcelFileDescriptor.open(destination, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
         PdfRenderer(descriptor).use { renderer ->
             require(renderer.pageCount > 0) { "This PDF has no pages." }
             val index = requestedPage.coerceIn(0, renderer.pageCount - 1)
