@@ -161,6 +161,9 @@ fun SharedFilesScreen(
                     category = category
                 )
                 files = fileRepository.loadSharedFiles(organizationId)
+                selectedCategory = category.key
+                searchQuery = ""
+                sortOrder = SharedFileLibraryRules.SORT_NEWEST
             } catch (error: Exception) {
                 errorMessage = error.message ?: "The file could not be uploaded. Try again."
             } finally {
