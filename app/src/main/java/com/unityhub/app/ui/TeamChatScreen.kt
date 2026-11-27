@@ -35,6 +35,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
@@ -103,6 +112,7 @@ fun TeamChatScreen(
     openConversationId: String? = null,
     openMessageId: String? = null,
     onOpenMemberProfile: (ServiceMemberOption) -> Unit = {},
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val client = remember { SupabaseClientProvider.client }
@@ -117,7 +127,7 @@ fun TeamChatScreen(
     var conversations by remember(organizationId) { mutableStateOf<List<ChatConversationSummary>>(emptyList()) }
     var unreadByConversation by remember(organizationId) { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var activeConversationId by remember(organizationId) { mutableStateOf<String?>(null) }
-    var showConversationList by rememberSaveable(organizationId) { mutableStateOf(false) }
+    var showConversationList by rememberSaveable(organizationId) { mutableStateOf(true) }
     var showNewConversationDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showConversationDetails by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showAddGroupMemberDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
@@ -620,24 +630,34 @@ fun TeamChatScreen(
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            IconButton(onClick = {
+                when {
+                    showSharedLibrary -> showSharedLibrary = false
+                    !showConversationList -> showConversationList = true
+                    else -> onBack()
+                }
+            }) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     when {
-                        showSharedLibrary -> "Shared library"
-                        showConversationList -> "Conversations"
+                        showSharedLibrary -> "Shared files"
+                        showConversationList -> "Messages"
                         else -> activeTitle
                     },
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                 )
                 Text(
                     when {
                         showSharedLibrary -> "Files shared with your organization"
-                        showConversationList -> "Direct messages, ministry groups, and Everyone"
+                        showConversationList -> organizationName
                         else -> when (activeConversation?.conversationType) {
-                            "organization" -> "Organization-wide chat"
+                            "organization" -> "Church-wide conversation"
                             "direct" -> "Private direct message"
                             else -> "${activeSummary?.members?.size ?: 0} group members"
                         }
@@ -646,27 +666,15 @@ fun TeamChatScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (showSharedLibrary) {
-                TextButton(onClick = { showSharedLibrary = false }) { Text("Back to chat") }
-            } else {
-                TextButton(
-                    onClick = {
-                        showSharedLibrary = true
-                        showConversationList = false
-                        reloadSharedFiles()
-                    }
-                ) { Text("Files") }
-                if (!showConversationList && activeSummary != null) {
-                    TextButton(onClick = { showConversationDetails = true }) { Text("Details") }
+            if (!showSharedLibrary && !showConversationList && activeSummary != null) {
+                IconButton(onClick = { showConversationDetails = true }) {
+                    Icon(Icons.Default.Info, contentDescription = "Conversation details")
                 }
-                TextButton(
-                    onClick = { showConversationList = !showConversationList },
-                    enabled = !loading
-                ) { Text(if (showConversationList) "Back" else "Chats") }
-                TextButton(
-                    onClick = { showNewConversationDialog = true },
-                    enabled = membersByUserId.isNotEmpty()
-                ) { Text("New") }
+            }
+            if (!showSharedLibrary && showConversationList) {
+                IconButton(onClick = { showNewConversationDialog = true }, enabled = membersByUserId.isNotEmpty()) {
+                    Icon(Icons.Default.Add, contentDescription = "New message or group")
+                }
             }
         }
 
@@ -996,10 +1004,21 @@ fun TeamChatScreen(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                TextButton(
-                    onClick = { showAttachmentOptions = true },
-                    enabled = !sending && !uploadingAttachment && editingMessageId == null
-                ) { Text("Attach") }
+                if (draft.isBlank() && editingMessageId == null) {
+                    IconButton(onClick = { documentPicker.launch(arrayOf("*/*")) },
+                        enabled = !sending && !uploadingAttachment) {
+                        Icon(Icons.Default.AttachFile, contentDescription = "Attach a file")
+                    }
+                    IconButton(onClick = {
+                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }, enabled = !sending && !uploadingAttachment) {
+                        Icon(Icons.Default.Image, contentDescription = "Choose a photo")
+                    }
+                    IconButton(onClick = { documentPicker.launch(arrayOf("audio/*")) },
+                        enabled = !sending && !uploadingAttachment) {
+                        Icon(Icons.Default.Mic, contentDescription = "Attach an audio recording")
+                    }
+                }
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { if (it.length <= TeamChatRules.MAX_MESSAGE_LENGTH) draft = it },
@@ -1445,23 +1464,15 @@ private fun TeamChatMessageBubble(
     ) {
         if (!isOwnMessage) {
             Box(
-                modifier = Modifier
-                    .padding(end = 7.dp, bottom = 3.dp)
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.padding(end = 7.dp, bottom = 3.dp).size(34.dp)
+                    .clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable(onClick = onOpenProfile),
                 contentAlignment = Alignment.Center
             ) {
                 if (!avatarUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = avatarUrl,
-                        contentDescription = "${senderName} profile photo",
-                        modifier = Modifier.fillMaxSize().clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Text(senderName.take(1).uppercase(), color = MaterialTheme.colorScheme.primary)
-                }
+                    AsyncImage(model = avatarUrl, contentDescription = "${senderName} profile photo",
+                        modifier = Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
+                } else Text(senderName.take(1).uppercase(), color = MaterialTheme.colorScheme.primary)
             }
         }
 
@@ -1658,6 +1669,19 @@ private fun TeamChatMessageBubble(
                         )
                     }
                 }
+            }
+        }
+        if (isOwnMessage) {
+            Box(
+                modifier = Modifier.padding(start = 7.dp, bottom = 3.dp).size(34.dp)
+                    .clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable(onClick = onOpenProfile),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!avatarUrl.isNullOrBlank()) {
+                    AsyncImage(model = avatarUrl, contentDescription = "Your profile photo",
+                        modifier = Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
+                } else Text(senderName.take(1).uppercase(), color = MaterialTheme.colorScheme.primary)
             }
         }
     }
