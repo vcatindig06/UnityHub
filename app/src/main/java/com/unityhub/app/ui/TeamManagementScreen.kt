@@ -790,20 +790,20 @@ private fun TeamMemberProfileCard(
     }
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenProfile),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(11.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(56.dp).clip(CircleShape)
+                    modifier = Modifier.size(48.dp).clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
@@ -815,59 +815,92 @@ private fun TeamMemberProfileCard(
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        Icon(Icons.Default.Person, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(25.dp)
+                        )
                     }
                 }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
                     Text(
                         if (isCurrentUser) "${member.displayName} (You)" else member.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
                     )
-                    Text(teamAccessLabel(member.teamRole), style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (isOrganizationOwner) {
-                        Text("Organization owner", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            teamAccessLabel(member.teamRole),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (isOrganizationOwner) {
+                            Text(
+                                "Owner",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
+
             if (assignedPositions.isEmpty()) {
-                Text("No ministry position assigned", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary)
+                Text(
+                    "No ministry position assigned",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
                 androidx.compose.foundation.layout.FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
-                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     assignedPositions.forEach { position ->
                         Row(
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                            modifier = Modifier.clip(RoundedCornerShape(10.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 10.dp, vertical = 7.dp),
+                                .padding(horizontal = 8.dp, vertical = 5.dp),
                             horizontalArrangement = Arrangement.spacedBy(5.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             MinistryPositionIcon(position)
-                            Text(position, style = MaterialTheme.typography.labelMedium)
+                            Text(position, style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
             }
+
             if (canManagePositions || (canManageMembers && !isOrganizationOwner && !isCurrentUser)) {
-                Column(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (canManagePositions) {
-                        TextButton(onClick = onManagePositions, enabled = !saving) {
-                            Text("Manage ministry positions")
+                        TextButton(
+                            onClick = onManagePositions,
+                            enabled = !saving,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
+                            Text("Positions")
                         }
                     }
                     if (canManageMembers && !isOrganizationOwner && !isCurrentUser) {
-                        TextButton(onClick = onManageAccess, enabled = !saving) {
+                        TextButton(
+                            onClick = onManageAccess,
+                            enabled = !saving,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
                             Text("Manage access")
                         }
                     }
