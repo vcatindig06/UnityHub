@@ -8,6 +8,8 @@ import android.webkit.MimeTypeMap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,13 +25,22 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +63,8 @@ import com.unityhub.app.data.ChatFileRepository
 import com.unityhub.app.data.ChatSharedFileDto
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceMemberOption
+import com.unityhub.app.data.SharedFileCategory
+import com.unityhub.app.data.SharedFileLibraryRules
 import com.unityhub.app.data.SupabaseClientProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -79,6 +92,36 @@ fun SharedFilesScreen(
     var refreshing by remember { mutableStateOf(false) }
     var uploading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable(organizationId) { mutableStateOf("") }
+    var selectedCategory by rememberSaveable(organizationId) {
+        mutableStateOf(SharedFileLibraryRules.ALL_CATEGORIES)
+    }
+    var sortOrder by rememberSaveable(organizationId) {
+        mutableStateOf(SharedFileLibraryRules.SORT_NEWEST)
+    }
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+    var showUploadDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
+    var uploadCategory by rememberSaveable(organizationId) {
+        mutableStateOf(SharedFileCategory.OTHER.key)
+    }
+    val uploaderNames = remember(membersByUserId) {
+        membersByUserId.mapValues { (_, member) -> member.displayName }
+    }
+    val visibleFiles = remember(files, searchQuery, selectedCategory, sortOrder, uploaderNames) {
+        SharedFileLibraryRules.filterAndSort(
+            files = files,
+            searchQuery = searchQuery,
+            selectedCategory = selectedCategory,
+            sortOrder = sortOrder,
+            uploaderNames = uploaderNames
+        )
+    }
+    val categoryCounts = remember(files) { files.groupingBy { it.category }.eachCount() }
+    val sortOptions = listOf(
+        SharedFileLibraryRules.SORT_NEWEST to "Newest",
+        SharedFileLibraryRules.SORT_OLDEST to "Oldest",
+        SharedFileLibraryRules.SORT_NAME to "Name A–Z"
+    )
 
     fun refresh(showIndicator: Boolean = false) {
         scope.launch {
@@ -99,7 +142,7 @@ fun SharedFilesScreen(
         }
     }
 
-    fun upload(uri: Uri) {
+    fun upload(uri: Uri, category: SharedFileCategory) {
         if (uploading) return
         scope.launch {
             uploading = true
@@ -113,7 +156,8 @@ fun SharedFilesScreen(
                     uploaderId = userId,
                     fileName = picked.fileName,
                     mimeType = picked.mimeType,
-                    bytes = picked.bytes
+                    bytes = picked.bytes,
+                    category = category
                 )
                 files = fileRepository.loadSharedFiles(organizationId)
             } catch (error: Exception) {
@@ -146,7 +190,7 @@ fun SharedFilesScreen(
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri != null) upload(uri)
+        if (uri != null) upload(uri, SharedFileCategory.fromKey(uploadCategory))
     }
 
     LaunchedEffect(organizationId) {
@@ -185,7 +229,7 @@ fun SharedFilesScreen(
                         )
                     }
                     Button(
-                        onClick = { filePicker.launch(arrayOf("*/*")) },
+                        onClick = { showUploadDialog = true },
                         enabled = !uploading
                     ) {
                         if (uploading) {
@@ -199,6 +243,81 @@ fun SharedFilesScreen(
                         }
                         Spacer(Modifier.size(6.dp))
                         Text(if (uploading) "Uploading" else "Upload")
+                    }
+                }
+            }
+
+            if (files.isNotEmpty()) {
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("Search files or uploader") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null)
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotBlank()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Clear search")
+                                }
+                            }
+                        }
+                    )
+                }
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedCategory == SharedFileLibraryRules.ALL_CATEGORIES,
+                            onClick = { selectedCategory = SharedFileLibraryRules.ALL_CATEGORIES },
+                            label = { Text("All ${files.size}") }
+                        )
+                        SharedFileCategory.values().forEach { category ->
+                            val count = categoryCounts[category.key] ?: 0
+                            FilterChip(
+                                selected = selectedCategory == category.key,
+                                onClick = { selectedCategory = category.key },
+                                label = { Text("${category.label} $count") }
+                            )
+                        }
+                    }
+                }
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${visibleFiles.size} of ${files.size} files",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Box {
+                            TextButton(onClick = { sortMenuExpanded = true }) {
+                                Text("Sort: ${sortOptions.first { it.first == sortOrder }.second}")
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                            }
+                            DropdownMenu(
+                                expanded = sortMenuExpanded,
+                                onDismissRequest = { sortMenuExpanded = false }
+                            ) {
+                                sortOptions.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            sortOrder = value
+                                            sortMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -261,8 +380,41 @@ fun SharedFilesScreen(
                         }
                     }
                 }
+            } else if (visibleFiles.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(22.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            Text(
+                                "No matching files",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "Try another search or category.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(onClick = {
+                                searchQuery = ""
+                                selectedCategory = SharedFileLibraryRules.ALL_CATEGORIES
+                            }) {
+                                Text("Clear filters")
+                            }
+                        }
+                    }
+                }
             } else {
-                items(files, key = { it.id }) { file ->
+                items(visibleFiles, key = { it.id }) { file ->
                     Card(
                         modifier = Modifier.fillMaxWidth().clickable { openFile(file) },
                         shape = RoundedCornerShape(16.dp),
@@ -297,9 +449,10 @@ fun SharedFilesScreen(
                                     maxLines = 2
                                 )
                                 Text(
-                                    "${formatSharedFileSize(file.fileSize)} · ${membersByUserId[file.uploaderId]?.displayName ?: "Team member"}",
+                                    "${SharedFileCategory.fromKey(file.category).label} · ${formatSharedFileSize(file.fileSize)} · ${membersByUserId[file.uploaderId]?.displayName ?: "Team member"}",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2
                                 )
                             }
                             Icon(
@@ -312,6 +465,48 @@ fun SharedFilesScreen(
                 }
             }
         }
+    }
+
+    if (showUploadDialog) {
+        AlertDialog(
+            onDismissRequest = { showUploadDialog = false },
+            title = { Text("Upload team file") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Choose where your team should find this file.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        SharedFileCategory.values().forEach { category ->
+                            FilterChip(
+                                selected = uploadCategory == category.key,
+                                onClick = { uploadCategory = category.key },
+                                label = { Text(category.label) }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showUploadDialog = false
+                        filePicker.launch(arrayOf("*/*"))
+                    },
+                    enabled = !uploading
+                ) {
+                    Text("Choose file")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUploadDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
