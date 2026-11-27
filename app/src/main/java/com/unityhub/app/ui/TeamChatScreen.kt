@@ -415,21 +415,22 @@ fun TeamChatScreen(
         }
     }
 
-    LaunchedEffect(organizationId, openConversationId, openMessageId) {
+    LaunchedEffect(organizationId, openConversationId, openMessageId, activeConversationId) {
         val targetConversationId = openConversationId ?: return@LaunchedEffect
         val targetMessageId = openMessageId ?: return@LaunchedEffect
         if (targetConversationId != activeConversationId) return@LaunchedEffect
 
         // Wait until the first page for the requested conversation has loaded.
+        snapshotFlow { loading }.first { it }
         snapshotFlow { loading to messages.isNotEmpty() }
             .first { (isLoading, hasMessages) -> !isLoading && hasMessages }
 
         var pagesLoaded = 0
         while (messages.none { it.id == targetMessageId } && hasMoreOlder && pagesLoaded < 100) {
             val oldest = messages.firstOrNull() ?: break
-            val page = runCatching {
+            val page = try {
                 repository.loadOlderMessages(organizationId, targetConversationId, oldest)
-            }.getOrElse {
+            } catch (_: Exception) {
                 errorMessage = "The linked message could not be loaded. You can still browse this conversation."
                 break
             }
