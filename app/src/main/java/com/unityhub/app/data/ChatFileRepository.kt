@@ -2,7 +2,6 @@ package com.unityhub.app.data
 
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.storage.from
 import io.github.jan.supabase.storage.storage
 import io.ktor.http.ContentType
 import kotlinx.serialization.SerialName
@@ -124,7 +123,7 @@ class ChatFileRepository(private val client: SupabaseClient) {
 
         client.from("chat_shared_files").insert(metadata)
         try {
-            client.storage.from(BUCKET).upload(path, bytes) {
+            client.storage[BUCKET].upload(path, bytes) {
                 upsert = false
                 contentType = ContentType.parse(mimeType)
             }
@@ -163,7 +162,7 @@ class ChatFileRepository(private val client: SupabaseClient) {
 
     suspend fun createSignedUrl(path: String): String {
         require(path.isNotBlank())
-        return client.storage.from(BUCKET).createSignedUrl(path = path, expiresIn = 5.minutes)
+        return client.storage[BUCKET].createSignedUrl(path = path, expiresIn = 5.minutes)
     }
 
     companion object {
