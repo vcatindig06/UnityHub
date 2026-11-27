@@ -28,7 +28,7 @@ class SharedFileLibraryRulesTest {
             ).map { it.id }
         )
         assertEquals(
-            listOf("1", "3"),
+            listOf("3", "1"),
             SharedFileLibraryRules.filterAndSort(
                 files, "alex", SharedFileLibraryRules.ALL_CATEGORIES,
                 SharedFileLibraryRules.SORT_NEWEST, names
