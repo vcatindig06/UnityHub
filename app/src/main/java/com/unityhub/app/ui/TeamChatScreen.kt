@@ -418,8 +418,6 @@ fun TeamChatScreen(
     LaunchedEffect(organizationId, openConversationId, openMessageId, activeConversationId) {
         val targetConversationId = openConversationId ?: return@LaunchedEffect
         val targetMessageId = openMessageId ?: return@LaunchedEffect
-        if (targetConversationId != activeConversationId) return@LaunchedEffect
-
         // Wait until the first page for the requested conversation has loaded.
         if (activeConversationId != targetConversationId || loading) {
             snapshotFlow { activeConversationId to loading }
