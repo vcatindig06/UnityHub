@@ -117,6 +117,9 @@ fun TeamChatScreen(
     var showConversationList by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showNewConversationDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showConversationDetails by rememberSaveable(organizationId) { mutableStateOf(false) }
+    var showAddGroupMemberDialog by rememberSaveable(organizationId) { mutableStateOf(false) }
+    var pendingGroupRemoval by remember { mutableStateOf<ServiceMemberOption?>(null) }
+    var groupTitleDraft by remember(organizationId) { mutableStateOf("") }
     var showSharedLibrary by rememberSaveable(organizationId) { mutableStateOf(false) }
     var showAttachmentOptions by rememberSaveable(organizationId) { mutableStateOf(false) }
     var shareAttachmentWithTeam by rememberSaveable(organizationId) { mutableStateOf(false) }
@@ -1028,6 +1031,10 @@ fun TeamChatScreen(
         }
         if (detailConversation != null) {
             val conversation = detailConversation.conversation
+            val isGroup = conversation.conversationType == "group"
+            val isGroupOwner = detailConversation.members.any {
+                it.userId == userId && it.memberRole == "owner"
+            }
             val detailTitle = when (conversation.conversationType) {
                 "organization" -> organizationName
                 "direct" -> detailConversation.members.firstOrNull { it.userId != userId }
@@ -1039,7 +1046,7 @@ fun TeamChatScreen(
                 title = { Text(detailTitle) },
                 text = {
                     Column(
-                        modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                        modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
@@ -1051,10 +1058,38 @@ fun TeamChatScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (isGroup && isGroupOwner) {
+                            OutlinedTextField(
+                                value = groupTitleDraft.ifBlank { detailTitle },
+                                onValueChange = { if (it.length <= 80) groupTitleDraft = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                label = { Text("Group name") }
+                            )
+                            TextButton(
+                                onClick = {
+                                    val newTitle = groupTitleDraft.trim()
+                                    scope.launch {
+                                        runCatching { repository.renameGroupConversation(conversation.id, newTitle) }
+                                            .onSuccess {
+                                                conversations = repository.loadConversations(organizationId)
+                                                groupTitleDraft = ""
+                                            }
+                                            .onFailure { errorMessage = it.message ?: "Group name could not be updated." }
+                                    }
+                                },
+                                enabled = groupTitleDraft.trim().length in 2..80 && groupTitleDraft.trim() != detailTitle
+                            ) { Text("Save group name") }
+                        }
                         Text(
                             if (detailConversation.members.size == 1) "1 member" else "${detailConversation.members.size} members",
                             style = MaterialTheme.typography.labelLarge
                         )
+                        if (isGroup && isGroupOwner) {
+                            TextButton(onClick = { showAddGroupMemberDialog = true }) {
+                                Text("Add member")
+                            }
+                        }
                         detailConversation.members
                             .sortedBy { membersByUserId[it.userId]?.displayName?.lowercase().orEmpty() }
                             .forEach { member ->
@@ -1074,9 +1109,16 @@ fun TeamChatScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-                                    if (memberProfile != null && member.userId != userId) {
-                                        TextButton(onClick = { onOpenMemberProfile(memberProfile) }) {
-                                            Text("Profile")
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (memberProfile != null && member.userId != userId) {
+                                            TextButton(onClick = { onOpenMemberProfile(memberProfile) }) {
+                                                Text("Profile")
+                                            }
+                                        }
+                                        if (isGroup && isGroupOwner && member.memberRole != "owner" && memberProfile != null) {
+                                            TextButton(onClick = { pendingGroupRemoval = memberProfile }) {
+                                                Text("Remove", color = MaterialTheme.colorScheme.error)
+                                            }
                                         }
                                     }
                                 }
@@ -1088,6 +1130,73 @@ fun TeamChatScreen(
                 }
             )
         }
+    }
+
+    if (showAddGroupMemberDialog) {
+        val currentGroup = conversations.firstOrNull { it.conversation.id == activeConversationId }
+        val currentIds = currentGroup?.members?.map { it.userId }?.toSet().orEmpty()
+        AlertDialog(
+            onDismissRequest = { showAddGroupMemberDialog = false },
+            title = { Text("Add group member") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    membersByUserId.values
+                        .filter { it.userId !in currentIds }
+                        .sortedBy { it.displayName.lowercase() }
+                        .forEach { candidate ->
+                            TextButton(
+                                onClick = {
+                                    val conversationId = activeConversationId ?: return@TextButton
+                                    scope.launch {
+                                        runCatching { repository.addGroupMember(conversationId, candidate.userId) }
+                                            .onSuccess {
+                                                conversations = repository.loadConversations(organizationId)
+                                                showAddGroupMemberDialog = false
+                                            }
+                                            .onFailure { errorMessage = it.message ?: "Member could not be added." }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(candidate.displayName) }
+                        }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAddGroupMemberDialog = false }) { Text("Done") }
+            }
+        )
+    }
+
+    pendingGroupRemoval?.let { memberToRemove ->
+        AlertDialog(
+            onDismissRequest = { pendingGroupRemoval = null },
+            title = { Text("Remove ${memberToRemove.displayName}?") },
+            text = { Text("They will no longer be able to view or send messages in this group.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val conversationId = activeConversationId
+                    pendingGroupRemoval = null
+                    if (conversationId != null) {
+                        scope.launch {
+                            runCatching { repository.removeGroupMember(conversationId, memberToRemove.userId) }
+                                .onSuccess {
+                                    conversations = repository.loadConversations(organizationId)
+                                    if (memberToRemove.userId == userId) {
+                                        activeConversationId = conversations.firstOrNull()?.conversation?.id
+                                    }
+                                }
+                                .onFailure { errorMessage = it.message ?: "Member could not be removed." }
+                        }
+                    }
+                }) { Text("Remove") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingGroupRemoval = null }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showNewConversationDialog) {
