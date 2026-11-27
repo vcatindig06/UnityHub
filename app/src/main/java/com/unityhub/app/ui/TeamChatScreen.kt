@@ -71,6 +71,7 @@ import com.unityhub.app.data.ChatConversationSummary
 import com.unityhub.app.data.ChatFileRepository
 import com.unityhub.app.data.ChatMessageAttachment
 import com.unityhub.app.data.ChatSharedFileDto
+import com.unityhub.app.data.NotificationRules
 import com.unityhub.app.data.NotificationsRepository
 import com.unityhub.app.data.ServiceAssignmentRepository
 import com.unityhub.app.data.ServiceMemberOption
@@ -148,15 +149,10 @@ fun TeamChatScreen(
         scope.launch {
             runCatching { notificationsRepository.loadNotifications(userId) }
                 .onSuccess { notifications ->
-                    unreadByConversation = notifications.asSequence()
-                        .filter { notification ->
-                            notification.organizationId == organizationId &&
-                                notification.notificationType == "team_message" &&
-                                notification.readAt == null &&
-                                !notification.conversationId.isNullOrBlank()
-                        }
-                        .groupingBy { it.conversationId!! }
-                        .eachCount()
+                    unreadByConversation = NotificationRules.unreadByConversation(
+                        notifications,
+                        organizationId
+                    )
                 }
         }
     }
@@ -373,6 +369,21 @@ fun TeamChatScreen(
             } finally {
                 sending = false
             }
+        }
+    }
+
+    LaunchedEffect(organizationId, userId) {
+        try {
+            notificationsRepository.observeNotifications(userId).collect { incoming ->
+                unreadByConversation = NotificationRules.unreadByConversation(
+                    incoming,
+                    organizationId
+                )
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            refreshConversationUnreadCounts()
         }
     }
 
