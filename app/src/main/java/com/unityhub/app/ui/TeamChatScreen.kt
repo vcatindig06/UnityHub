@@ -85,6 +85,7 @@ import com.unityhub.app.data.TeamChatRules
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -100,6 +101,7 @@ fun TeamChatScreen(
     organizationName: String,
     userId: String,
     openConversationId: String? = null,
+    openMessageId: String? = null,
     onOpenMemberProfile: (ServiceMemberOption) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -410,6 +412,39 @@ fun TeamChatScreen(
         if (conversations.any { it.conversation.id == requestedId }) {
             activeConversationId = requestedId
             showConversationList = false
+        }
+    }
+
+    LaunchedEffect(organizationId, openConversationId, openMessageId) {
+        val targetConversationId = openConversationId ?: return@LaunchedEffect
+        val targetMessageId = openMessageId ?: return@LaunchedEffect
+        if (targetConversationId != activeConversationId) return@LaunchedEffect
+
+        // Wait until the first page for the requested conversation has loaded.
+        snapshotFlow { loading to messages.isNotEmpty() }
+            .first { (isLoading, hasMessages) -> !isLoading && hasMessages }
+
+        var pagesLoaded = 0
+        while (messages.none { it.id == targetMessageId } && hasMoreOlder && pagesLoaded < 100) {
+            val oldest = messages.firstOrNull() ?: break
+            val page = runCatching {
+                repository.loadOlderMessages(organizationId, targetConversationId, oldest)
+            }.getOrElse {
+                errorMessage = "The linked message could not be loaded. You can still browse this conversation."
+                break
+            }
+            if (page.messages.isEmpty()) break
+            messages = TeamChatRules.mergeMessages(page.messages, messages)
+            hasMoreOlder = page.hasMore
+            pagesLoaded++
+        }
+
+        if (messages.any { it.id == targetMessageId }) {
+            pendingAnchorMessageId = targetMessageId
+            pendingAnchorOffset = 0
+            showConversationList = false
+        } else {
+            errorMessage = "The linked message is no longer available, but the conversation is open."
         }
     }
 
