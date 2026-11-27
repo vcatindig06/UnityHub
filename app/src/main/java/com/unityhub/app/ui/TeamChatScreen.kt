@@ -523,6 +523,7 @@ fun TeamChatScreen(
             errorMessage = "Open a conversation before sending a voice message."
             return
         }
+        val voiceWaveform = recordingWaveformLevels.map { it.coerceIn(0f, 1f) }
         runCatching { voicePlayer?.release() }
         voicePlayer = null
         isVoicePreviewPlaying = false
@@ -558,7 +559,8 @@ fun TeamChatScreen(
                         fileName = uploaded.fileName,
                         mimeType = uploaded.mimeType,
                         fileSize = uploaded.fileSize
-                    )
+                    ),
+                    attachmentWaveform = voiceWaveform
                 )
                 draft = ""
                 replyToMessageId = null
@@ -801,7 +803,12 @@ fun TeamChatScreen(
             } else {
                 (kotlin.math.ln(1f + amplitude.toFloat()) / kotlin.math.ln(32768f)).coerceIn(0.06f, 1f)
             }
-            recordingWaveformLevels = (recordingWaveformLevels + normalized).takeLast(42)
+            val capturedLevels = recordingWaveformLevels + normalized
+            recordingWaveformLevels = if (capturedLevels.size <= 64) {
+                capturedLevels
+            } else {
+                capturedLevels.chunked(2).map { bucket -> bucket.maxOrNull() ?: 0.06f }
+            }
             delay(120)
         }
     }
@@ -2062,27 +2069,20 @@ private fun TeamChatMessageBubble(
                                     }
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text("Voice message", style = MaterialTheme.typography.labelLarge)
-                                        val playedWaveColor = MaterialTheme.colorScheme.primary
-                                        val unplayedWaveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
-                                        Canvas(
-                                            modifier = Modifier.fillMaxWidth().height(30.dp)
-                                        ) {
-                                            val count = 32
-                                            val gap = size.width / (count * 1.75f)
-                                            val barWidth = gap * 0.72f
-                                            for (index in 0 until count) {
-                                                val wave = (0.22f + 0.78f * kotlin.math.abs(kotlin.math.sin(index * 1.17f)) * (0.55f + 0.45f * kotlin.math.abs(kotlin.math.cos(index * 0.39f))))
-                                                val barHeight = size.height * wave
-                                                val left = index * gap + (gap - barWidth) / 2f
-                                                val top = (size.height - barHeight) / 2f
-                                                drawRoundRect(
-                                                    color = if (index.toFloat() / count <= voiceProgress) playedWaveColor else unplayedWaveColor,
-                                                    topLeft = androidx.compose.ui.geometry.Offset(left, top),
-                                                    size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
-                                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f)
-                                                )
+                                        val voiceWaveformLevels = remember(message.id, message.attachmentWaveform) {
+                                            message.attachmentWaveform.ifEmpty {
+                                                List(32) { index ->
+                                                    0.22f + 0.78f *
+                                                        kotlin.math.abs(kotlin.math.sin(index * 1.17f)) *
+                                                        (0.55f + 0.45f * kotlin.math.abs(kotlin.math.cos(index * 0.39f)))
+                                                }
                                             }
                                         }
+                                        VoiceWaveform(
+                                            levels = voiceWaveformLevels,
+                                            progress = voiceProgress,
+                                            modifier = Modifier.fillMaxWidth().height(30.dp)
+                                        )
                                         Slider(
                                             value = voiceProgress.coerceIn(0f, 1f),
                                             onValueChange = onSeekVoice,
