@@ -420,80 +420,80 @@ fun ServicePlanningScreen(
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Service planning", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Text(
-                            if (hasActiveServiceFilters) "${filteredPlans.size} of ${plans.size} planned services" else "${plans.size} planned services",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    if (!usingOfflineCopy && !offlineOnly) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(
-                                onClick = {
-                                    templatesDialogOpen = true
-                                    reloadTemplateLibrary()
-                                },
-                                enabled = !saving
-                            ) { Text("Templates") }
-                            if (canManage) {
-                                Button(
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Service planning", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Text(
+                                if (hasActiveServiceFilters) "${filteredPlans.size} of ${plans.size} planned services" else "${plans.size} planned services",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (!usingOfflineCopy && !offlineOnly) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(
                                     onClick = {
-                                        editingPlan = null
-                                        error = ""
-                                        editorOpen = true
+                                        templatesDialogOpen = true
+                                        reloadTemplateLibrary()
                                     },
                                     enabled = !saving
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = null)
-                                    Text("New")
+                                ) { Text("Templates") }
+                                if (canManage) {
+                                    Button(
+                                        onClick = {
+                                            editingPlan = null
+                                            error = ""
+                                            editorOpen = true
+                                        },
+                                        enabled = !saving
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Text("New")
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                if (usingOfflineCopy) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = androidx.compose.material3.CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    ) {
-                        Column(
-                            Modifier.fillMaxWidth().padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                    if (usingOfflineCopy) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = androidx.compose.material3.CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
                         ) {
-                            Text(
-                                "Offline copy · Read only",
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Text(
-                                lastSyncedAtMillis?.let { timestamp ->
-                                    "Last synced " + java.time.format.DateTimeFormatter
-                                        .ofPattern("MMM d, yyyy · h:mm a", Locale.getDefault())
-                                        .withZone(java.time.ZoneId.systemDefault())
-                                        .format(java.time.Instant.ofEpochMilli(timestamp))
-                                } ?: "This device has a saved copy of your service plans.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
+                            Column(
+                                Modifier.fillMaxWidth().padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Text(
+                                    "Offline copy · Read only",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    lastSyncedAtMillis?.let { timestamp ->
+                                        "Last synced " + java.time.format.DateTimeFormatter
+                                            .ofPattern("MMM d, yyyy · h:mm a", Locale.getDefault())
+                                            .withZone(java.time.ZoneId.systemDefault())
+                                            .format(java.time.Instant.ofEpochMilli(timestamp))
+                                    } ?: "This device has a saved copy of your service plans.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
                         }
                     }
+                    if (error.isNotBlank() && !editorOpen) {
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
-                if (error.isNotBlank() && !editorOpen) {
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-            }
         }
 
         if (!offlineOnly && !usingOfflineCopy) {

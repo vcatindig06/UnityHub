@@ -517,150 +517,150 @@ fun SongLibraryScreen(
                 contentPadding = PaddingValues(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-            item {
-                Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Song library", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Text(
-                                "${songs.size} songs in your team library",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (canEdit) {
-                            Button(onClick = { startNewSong() }, enabled = !saving) {
-                                Icon(Icons.Default.Add, contentDescription = null)
-                                Text("Add")
-                            }
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = true,
-                            onClick = { showSetlists = false },
-                            label = { Text("Songs") }
-                        )
-                        FilterChip(
-                            selected = false,
-                            onClick = { showSetlists = true },
-                            label = { Text("Setlists") }
-                        )
-                    }
-                    if (usingOfflineCopy) {
-                        Spacer(Modifier.height(8.dp))
-                        Card(
+                item {
+                    Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer
-                            )
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                         ) {
-                            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text("Offline copy · Read only", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Column(Modifier.weight(1f)) {
+                                Text("Song library", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                                 Text(
-                                    lastSyncedAtMillis?.let(::formatOfflineSyncTime)
-                                        ?: "This device has a saved copy of the team's song library.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Text(
-                                    "Song charts remain available without internet. Reconnect to edit or refresh.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    "${songs.size} songs in your team library",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        }
-                    }
-                    if (canEdit) {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = { importLauncher.launch(arrayOf("text/*", "application/octet-stream")) },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !saving
-                        ) {
-                            Icon(Icons.Default.FileOpen, contentDescription = null)
-                            Text("Import ChordPro file")
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = search,
-                        onValueChange = { search = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Search songs, lyrics, chords, or notes") },
-                        singleLine = true
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = !favoriteFilter,
-                            onClick = { favoriteFilter = false },
-                            label = { Text("All songs") }
-                        )
-                        FilterChip(
-                            selected = favoriteFilter,
-                            onClick = { favoriteFilter = true },
-                            enabled = !usingOfflineCopy,
-                            label = { Text("Favorites (" + favoriteCount + ")") }
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                    ) {
-                        Box {
-                            FilterChip(selected = categoryFilter != null, onClick = { categoryFilterMenuExpanded = true }, label = { Text(categoryFilter ?: "Categories") })
-                            DropdownMenu(expanded = categoryFilterMenuExpanded, onDismissRequest = { categoryFilterMenuExpanded = false }) {
-                                DropdownMenuItem(text = { Text("All categories") }, onClick = { categoryFilter = null; categoryFilterMenuExpanded = false })
-                                songs.mapNotNull { ChordProParser.parse(it.chordpro).category?.takeIf(String::isNotBlank) }.distinct().sorted().forEach { option ->
-                                    DropdownMenuItem(text = { Text(option) }, onClick = { categoryFilter = option; categoryFilterMenuExpanded = false })
+                            if (canEdit) {
+                                Button(onClick = { startNewSong() }, enabled = !saving) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Text("Add")
                                 }
                             }
                         }
-                        Box {
-                            IconButton(onClick = { sortMenuExpanded = true }) {
-                                Icon(Icons.Default.Sort, contentDescription = "Sort songs: ${songSortOption.label}")
-                            }
-                            DropdownMenu(
-                                expanded = sortMenuExpanded,
-                                onDismissRequest = { sortMenuExpanded = false }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = true,
+                                onClick = { showSetlists = false },
+                                label = { Text("Songs") }
+                            )
+                            FilterChip(
+                                selected = false,
+                                onClick = { showSetlists = true },
+                                label = { Text("Setlists") }
+                            )
+                        }
+                        if (usingOfflineCopy) {
+                            Spacer(Modifier.height(8.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                )
                             ) {
-                                SongSortOption.values().forEach { option ->
-                                    DropdownMenuItem(
-                                        text = { Text(option.label) },
-                                        onClick = {
-                                            songSortOption = option
-                                            sortMenuExpanded = false
-                                        }
+                                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text("Offline copy · Read only", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    Text(
+                                        lastSyncedAtMillis?.let(::formatOfflineSyncTime)
+                                            ?: "This device has a saved copy of the team's song library.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        "Song charts remain available without internet. Reconnect to edit or refresh.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                 }
                             }
                         }
-                    }
-                    if (favoriteError.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            favoriteError,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
+                        if (canEdit) {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = { importLauncher.launch(arrayOf("text/*", "application/octet-stream")) },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !saving
+                            ) {
+                                Icon(Icons.Default.FileOpen, contentDescription = null)
+                                Text("Import ChordPro file")
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = search,
+                            onValueChange = { search = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Search songs, lyrics, chords, or notes") },
+                            singleLine = true
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = !favoriteFilter,
+                                onClick = { favoriteFilter = false },
+                                label = { Text("All songs") }
+                            )
+                            FilterChip(
+                                selected = favoriteFilter,
+                                onClick = { favoriteFilter = true },
+                                enabled = !usingOfflineCopy,
+                                label = { Text("Favorites (" + favoriteCount + ")") }
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            Box {
+                                FilterChip(selected = categoryFilter != null, onClick = { categoryFilterMenuExpanded = true }, label = { Text(categoryFilter ?: "Categories") })
+                                DropdownMenu(expanded = categoryFilterMenuExpanded, onDismissRequest = { categoryFilterMenuExpanded = false }) {
+                                    DropdownMenuItem(text = { Text("All categories") }, onClick = { categoryFilter = null; categoryFilterMenuExpanded = false })
+                                    songs.mapNotNull { ChordProParser.parse(it.chordpro).category?.takeIf(String::isNotBlank) }.distinct().sorted().forEach { option ->
+                                        DropdownMenuItem(text = { Text(option) }, onClick = { categoryFilter = option; categoryFilterMenuExpanded = false })
+                                    }
+                                }
+                            }
+                            Box {
+                                IconButton(onClick = { sortMenuExpanded = true }) {
+                                    Icon(Icons.Default.Sort, contentDescription = "Sort songs: ${songSortOption.label}")
+                                }
+                                DropdownMenu(
+                                    expanded = sortMenuExpanded,
+                                    onDismissRequest = { sortMenuExpanded = false }
+                                ) {
+                                    SongSortOption.values().forEach { option ->
+                                        DropdownMenuItem(
+                                            text = { Text(option.label) },
+                                            onClick = {
+                                                songSortOption = option
+                                                sortMenuExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (favoriteError.isNotBlank()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                favoriteError,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (error.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
-                    if (error.isNotBlank()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
             }
             if (loading || filteringSongs) {
                 item {
