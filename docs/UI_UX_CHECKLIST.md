@@ -42,13 +42,33 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 
 ## Navigation and refresh
 
-- [x] Keep four core bottom destinations: Home, Songs, Services, and Profile.
+- [x] Keep four core bottom destinations: Home, Songs, Services, and Community.
 - [x] Emphasize the center Song / Setlist action and change its action based on the selected destination.
+- [x] Keep app-bar icon and Back actions at 48 dp and ellipsize screen titles on narrow layouts.
+- [x] Allow long Team member names to wrap and expose member cards as accessible buttons.
+- [x] Expose Community shortcut cards as accessible buttons for Team, Chat, Shared Files, and Profile.
+- [x] Keep Team member administrative actions at a minimum 48 dp touch height.
+- [ ] Run Android Compose emulator regression tests for visible workspace content, compact bottom-navigation height, bottom anchoring, and the Song-to-Setlist action.
 - [x] Keep Notifications in the top-right app-bar action with an unread badge.
 - [x] Keep Team management and Team Chat reachable without consuming a core bottom-navigation slot.
 - [x] Support pull-to-refresh from the top of the Home dashboard.
+- [x] Support pull-to-refresh from Songs and Services instead of repeating footer refresh actions; keep offline cached reads and read-only permissions intact.
+- [x] Give Setlists collection cards and chart-opening rows explicit button semantics, allow long collection names to wrap, and keep remove actions tappable.
+- [x] Constrain long service titles and keep service-item edit actions at least 48 dp high.
+- [x] Announce calendar date, event count, and selected/today state together for both Services and Rehearsals.
+- [x] Keep service and rehearsal month headings legible on narrow screens; expose schedule cards as accessible buttons.
+- [x] Reflow rehearsal date and time metadata vertically and constrain long rehearsal titles and locations.
 - [x] Remove the dashboard offline-sync status card while preserving local queues, offline caches, WorkManager retries, and background uploads.
-- [ ] Manually verify the center action, notification deep links, and Home pull-to-refresh on a physical Android phone.
+- [ ] Manually verify the center action, notification deep links, and pull-to-refresh on Home, Songs, and Services on a physical Android phone.
+- [ ] Manually verify Services and Rehearsals calendar navigation, date-selection announcements, long names, and large font scaling on a physical Android phone.
+
+## Rehearsals and attendance
+
+- [x] Keep member availability controls at least 48 dp high and retain the existing local response queue and offline guidance.
+- [x] Distinguish availability responses from completed attendance outcomes with readable text labels as well as color.
+- [x] Allow long invited-member names to wrap and keep attendance controls equal-width and comfortably tappable.
+- [x] Keep roster status filters usable as full-height touch targets on narrow screens.
+- [ ] Manually verify queued responses, attendance updates, TalkBack announcements, and large-font roster layouts on a physical Android device.
 
 ## Song library and ChordPro experience
 
@@ -68,6 +88,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Store one organization-scoped read cursor per member, prevent backward cursor movement, and show the current-member read count on each sent message.
 - [x] Restrict read-state visibility to current organization members and updates to the signed-in member's own cursor.
 - [x] Support the Android keyboard Send action as well as the visible Send button.
+- [x] Apply IME-aware layout padding to keep the Team Chat composer above the software keyboard.
 - [x] Retain an unsent draft after a message-send failure and keep the Send action at least 48 dp high.
 - [x] Keep the organization shared-files library in its own Community destination instead of embedding it in Team Chat.
 - [x] Separate organization reference-file uploads from conversation attachment uploads.
@@ -85,7 +106,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 
 ## Release validation
 
-- [x] Automated unit tests and the debug APK build run in GitHub Actions.
+- [x] Automated JVM unit tests, Android Compose emulator UI tests, and the debug APK build run in GitHub Actions.
 - [ ] Perform a manual TalkBack pass.
 - [ ] Check the smallest supported phone width and larger font scale (at least 1.3x and 2.0x).
 - [ ] Verify light and dark appearance on a physical Android device.

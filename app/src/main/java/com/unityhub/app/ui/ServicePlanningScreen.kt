@@ -43,6 +43,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
@@ -88,6 +91,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServicePlanningScreen(
     organizationId: String,
@@ -114,6 +118,7 @@ fun ServicePlanningScreen(
     var plans by remember { mutableStateOf<List<ServicePlanDto>>(emptyList()) }
     var selectedPlan by remember { mutableStateOf<ServicePlanDto?>(null) }
     var loading by remember { mutableStateOf(true) }
+    var refreshing by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
@@ -157,8 +162,9 @@ fun ServicePlanningScreen(
         scope.launch { loadTemplateLibrary() }
     }
 
-    fun reload() {
+    fun reload(showIndicator: Boolean = false) {
         scope.launch {
+            refreshing = showIndicator
             loading = true
             error = ""
             try {
@@ -201,6 +207,7 @@ fun ServicePlanningScreen(
                 error = "The saved service plans could not be opened on this device."
             } finally {
                 loading = false
+                refreshing = false
             }
         }
     }
@@ -403,85 +410,90 @@ fun ServicePlanningScreen(
         )
     }
 
-    LazyColumn(
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = { if (!offlineOnly && !loading && !saving) reload(showIndicator = true) },
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Service planning", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Text(
-                            if (hasActiveServiceFilters) "${filteredPlans.size} of ${plans.size} planned services" else "${plans.size} planned services",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    if (!usingOfflineCopy && !offlineOnly) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(
-                                onClick = {
-                                    templatesDialogOpen = true
-                                    reloadTemplateLibrary()
-                                },
-                                enabled = !saving
-                            ) { Text("Templates") }
-                            if (canManage) {
-                                Button(
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Service planning", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Text(
+                                if (hasActiveServiceFilters) "${filteredPlans.size} of ${plans.size} planned services" else "${plans.size} planned services",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (!usingOfflineCopy && !offlineOnly) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(
                                     onClick = {
-                                        editingPlan = null
-                                        error = ""
-                                        editorOpen = true
+                                        templatesDialogOpen = true
+                                        reloadTemplateLibrary()
                                     },
                                     enabled = !saving
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = null)
-                                    Text("New")
+                                ) { Text("Templates") }
+                                if (canManage) {
+                                    Button(
+                                        onClick = {
+                                            editingPlan = null
+                                            error = ""
+                                            editorOpen = true
+                                        },
+                                        enabled = !saving
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Text("New")
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                if (usingOfflineCopy) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = androidx.compose.material3.CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    ) {
-                        Column(
-                            Modifier.fillMaxWidth().padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                    if (usingOfflineCopy) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = androidx.compose.material3.CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
                         ) {
-                            Text(
-                                "Offline copy · Read only",
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Text(
-                                lastSyncedAtMillis?.let { timestamp ->
-                                    "Last synced " + java.time.format.DateTimeFormatter
-                                        .ofPattern("MMM d, yyyy · h:mm a", Locale.getDefault())
-                                        .withZone(java.time.ZoneId.systemDefault())
-                                        .format(java.time.Instant.ofEpochMilli(timestamp))
-                                } ?: "This device has a saved copy of your service plans.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
+                            Column(
+                                Modifier.fillMaxWidth().padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Text(
+                                    "Offline copy · Read only",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    lastSyncedAtMillis?.let { timestamp ->
+                                        "Last synced " + java.time.format.DateTimeFormatter
+                                            .ofPattern("MMM d, yyyy · h:mm a", Locale.getDefault())
+                                            .withZone(java.time.ZoneId.systemDefault())
+                                            .format(java.time.Instant.ofEpochMilli(timestamp))
+                                    } ?: "This device has a saved copy of your service plans.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
                         }
                     }
+                    if (error.isNotBlank() && !editorOpen) {
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
-                if (error.isNotBlank() && !editorOpen) {
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-            }
         }
 
         if (!offlineOnly && !usingOfflineCopy) {
@@ -615,19 +627,6 @@ fun ServicePlanningScreen(
             }
         }
 
-        item {
-            if (!offlineOnly) {
-                TextButton(onClick = { reload() }, enabled = !loading) {
-                    Text(if (usingOfflineCopy) "Retry online sync" else "Refresh services")
-                }
-            } else {
-                Text(
-                    "Offline · refresh when connected.",
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
         }
     }
 }
@@ -1176,7 +1175,13 @@ private fun ServicePlanDetailScreen(
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back to services")
                 }
                 Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                    Text(plan.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(
+                        plan.title,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
                     Text(serviceDateTimeLabel(plan.serviceDate, plan.startTime), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 ServiceStatusLabel(currentStatus)
@@ -1441,10 +1446,18 @@ private fun ServicePlanItemCard(
                 }
                 if (canManage) {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = onEditDuration, enabled = !saving) {
+                        TextButton(
+                            onClick = onEditDuration,
+                            enabled = !saving,
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) {
                             Text(if (item.durationMinutes == null) "Set duration" else "Edit duration")
                         }
-                        TextButton(onClick = onEditNotes, enabled = !saving) {
+                        TextButton(
+                            onClick = onEditNotes,
+                            enabled = !saving,
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) {
                             Text(if (item.notes.isBlank()) "Add notes" else "Edit notes")
                         }
                     }

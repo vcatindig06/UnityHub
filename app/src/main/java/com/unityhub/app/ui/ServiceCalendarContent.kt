@@ -19,6 +19,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,7 +99,7 @@ fun ServiceCalendarContent(
                     contentDescription = if (mode == "week") "Previous week" else "Previous month"
                 )
             }
-            Text(periodLabel, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            Text(periodLabel, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
             IconButton(onClick = { movePeriod(1) }) {
                 Icon(
                     Icons.Default.ChevronRight,
@@ -193,9 +199,27 @@ private fun CalendarDayCell(
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
+    val dateDescription = day.date.format(
+        DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", Locale.getDefault())
+    )
+    val serviceCountDescription = when (day.services.size) {
+        0 -> "No planned services"
+        1 -> "1 planned service"
+        else -> "${day.services.size} planned services"
+    }
+    val dayStateDescription = buildList {
+        if (selected) add("Selected")
+        if (today) add("Today")
+        if (!day.isInDisplayedMonth) add("Outside displayed month")
+    }.joinToString(", ")
+
     Surface(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.semantics(mergeDescendants = true) {
+            contentDescription = "$dateDescription, $serviceCountDescription"
+            this.selected = selected
+            if (dayStateDescription.isNotBlank()) stateDescription = dayStateDescription
+        },
         shape = RoundedCornerShape(10.dp),
         color = background
     ) {
@@ -237,7 +261,7 @@ private fun CalendarServiceCard(plan: ServicePlanDto, onClick: () -> Unit) {
     } ?: "Time not set"
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -248,7 +272,7 @@ private fun CalendarServiceCard(plan: ServicePlanDto, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(plan.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                Text(plan.title, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                 Text(statusLabel, style = MaterialTheme.typography.labelMedium, color = statusColor)
             }
             Text(

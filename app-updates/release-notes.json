@@ -1,9 +1,45 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 68,
-  "latestVersionName": "0.68.0",
+  "latestVersionCode": 70,
+  "latestVersionName": "0.70.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 70,
+      "versionName": "0.70.0",
+      "releasedAt": "2026-11-28",
+      "summary": "Improve workspace accessibility, refresh UX, and rehearsal roster controls.",
+      "changes": [
+        "Refresh the song library and service plan list by pulling down from the top of the screen.",
+        "Remove redundant footer refresh actions while retaining automatic loading, cached offline access, and read-only safeguards.",
+        "Ignore pull-to-refresh requests during initial loading, active saves, and forced offline-only sessions.",
+        "Expose Setlists collection and chart-opening actions to accessibility services and improve long-title handling.",
+        "Keep Service detail titles readable on narrow screens and raise service-item edit controls to a 48dp minimum height.",
+        "Announce calendar dates, event counts, and selected/today state for Services and Rehearsals.",
+        "Improve long-title and metadata wrapping in the Rehearsal list and expose service/rehearsal cards with button semantics.",
+        "Keep rehearsal availability and attendance actions at least 48dp high and easier to use on compact screens.",
+        "Show clearer response-saving and offline-queue feedback while preserving the existing availability sync safeguards.",
+        "Wrap long invited-member names and keep availability/attendance status text readable alongside its color."
+      ]
+    },
+    {
+      "versionCode": 69,
+      "versionName": "0.69.0",
+      "releasedAt": "2026-11-27",
+      "summary": "Improve workspace navigation accessibility and Team Chat keyboard handling with emulator regression coverage.",
+      "changes": [
+        "Increase top-app-bar and Back touch targets to 48dp and preserve titles on narrow screens.",
+        "Keep the Team Chat composer above the software keyboard using IME-aware layout padding.",
+        "Remove decorative placeholder slogan text from the profile cover.",
+        "Allow long Team member names to wrap naturally and provide accessible member-card semantics.",
+        "Keep Team member management actions at a minimum 48dp touch height.",
+        "Expose Community resource shortcuts with explicit button semantics for accessibility services.",
+        "Add emulator tests against UnityHub's actual production bottom navigation.",
+        "Verify the workspace header and page content remain visible while the navigation stays compact and anchored to the bottom.",
+        "Verify the center action displays Song or Setlist for the selected destination and remains clickable.",
+        "Run the Compose UI regression suite on an Android 36 emulator in GitHub Actions."
+      ]
+    },
     {
       "versionCode": 68,
       "versionName": "0.68.0",

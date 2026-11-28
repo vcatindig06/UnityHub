@@ -53,9 +53,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.unityhub.app.data.SongDto
 import com.unityhub.app.data.SongSetlistDto
@@ -209,6 +211,8 @@ fun SongSetlistsScreen(
                 Text(
                     selectedSetlist?.name ?: "Setlists",
                     modifier = Modifier.semantics { heading() },
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -289,7 +293,7 @@ fun SongSetlistsScreen(
                     items(setlists, key = { it.id }) { setlist ->
                         val count = itemsBySetlist[setlist.id].orEmpty().size
                         Card(
-                            modifier = Modifier.fillMaxWidth().clickable {
+                            modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) {
                                 selectedSetlist = setlist
                                 selectedItems = itemsBySetlist[setlist.id].orEmpty()
                                 errorMessage = ""
@@ -509,7 +513,8 @@ fun SongSetlistsScreen(
                                 )
                                 Column(
                                     modifier = Modifier.weight(1f).clickable(
-                                        enabled = linkedSong != null || item.chordproSnapshot.isNotBlank()
+                                        enabled = linkedSong != null || item.chordproSnapshot.isNotBlank(),
+                                        role = Role.Button
                                     ) {
                                         onOpenSong(chartSong)
                                     },
@@ -541,7 +546,7 @@ fun SongSetlistsScreen(
                                             })
                                         },
                                         enabled = !saving && SongSetlistRules.canRemoveSong(selectedItems.size),
-                                        modifier = Modifier.size(38.dp)
+                                        modifier = Modifier.size(48.dp)
                                     ) {
                                         Icon(
                                             Icons.Default.DeleteOutline,

@@ -208,15 +208,7 @@ fun ProfileOverviewScreen(
                                     listOf(Color(0xFF183D2B), Color(0xFF35684B), Color(0xFFC37A54))
                                 )
                             )
-                        ) {
-                            Text(
-                                "WORSHIP · SERVE · GROW",
-                                modifier = Modifier.align(Alignment.BottomStart).padding(18.dp),
-                                color = Color(0xFFFFF7E8),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        )
                     }
                 }
                 Row(

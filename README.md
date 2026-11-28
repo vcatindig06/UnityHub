@@ -135,7 +135,7 @@ The debug APK is generated at:
 
     app/build/outputs/apk/debug/app-debug.apk
 
-GitHub Actions runs the same test and build tasks and publishes the APK as a workflow artifact. When the stable UnityHub signing key and Supabase update-publisher secret are configured, pushes to `main` also publish the signed APK and update manifest to the private-write/public-download `unityhub-updates` Supabase Storage bucket. See [In-app Updates](docs/APP_UPDATES.md) for the one-time signing and publishing setup.
+GitHub Actions runs JVM tests, the workspace Compose UI regression tests on an Android 36 emulator, and the debug APK build; it publishes the APK as a workflow artifact. When the stable UnityHub signing key and Supabase update-publisher secret are configured, pushes to `main` also publish the signed APK and update manifest to the private-write/public-download `unityhub-updates` Supabase Storage bucket. See [In-app Updates](docs/APP_UPDATES.md) for the one-time signing and publishing setup.
 
 ## Current application foundation
 
