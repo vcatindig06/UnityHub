@@ -52,8 +52,9 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Keep Notifications in the top-right app-bar action with an unread badge.
 - [x] Keep Team management and Team Chat reachable without consuming a core bottom-navigation slot.
 - [x] Support pull-to-refresh from the top of the Home dashboard.
+- [x] Support pull-to-refresh from Songs and Services instead of repeating footer refresh actions; keep offline cached reads and read-only permissions intact.
 - [x] Remove the dashboard offline-sync status card while preserving local queues, offline caches, WorkManager retries, and background uploads.
-- [ ] Manually verify the center action, notification deep links, and Home pull-to-refresh on a physical Android phone.
+- [ ] Manually verify the center action, notification deep links, and pull-to-refresh on Home, Songs, and Services on a physical Android phone.
 
 ## Song library and ChordPro experience
 

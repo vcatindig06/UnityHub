@@ -1,9 +1,20 @@
 {
   "schemaVersion": 1,
-  "latestVersionCode": 69,
-  "latestVersionName": "0.69.0",
+  "latestVersionCode": 70,
+  "latestVersionName": "0.70.0",
   "minimumSupportedVersionCode": 1,
   "releases": [
+    {
+      "versionCode": 70,
+      "versionName": "0.70.0",
+      "releasedAt": "2026-11-28",
+      "summary": "Make refreshing Songs and Services feel natural with pull-to-refresh.",
+      "changes": [
+        "Refresh the song library and service plan list by pulling down from the top of the screen.",
+        "Remove redundant footer refresh actions while retaining automatic loading, cached offline access, and read-only safeguards.",
+        "Keep refresh gestures disabled during initial loading, active saves, and forced offline-only sessions."
+      ]
+    },
     {
       "versionCode": 69,
       "versionName": "0.69.0",

@@ -40,6 +40,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -101,6 +102,7 @@ private const val SAMPLE_CHORDPRO = """{title: Sample Worship Song}
 [G]We will [D]sing, we will [Em]praise
 [C]Your name is [G]worthy
 {end_of_chorus}"""
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongLibraryScreen(
     organizationId: String,
@@ -134,6 +136,7 @@ fun SongLibraryScreen(
     var selectedSong by remember { mutableStateOf<SongDto?>(null) }
     var showSetlists by rememberSaveable(organizationId) { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
+    var refreshing by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var search by rememberSaveable { mutableStateOf("") }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
@@ -163,8 +166,9 @@ fun SongLibraryScreen(
         }
     }
 
-    fun reload() {
+    fun reload(showIndicator: Boolean = false) {
         scope.launch {
+            refreshing = showIndicator
             loading = true
             error = ""
             try {
@@ -218,6 +222,7 @@ fun SongLibraryScreen(
                 error = "The saved song library could not be opened on this device."
             } finally {
                 loading = false
+                refreshing = false
             }
         }
     }
@@ -501,10 +506,17 @@ fun SongLibraryScreen(
     } else {
         val favoriteCount = songs.count { it.id in favoriteSongIds }
 
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = { if (!loading && !saving) reload(showIndicator = true) },
             modifier = modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            enabled = !offlineOnly && !loading && !saving
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
             item {
                 Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                     Row(
@@ -750,20 +762,6 @@ fun SongLibraryScreen(
                     }
                 }
             }
-            item {
-                if (!offlineOnly) {
-                    TextButton(onClick = { reload() }, enabled = !loading && !saving, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (usingOfflineCopy) "Retry online sync" else "Refresh song library")
-                    }
-                } else {
-                    Text(
-                        "Reconnect and refresh your workspace to sync the latest songs.",
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
             }
         }
     }

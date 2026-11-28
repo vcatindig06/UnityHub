@@ -43,6 +43,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -88,6 +90,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServicePlanningScreen(
     organizationId: String,
@@ -114,6 +117,7 @@ fun ServicePlanningScreen(
     var plans by remember { mutableStateOf<List<ServicePlanDto>>(emptyList()) }
     var selectedPlan by remember { mutableStateOf<ServicePlanDto?>(null) }
     var loading by remember { mutableStateOf(true) }
+    var refreshing by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
@@ -157,8 +161,9 @@ fun ServicePlanningScreen(
         scope.launch { loadTemplateLibrary() }
     }
 
-    fun reload() {
+    fun reload(showIndicator: Boolean = false) {
         scope.launch {
+            refreshing = showIndicator
             loading = true
             error = ""
             try {
@@ -201,6 +206,7 @@ fun ServicePlanningScreen(
                 error = "The saved service plans could not be opened on this device."
             } finally {
                 loading = false
+                refreshing = false
             }
         }
     }
@@ -403,11 +409,17 @@ fun ServicePlanningScreen(
         )
     }
 
-    LazyColumn(
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = { if (!loading && !saving) reload(showIndicator = true) },
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        enabled = !offlineOnly && !loading && !saving
     ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -615,19 +627,6 @@ fun ServicePlanningScreen(
             }
         }
 
-        item {
-            if (!offlineOnly) {
-                TextButton(onClick = { reload() }, enabled = !loading) {
-                    Text(if (usingOfflineCopy) "Retry online sync" else "Refresh services")
-                }
-            } else {
-                Text(
-                    "Offline · refresh when connected.",
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
         }
     }
 }
