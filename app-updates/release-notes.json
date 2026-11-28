@@ -15,6 +15,7 @@
         "Remove decorative placeholder slogan text from the profile cover.",
         "Allow long Team member names to wrap naturally and provide accessible member-card semantics.",
         "Keep Team member management actions at a minimum 48dp touch height.",
+        "Expose Community resource shortcuts with explicit button semantics for accessibility services.",
         "Add emulator tests against UnityHub's actual production bottom navigation.",
         "Verify the workspace header and page content remain visible while the navigation stays compact and anchored to the bottom.",
         "Verify the center action displays Song or Setlist for the selected destination and remains clickable.",
