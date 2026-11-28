@@ -64,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
@@ -411,9 +412,8 @@ fun ServicePlanningScreen(
 
     PullToRefreshBox(
         isRefreshing = refreshing,
-        onRefresh = { if (!loading && !saving) reload(showIndicator = true) },
+        onRefresh = { if (!offlineOnly && !loading && !saving) reload(showIndicator = true) },
         modifier = modifier.fillMaxSize(),
-        enabled = !offlineOnly && !loading && !saving
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -1175,7 +1175,13 @@ private fun ServicePlanDetailScreen(
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back to services")
                 }
                 Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                    Text(plan.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(
+                        plan.title,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
                     Text(serviceDateTimeLabel(plan.serviceDate, plan.startTime), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 ServiceStatusLabel(currentStatus)
@@ -1440,10 +1446,18 @@ private fun ServicePlanItemCard(
                 }
                 if (canManage) {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = onEditDuration, enabled = !saving) {
+                        TextButton(
+                            onClick = onEditDuration,
+                            enabled = !saving,
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) {
                             Text(if (item.durationMinutes == null) "Set duration" else "Edit duration")
                         }
-                        TextButton(onClick = onEditNotes, enabled = !saving) {
+                        TextButton(
+                            onClick = onEditNotes,
+                            enabled = !saving,
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) {
                             Text(if (item.notes.isBlank()) "Add notes" else "Edit notes")
                         }
                     }

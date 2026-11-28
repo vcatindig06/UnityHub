@@ -53,6 +53,8 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Keep Team management and Team Chat reachable without consuming a core bottom-navigation slot.
 - [x] Support pull-to-refresh from the top of the Home dashboard.
 - [x] Support pull-to-refresh from Songs and Services instead of repeating footer refresh actions; keep offline cached reads and read-only permissions intact.
+- [x] Give Setlists collection cards and chart-opening rows explicit button semantics, allow long collection names to wrap, and keep remove actions tappable.
+- [x] Constrain long service titles and keep service-item edit actions at least 48 dp high.
 - [x] Remove the dashboard offline-sync status card while preserving local queues, offline caches, WorkManager retries, and background uploads.
 - [ ] Manually verify the center action, notification deep links, and pull-to-refresh on Home, Songs, and Services on a physical Android phone.
 

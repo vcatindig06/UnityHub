@@ -508,9 +508,8 @@ fun SongLibraryScreen(
 
         PullToRefreshBox(
             isRefreshing = refreshing,
-            onRefresh = { if (!loading && !saving) reload(showIndicator = true) },
+            onRefresh = { if (!offlineOnly && !loading && !saving) reload(showIndicator = true) },
             modifier = modifier.fillMaxSize(),
-            enabled = !offlineOnly && !loading && !saving
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
