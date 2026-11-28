@@ -62,6 +62,14 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [ ] Manually verify the center action, notification deep links, and pull-to-refresh on Home, Songs, and Services on a physical Android phone.
 - [ ] Manually verify Services and Rehearsals calendar navigation, date-selection announcements, long names, and large font scaling on a physical Android phone.
 
+## Rehearsals and attendance
+
+- [x] Keep member availability controls at least 48 dp high and retain the existing local response queue and offline guidance.
+- [x] Distinguish availability responses from completed attendance outcomes with readable text labels as well as color.
+- [x] Allow long invited-member names to wrap and keep attendance controls equal-width and comfortably tappable.
+- [x] Keep roster status filters usable as full-height touch targets on narrow screens.
+- [ ] Manually verify queued responses, attendance updates, TalkBack announcements, and large-font roster layouts on a physical Android device.
+
 ## Song library and ChordPro experience
 
 - [x] Search covers song titles, artists, keys, time signatures, ChordPro lyrics and chords, and song notes.

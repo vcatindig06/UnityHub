@@ -8,7 +8,7 @@
       "versionCode": 70,
       "versionName": "0.70.0",
       "releasedAt": "2026-11-28",
-      "summary": "Make refreshing Songs and Services feel natural with pull-to-refresh.",
+      "summary": "Improve workspace accessibility, refresh UX, and rehearsal roster controls.",
       "changes": [
         "Refresh the song library and service plan list by pulling down from the top of the screen.",
         "Remove redundant footer refresh actions while retaining automatic loading, cached offline access, and read-only safeguards.",
@@ -16,7 +16,10 @@
         "Expose Setlists collection and chart-opening actions to accessibility services and improve long-title handling.",
         "Keep Service detail titles readable on narrow screens and raise service-item edit controls to a 48dp minimum height.",
         "Announce calendar dates, event counts, and selected/today state for Services and Rehearsals.",
-        "Improve long-title and metadata wrapping in the Rehearsal list and expose service/rehearsal cards with button semantics."
+        "Improve long-title and metadata wrapping in the Rehearsal list and expose service/rehearsal cards with button semantics.",
+        "Keep rehearsal availability and attendance actions at least 48dp high and easier to use on compact screens.",
+        "Show clearer response-saving and offline-queue feedback while preserving the existing availability sync safeguards.",
+        "Wrap long invited-member names and keep availability/attendance status text readable alongside its color."
       ]
     },
     {

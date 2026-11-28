@@ -1145,43 +1145,13 @@ private fun RehearsalDetailContent(
 
         if (myAssignment != null && rehearsal.status == "scheduled") {
             item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Your availability", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Current response: ${RehearsalRules.responseLabel(myAssignment.responseStatus)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        if (myAssignment.id in pendingResponseIds) {
-                            Text(
-                                "Saved on this device · waiting to sync",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        if (offlineSnapshot) {
-                            Text(
-                                "Showing the last synced rehearsal details. Your response will be sent when the connection returns.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = { onRespond(myAssignment, "available") },
-                                enabled = respondingId != myAssignment.id && myAssignment.responseStatus != "available"
-                            ) { Text("Available") }
-                            OutlinedButton(
-                                onClick = { onRespond(myAssignment, "unavailable") },
-                                enabled = respondingId != myAssignment.id && myAssignment.responseStatus != "unavailable"
-                            ) { Text("Can't attend") }
-                        }
-                    }
-                }
+                RehearsalAvailabilityResponseCard(
+                    assignment = myAssignment,
+                    pendingSync = myAssignment.id in pendingResponseIds,
+                    offlineSnapshot = offlineSnapshot,
+                    busy = respondingId == myAssignment.id,
+                    onRespond = { status -> onRespond(myAssignment, status) }
+                )
             }
         }
 
@@ -1251,6 +1221,7 @@ private fun RehearsalDetailContent(
                         FilterChip(
                             selected = rosterFilter == filter,
                             onClick = { rosterFilter = filter },
+                            modifier = Modifier.heightIn(min = 48.dp),
                             label = { Text(filter.label) }
                         )
                     }
@@ -1317,6 +1288,82 @@ private data class RehearsalRosterMetric(
     val value: Int,
     val color: androidx.compose.ui.graphics.Color
 )
+
+@Composable
+internal fun RehearsalAvailabilityResponseCard(
+    assignment: RehearsalAssignmentDto,
+    pendingSync: Boolean,
+    offlineSnapshot: Boolean,
+    busy: Boolean,
+    onRespond: (String) -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "Your availability",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                "Current response: ${RehearsalRules.responseLabel(assignment.responseStatus)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            if (pendingSync) {
+                Text(
+                    "Saved on this device · waiting to sync",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            if (offlineSnapshot) {
+                Text(
+                    "Showing the last synced rehearsal details. Your response will be sent when the connection returns.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { onRespond("available") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    enabled = !busy && assignment.responseStatus != "available"
+                ) {
+                    Text("Available")
+                }
+                OutlinedButton(
+                    onClick = { onRespond("unavailable") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    enabled = !busy && assignment.responseStatus != "unavailable"
+                ) {
+                    Text("Can't attend")
+                }
+            }
+            if (busy) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text(
+                        "Saving response…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun RehearsalRosterSummaryCard(
@@ -1386,7 +1433,7 @@ private fun RehearsalRosterSummaryCard(
 }
 
 @Composable
-private fun RehearsalAssignmentCard(
+internal fun RehearsalAssignmentCard(
     assignment: RehearsalAssignmentDto,
     memberName: String,
     canManage: Boolean,
@@ -1394,38 +1441,73 @@ private fun RehearsalAssignmentCard(
     busy: Boolean,
     onMarkAttendance: (String) -> Unit
 ) {
+    val responseColor = when (assignment.responseStatus) {
+        "available", "attended" -> MaterialTheme.colorScheme.primary
+        "unavailable", "absent" -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Card(shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(memberName, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+        Column(
+            Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    memberName,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.SemiBold
+                )
                 Text(
                     RehearsalRules.responseLabel(assignment.responseStatus),
                     style = MaterialTheme.typography.labelMedium,
-                    color = when (assignment.responseStatus) {
-                        "available", "attended" -> MaterialTheme.colorScheme.primary
-                        "unavailable", "absent" -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+                    color = responseColor
                 )
             }
             if (assignment.responseNote.isNotBlank()) {
-                Text(assignment.responseNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    assignment.responseNote,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             if (canManage && attendanceEnabled) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { onMarkAttendance("attended") }, enabled = !busy && assignment.responseStatus != "attended") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { onMarkAttendance("attended") },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        enabled = !busy && assignment.responseStatus != "attended"
+                    ) {
                         Text("Attended")
                     }
-                    OutlinedButton(onClick = { onMarkAttendance("absent") }, enabled = !busy && assignment.responseStatus != "absent") {
+                    OutlinedButton(
+                        onClick = { onMarkAttendance("absent") },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        enabled = !busy && assignment.responseStatus != "absent"
+                    ) {
                         Text("Absent")
                     }
                 }
             }
-            if (busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+            if (busy) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text(
+                        "Saving attendance…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
-
 @Composable
 private fun RehearsalEditorDialog(
     rehearsal: RehearsalDto?,
