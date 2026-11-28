@@ -14,7 +14,9 @@
         "Remove redundant footer refresh actions while retaining automatic loading, cached offline access, and read-only safeguards.",
         "Ignore pull-to-refresh requests during initial loading, active saves, and forced offline-only sessions.",
         "Expose Setlists collection and chart-opening actions to accessibility services and improve long-title handling.",
-        "Keep Service detail titles readable on narrow screens and raise service-item edit controls to a 48dp minimum height."
+        "Keep Service detail titles readable on narrow screens and raise service-item edit controls to a 48dp minimum height.",
+        "Announce calendar dates, event counts, and selected/today state for Services and Rehearsals.",
+        "Improve long-title and metadata wrapping in the Rehearsal list and expose service/rehearsal cards with button semantics."
       ]
     },
     {

@@ -55,8 +55,12 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Support pull-to-refresh from Songs and Services instead of repeating footer refresh actions; keep offline cached reads and read-only permissions intact.
 - [x] Give Setlists collection cards and chart-opening rows explicit button semantics, allow long collection names to wrap, and keep remove actions tappable.
 - [x] Constrain long service titles and keep service-item edit actions at least 48 dp high.
+- [x] Announce calendar date, event count, and selected/today state together for both Services and Rehearsals.
+- [x] Keep service and rehearsal month headings legible on narrow screens; expose schedule cards as accessible buttons.
+- [x] Reflow rehearsal date and time metadata vertically and constrain long rehearsal titles and locations.
 - [x] Remove the dashboard offline-sync status card while preserving local queues, offline caches, WorkManager retries, and background uploads.
 - [ ] Manually verify the center action, notification deep links, and pull-to-refresh on Home, Songs, and Services on a physical Android phone.
+- [ ] Manually verify Services and Rehearsals calendar navigation, date-selection announcements, long names, and large font scaling on a physical Android phone.
 
 ## Song library and ChordPro experience
 

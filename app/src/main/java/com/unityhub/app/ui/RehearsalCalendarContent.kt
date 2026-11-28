@@ -18,6 +18,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -81,6 +86,8 @@ fun RehearsalCalendarContent(
             Text(
                 monthLabel,
                 modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.titleMedium
             )
             IconButton(onClick = { moveMonth(1) }) {
@@ -133,7 +140,7 @@ fun RehearsalCalendarContent(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(selectedDateLabel, style = MaterialTheme.typography.titleMedium)
+            Text(selectedDateLabel, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
             Text(
                 when (selectedRehearsals.size) {
                     0 -> when (timeFilter) {
@@ -200,9 +207,27 @@ private fun RehearsalMonthCalendarDayCell(
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
+    val dateDescription = day.date.format(
+        DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", Locale.getDefault())
+    )
+    val rehearsalCountDescription = when (day.rehearsals.size) {
+        0 -> "No rehearsals"
+        1 -> "1 rehearsal"
+        else -> "${day.rehearsals.size} rehearsals"
+    }
+    val dayStateDescription = buildList {
+        if (selected) add("Selected")
+        if (today) add("Today")
+        if (!day.isInDisplayedMonth) add("Outside displayed month")
+    }.joinToString(", ")
+
     Surface(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.semantics(mergeDescendants = true) {
+            contentDescription = "$dateDescription, $rehearsalCountDescription"
+            this.selected = selected
+            if (dayStateDescription.isNotBlank()) stateDescription = dayStateDescription
+        },
         shape = RoundedCornerShape(10.dp),
         color = background
     ) {
