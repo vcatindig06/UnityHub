@@ -36,7 +36,7 @@ class RehearsalRosterAccessibilityTest {
                     pendingSync = true,
                     offlineSnapshot = true,
                     busy = false,
-                    onRespond = selectedResponses::add
+                    onRespond = { status -> selectedResponses.add(status) }
                 )
             }
         }
@@ -79,7 +79,7 @@ class RehearsalRosterAccessibilityTest {
                             canManage = true,
                             attendanceEnabled = true,
                             busy = false,
-                            onMarkAttendance = selectedAttendance::add
+                            onMarkAttendance = { status -> selectedAttendance.add(status) }
                         )
                     }
                 }
