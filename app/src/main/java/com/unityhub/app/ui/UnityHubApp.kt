@@ -65,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -855,7 +856,7 @@ private fun WorkspaceDashboard(
                 shadowElevation = 1.dp
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 8.dp),
+                    modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (showMemberProfile || showNotifications || showTeamManagement || showTeamChat || showSharedFiles || showPersonalProfile || showSettings) {
@@ -871,7 +872,7 @@ private fun WorkspaceDashboard(
                                     showNotifications -> showNotifications = false
                                 }
                             },
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back", modifier = Modifier.size(20.dp))
                         }
@@ -895,24 +896,25 @@ private fun WorkspaceDashboard(
                             selectedTab == SERVICES_TAB_INDEX -> "Services"
                             else -> "Home"
                         },
+                        modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.weight(1f))
                     if (!showNotifications && !showTeamManagement && !showTeamChat && !showSharedFiles && !showPersonalProfile && !showSettings) {
                         IconButton(
                             onClick = {
                                 chatReturnDestination = if (selectedTab == COMMUNITY_TAB_INDEX) "community" else "home"
                                 showTeamChat = true
                             },
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Team Chat", modifier = Modifier.size(20.dp))
                         }
                         IconButton(
                             onClick = { showNotifications = true },
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             BadgedBox(
                                 badge = {
@@ -928,7 +930,7 @@ private fun WorkspaceDashboard(
                         }
                         IconButton(
                             onClick = { showSettings = true },
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Icon(Icons.Default.Settings, contentDescription = "Settings", modifier = Modifier.size(20.dp))
                         }

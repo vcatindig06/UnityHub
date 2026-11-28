@@ -8,8 +8,11 @@
       "versionCode": 69,
       "versionName": "0.69.0",
       "releasedAt": "2026-11-27",
-      "summary": "Protect the workspace layout and primary navigation with Android emulator regression tests.",
+      "summary": "Improve workspace navigation accessibility and Team Chat keyboard handling with emulator regression coverage.",
       "changes": [
+        "Increase top-app-bar and Back touch targets to 48dp and preserve titles on narrow screens.",
+        "Keep the Team Chat composer above the software keyboard using IME-aware layout padding.",
+        "Remove decorative placeholder slogan text from the profile cover.",
         "Add emulator tests against UnityHub's actual production bottom navigation.",
         "Verify the workspace header and page content remain visible while the navigation stays compact and anchored to the bottom.",
         "Verify the center action displays Song or Setlist for the selected destination and remains clickable.",

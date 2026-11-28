@@ -82,11 +82,12 @@ class WorkspaceBottomNavigationTest {
         val bottomBounds = composeRule.onNodeWithTag("workspace-bottom-navigation")
             .fetchSemanticsNode().boundsInRoot
         val tolerancePx = with(composeRule.density) { 2.dp.toPx() }
-        val maxNavigationHeightPx = with(composeRule.density) { 100.dp.toPx() }
+        // Material 3 includes the OS navigation inset in the measured bottom-bar bounds.
+        val maxNavigationAndSystemInsetHeightPx = with(composeRule.density) { 120.dp.toPx() }
 
         assertTrue(
             "The workspace bottom navigation must stay compact.",
-            bottomBounds.height <= maxNavigationHeightPx
+            bottomBounds.height <= maxNavigationAndSystemInsetHeightPx
         )
         assertTrue(
             "The navigation bar must remain anchored to the bottom of the workspace.",

@@ -44,7 +44,8 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 
 - [x] Keep four core bottom destinations: Home, Songs, Services, and Community.
 - [x] Emphasize the center Song / Setlist action and change its action based on the selected destination.
-- [x] Run Android Compose emulator regression tests for visible workspace content, compact bottom-navigation height, bottom anchoring, and the Song-to-Setlist action.
+- [x] Keep app-bar icon and Back actions at 48 dp and ellipsize screen titles on narrow layouts.
+- [ ] Run Android Compose emulator regression tests for visible workspace content, compact bottom-navigation height, bottom anchoring, and the Song-to-Setlist action.
 - [x] Keep Notifications in the top-right app-bar action with an unread badge.
 - [x] Keep Team management and Team Chat reachable without consuming a core bottom-navigation slot.
 - [x] Support pull-to-refresh from the top of the Home dashboard.
@@ -69,6 +70,7 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Store one organization-scoped read cursor per member, prevent backward cursor movement, and show the current-member read count on each sent message.
 - [x] Restrict read-state visibility to current organization members and updates to the signed-in member's own cursor.
 - [x] Support the Android keyboard Send action as well as the visible Send button.
+- [x] Apply IME-aware layout padding to keep the Team Chat composer above the software keyboard.
 - [x] Retain an unsent draft after a message-send failure and keep the Send action at least 48 dp high.
 - [x] Keep the organization shared-files library in its own Community destination instead of embedding it in Team Chat.
 - [x] Separate organization reference-file uploads from conversation attachment uploads.
