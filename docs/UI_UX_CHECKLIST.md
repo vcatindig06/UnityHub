@@ -45,6 +45,8 @@ This checklist records the app-wide design baseline introduced in UnityHub 0.21.
 - [x] Keep four core bottom destinations: Home, Songs, Services, and Community.
 - [x] Emphasize the center Song / Setlist action and change its action based on the selected destination.
 - [x] Keep app-bar icon and Back actions at 48 dp and ellipsize screen titles on narrow layouts.
+- [x] Allow long Team member names to wrap and expose member cards as accessible buttons.
+- [x] Keep Team member administrative actions at a minimum 48 dp touch height.
 - [ ] Run Android Compose emulator regression tests for visible workspace content, compact bottom-navigation height, bottom anchoring, and the Song-to-Setlist action.
 - [x] Keep Notifications in the top-right app-bar action with an unread badge.
 - [x] Keep Team management and Team Chat reachable without consuming a core bottom-navigation slot.

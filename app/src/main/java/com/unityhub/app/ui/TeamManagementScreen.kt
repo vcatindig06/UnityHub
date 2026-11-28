@@ -789,7 +789,7 @@ private fun TeamMemberProfileCard(
         AccountRepository(SupabaseClientProvider.client).publicMediaUrl(member.avatarPath)
     }
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenProfile),
+        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpenProfile),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -831,7 +831,6 @@ private fun TeamMemberProfileCard(
                         if (isCurrentUser) "${member.displayName} (You)" else member.displayName,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -890,7 +889,8 @@ private fun TeamMemberProfileCard(
                         TextButton(
                             onClick = onManagePositions,
                             enabled = !saving,
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text("Positions")
                         }
@@ -899,7 +899,8 @@ private fun TeamMemberProfileCard(
                         TextButton(
                             onClick = onManageAccess,
                             enabled = !saving,
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text("Manage access")
                         }
