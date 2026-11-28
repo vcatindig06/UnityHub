@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -132,34 +133,42 @@ class WorkspaceBottomNavigationTest {
     }
     @Test
     fun bottomNavigationRemainsUsableAtLargeFontScalesOnCompactWidth() {
-        for (fontScale in listOf(1.3f, 2.0f)) {
-            var primaryActionCount = 0
+        val fontScaleState = mutableFloatStateOf(1.3f)
+        val selectedTab = mutableIntStateOf(0)
+        var primaryActionCount = 0
 
-            composeRule.setContent {
-                val baseDensity = LocalDensity.current
-                CompositionLocalProvider(
-                    LocalDensity provides Density(
-                        density = baseDensity.density,
-                        fontScale = fontScale
-                    )
-                ) {
-                    MaterialTheme {
-                        val selectedTab = remember { mutableIntStateOf(0) }
-                        Scaffold(
-                            modifier = Modifier.widthIn(max = 360.dp).fillMaxSize(),
-                            bottomBar = {
-                                WorkspaceBottomNavigationBar(
-                                    selectedTab = selectedTab.intValue,
-                                    onTabSelected = { selectedTab.intValue = it },
-                                    onPrimaryAction = { primaryActionCount += 1 }
-                                )
-                            }
-                        ) { innerPadding ->
-                            Box(Modifier.fillMaxSize().padding(innerPadding))
+        composeRule.setContent {
+            val baseDensity = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(
+                    density = baseDensity.density,
+                    fontScale = fontScaleState.floatValue
+                )
+            ) {
+                MaterialTheme {
+                    Scaffold(
+                        modifier = Modifier.widthIn(max = 360.dp).fillMaxSize(),
+                        bottomBar = {
+                            WorkspaceBottomNavigationBar(
+                                selectedTab = selectedTab.intValue,
+                                onTabSelected = { selectedTab.intValue = it },
+                                onPrimaryAction = { primaryActionCount += 1 }
+                            )
                         }
+                    ) { innerPadding ->
+                        Box(Modifier.fillMaxSize().padding(innerPadding))
                     }
                 }
             }
+        }
+
+        for (fontScale in listOf(1.3f, 2.0f)) {
+            composeRule.runOnIdle {
+                fontScaleState.floatValue = fontScale
+                selectedTab.intValue = 0
+                primaryActionCount = 0
+            }
+            composeRule.waitForIdle()
 
             listOf("Home", "Songs", "Services", "Community", "Song").forEach { label ->
                 composeRule.onNodeWithText(label).assertIsDisplayed()
